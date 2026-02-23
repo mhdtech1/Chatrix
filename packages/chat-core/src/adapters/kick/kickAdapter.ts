@@ -25,6 +25,8 @@ type KickPusherEnvelope = {
   data?: unknown;
 };
 
+type KickModerationEventKind = "delete" | "timeout" | "ban" | "unban" | "chat_clear";
+
 type KickSender = {
   username?: string;
   slug?: string;
@@ -45,6 +47,125 @@ type KickRawChatMessage = {
 const KICK_PUSHER_WS_URL = "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679";
 
 const decodeKickEmotes = (input: string) => input.replace(/\[emote:\d+:([^[\]]+)\]/g, "$1");
+
+const asRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== "object") return null;
+  return value as Record<string, unknown>;
+};
+
+const readFirstString = (record: Record<string, unknown>, keys: string[]): string => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
+const readFirstNumber = (record: Record<string, unknown>, keys: string[]): number | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+};
+
+const includesAnyToken = (value: string, tokens: string[]) => {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return false;
+  return tokens.some((token) => normalized.includes(token));
+};
+
+const resolveKickModerationKind = (eventName: string, payload: Record<string, unknown>): KickModerationEventKind | null => {
+  const type = typeof payload.type === "string" ? payload.type : "";
+  const eventType = typeof payload.eventType === "string" ? payload.eventType : "";
+  const payloadEvent = typeof payload.event === "string" ? payload.event : "";
+  const haystack = `${eventName} ${type} ${eventType} ${payloadEvent}`.toLowerCase();
+
+  if (includesAnyToken(haystack, ["unban", "unbanned"])) return "unban";
+  if (includesAnyToken(haystack, ["chat_clear", "chat-cleared", "chat cleared", "chatcleared"])) return "chat_clear";
+  if (includesAnyToken(haystack, ["delete", "deleted", "removed", "remove_message", "message_removed"])) return "delete";
+  if (includesAnyToken(haystack, ["timeout", "timedout", "timed_out", "muted", "temporary_ban", "temporary ban"])) {
+    return "timeout";
+  }
+  if (includesAnyToken(haystack, ["ban", "banned"])) return "ban";
+  return null;
+};
+
+const readKickTargetUsername = (payload: Record<string, unknown>): string => {
+  const direct = readFirstString(payload, [
+    "targetUsername",
+    "target_username",
+    "username",
+    "login",
+    "slug",
+    "user_login",
+    "display_name",
+    "displayName"
+  ]);
+  if (direct) return direct;
+
+  const nestedKeys = ["user", "target_user", "target", "sender", "message", "chat_message", "banned_user"];
+  for (const key of nestedKeys) {
+    const nested = asRecord(payload[key]);
+    if (!nested) continue;
+    const nestedUsername = readFirstString(nested, ["username", "slug", "login", "display_name", "displayName", "name"]);
+    if (nestedUsername) return nestedUsername;
+  }
+  return "";
+};
+
+const readKickTargetMessageId = (payload: Record<string, unknown>): string => {
+  const direct = readFirstString(payload, [
+    "targetMessageId",
+    "target_message_id",
+    "target-msg-id",
+    "message_id",
+    "chat_message_id",
+    "chat_entry_id",
+    "id"
+  ]);
+  if (direct) return direct;
+
+  const nestedKeys = ["message", "chat_message", "target_message"];
+  for (const key of nestedKeys) {
+    const nested = asRecord(payload[key]);
+    if (!nested) continue;
+    const nestedId = readFirstString(nested, ["id", "message_id", "chat_entry_id"]);
+    if (nestedId) return nestedId;
+  }
+  return "";
+};
+
+const readKickDurationSeconds = (payload: Record<string, unknown>): number | null => {
+  const direct = readFirstNumber(payload, [
+    "durationSeconds",
+    "duration_seconds",
+    "duration",
+    "ban_duration",
+    "timeout",
+    "seconds"
+  ]);
+  if (direct && direct > 0) return direct;
+
+  const nestedKeys = ["metadata", "user", "target_user"];
+  for (const key of nestedKeys) {
+    const nested = asRecord(payload[key]);
+    if (!nested) continue;
+    const nestedDuration = readFirstNumber(nested, ["durationSeconds", "duration_seconds", "duration", "ban_duration", "timeout"]);
+    if (nestedDuration && nestedDuration > 0) return nestedDuration;
+  }
+  return null;
+};
 
 const parseJson = <T>(raw: string): T | null => {
   try {
@@ -225,6 +346,53 @@ export class KickAdapter implements ChatAdapter {
     };
   }
 
+  private normalizeKickModerationEvent(eventName: string, payload: Record<string, unknown>): ChatMessage | null {
+    const eventKind = resolveKickModerationKind(eventName, payload);
+    if (!eventKind) return null;
+
+    const targetUsername = readKickTargetUsername(payload);
+    const targetMessageId = readKickTargetMessageId(payload);
+    const durationSeconds = readKickDurationSeconds(payload);
+
+    let content = "A moderation event occurred.";
+    if (eventKind === "delete") {
+      content = targetUsername
+        ? `A moderator deleted ${targetUsername}'s message.`
+        : "A moderator deleted a message.";
+    } else if (eventKind === "timeout") {
+      const targetLabel = targetUsername || "A user";
+      content = durationSeconds ? `${targetLabel} was timed out for ${durationSeconds}s.` : `${targetLabel} was timed out.`;
+    } else if (eventKind === "ban") {
+      const targetLabel = targetUsername || "A user";
+      content = `${targetLabel} was banned.`;
+    } else if (eventKind === "unban") {
+      const targetLabel = targetUsername || "A user";
+      content = `${targetLabel} was unbanned.`;
+    } else if (eventKind === "chat_clear") {
+      content = "Chat was cleared by a moderator.";
+    }
+
+    return {
+      id: `event-${eventKind}-${targetMessageId || Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      platform: "kick",
+      channel: this.channel,
+      username: "system",
+      displayName: "System",
+      message: content,
+      timestamp: new Date().toISOString(),
+      badges: [],
+      color: "#f08a65",
+      raw: {
+        ...payload,
+        eventType: eventKind,
+        eventName,
+        targetUsername: targetUsername || undefined,
+        targetMessageId: targetMessageId || undefined,
+        durationSeconds: durationSeconds ?? undefined
+      }
+    };
+  }
+
   private handleSocketMessage(raw: string) {
     const envelope = parseJson<KickPusherEnvelope>(raw);
     if (!envelope?.event) return;
@@ -235,17 +403,24 @@ export class KickAdapter implements ChatAdapter {
     }
 
     if (envelope.event.startsWith("pusher:") || envelope.event.startsWith("pusher_internal:")) return;
-    if (envelope.event !== "App\\Events\\ChatMessageEvent") return;
 
     const payload =
       typeof envelope.data === "string"
-        ? parseJson<KickRawChatMessage>(envelope.data)
-        : (envelope.data as KickRawChatMessage | null);
+        ? parseJson<Record<string, unknown>>(envelope.data)
+        : asRecord(envelope.data);
     if (!payload) return;
 
-    const message = this.normalizeKickMessage(payload);
-    if (message) {
-      this.emitter.emit("message", message);
+    if (envelope.event === "App\\Events\\ChatMessageEvent") {
+      const message = this.normalizeKickMessage(payload as KickRawChatMessage);
+      if (message) {
+        this.emitter.emit("message", message);
+      }
+      return;
+    }
+
+    const moderationEvent = this.normalizeKickModerationEvent(envelope.event, payload);
+    if (moderationEvent) {
+      this.emitter.emit("message", moderationEvent);
     }
   }
 

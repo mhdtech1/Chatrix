@@ -430,6 +430,45 @@ select {
   gap: 6px;
 }
 
+.menu-panel-header,
+.menu-popover-header,
+.context-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.menu-panel-header {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 2px;
+}
+
+.menu-panel-header span,
+.menu-popover-header span {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.menu-close-button {
+  border: 1px solid var(--border-soft);
+  background: var(--btn-solid-bg);
+  color: var(--text-main);
+  border-radius: 999px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .menu-row {
   display: flex;
   align-items: center;
@@ -463,6 +502,7 @@ select {
 }
 
 .menu-group button:not(:disabled):hover,
+.menu-close-button:hover,
 .context-menu button:hover,
 .guide-actions button:not(:disabled):hover,
 .guide-footer button:not(:disabled):hover,
@@ -688,6 +728,9 @@ select {
   border-radius: 10px;
   background: var(--bg-soft);
   box-shadow: 0 8px 20px var(--shadow);
+  max-height: min(52vh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ghost {
@@ -1192,6 +1235,10 @@ select {
   background: rgba(255, 142, 84, 0.14);
 }
 
+.chat-line.deleted {
+  background: rgba(240, 138, 101, 0.08);
+}
+
 .chat-unread-marker {
   margin: 6px 0;
   padding: 5px 10px;
@@ -1294,6 +1341,13 @@ select {
 .line-message {
   line-height: 1.4;
   word-break: break-word;
+}
+
+.line-message.deleted {
+  color: var(--text-dim);
+  font-style: italic;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
 }
 
 .role-badges {
@@ -1406,6 +1460,11 @@ select {
 }
 
 .context-menu strong {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.context-menu-header strong {
   font-size: 11px;
   color: var(--text-dim);
 }

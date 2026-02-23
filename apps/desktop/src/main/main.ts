@@ -91,6 +91,8 @@ type AppSettings = {
     keyword?: string;
     sound?: boolean;
     notify?: boolean;
+    mentionSound?: boolean;
+    mentionNotify?: boolean;
   }>;
   columns?: number;
   hideCommands?: boolean;

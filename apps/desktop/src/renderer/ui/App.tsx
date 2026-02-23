@@ -185,6 +185,7 @@ type UserLogTarget = {
 type ModeratorAction = "timeout_60" | "timeout_600" | "ban" | "unban" | "delete";
 type ReplayWindow = 0 | 5 | 10 | 30;
 type TabAlertProfile = "custom" | "default" | "quiet" | "mod-heavy" | "tournament";
+type ModerationEventKind = "delete" | "timeout" | "ban" | "unban" | "chat_clear";
 type RoleBadge = {
   key: string;
   label: string;
@@ -718,17 +719,135 @@ const includesEventToken = (value: string, tokens: readonly string[]) => {
   return tokens.some((token) => normalized.includes(token));
 };
 
-const detectEngagementAlertKind = (message: ChatMessage): "follow" | "subscriber" | null => {
+const readMessageEventType = (message: ChatMessage) => {
   const raw = asRecord(message.raw);
+  if (!raw) return "";
+  if (typeof raw.eventType === "string") return raw.eventType;
+  if (typeof raw.type === "string") return raw.type;
+  if (typeof raw.msgId === "string") return raw.msgId;
+  if (typeof raw.eventName === "string") return raw.eventName;
+  return "";
+};
+
+const readRawFirstString = (raw: Record<string, unknown> | null, keys: string[]) => {
+  if (!raw) return "";
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
+const readModerationTargetUsername = (raw: Record<string, unknown> | null) => {
+  const direct = readRawFirstString(raw, ["targetUsername", "target_username", "login", "username", "slug"]);
+  if (direct) return direct;
+  if (!raw) return "";
+  const nestedCandidates = ["user", "target_user", "target", "sender", "message", "chat_message", "banned_user"];
+  for (const key of nestedCandidates) {
+    const nested = asRecord(raw[key]);
+    const nestedUsername = readRawFirstString(nested, ["username", "slug", "login", "display_name", "displayName", "name"]);
+    if (nestedUsername) return nestedUsername;
+  }
+  return "";
+};
+
+const readModerationTargetMessageId = (raw: Record<string, unknown> | null) => {
+  const direct = readRawFirstString(raw, [
+    "targetMessageId",
+    "target_message_id",
+    "target-msg-id",
+    "message_id",
+    "chat_message_id",
+    "chat_entry_id"
+  ]);
+  if (direct) return direct;
+  if (!raw) return "";
+  const nested = asRecord(raw.message) ?? asRecord(raw.chat_message) ?? asRecord(raw.target_message);
+  return readRawFirstString(nested, ["id", "message_id", "chat_entry_id"]);
+};
+
+const resolveModerationEventKind = (message: ChatMessage): ModerationEventKind | null => {
+  const eventType = readMessageEventType(message);
+  if (!eventType) return null;
+  if (includesEventToken(eventType, ["unban", "unbanned"])) return "unban";
+  if (includesEventToken(eventType, ["chat_clear", "chat-cleared", "chatcleared", "clearchat"])) return "chat_clear";
+  if (includesEventToken(eventType, ["delete", "deleted", "clearmsg", "message_removed"])) return "delete";
+  if (includesEventToken(eventType, ["timeout", "timedout", "timed_out", "muted", "mute"])) return "timeout";
+  if (includesEventToken(eventType, ["ban", "banned"])) return "ban";
+  return null;
+};
+
+const messageIdCandidates = (message: ChatMessage): string[] => {
+  const ids = new Set<string>();
+  if (message.id) {
+    ids.add(message.id);
+  }
+  const raw = asRecord(message.raw);
+  const rawId = readRawFirstString(raw, ["id", "message_id", "chat_message_id", "chat_entry_id", "target-msg-id"]);
+  if (rawId) {
+    ids.add(rawId);
+  }
+  const targetId = readModerationTargetMessageId(raw);
+  if (targetId) {
+    ids.add(targetId);
+  }
+  return Array.from(ids);
+};
+
+const markMessageDeleted = (message: ChatMessage, eventMessage: ChatMessage) => {
+  const raw = asRecord(message.raw);
+  if (raw?.deleted === true) return message;
+  return {
+    ...message,
+    message: "[message deleted]",
+    raw: {
+      ...(raw ?? {}),
+      deleted: true,
+      deletedAt: eventMessage.timestamp,
+      deletedByEvent: readMessageEventType(eventMessage) || "delete"
+    }
+  };
+};
+
+const applyModerationEventToMessages = (messages: ChatMessage[], eventMessage: ChatMessage, eventKind: ModerationEventKind) => {
+  if (eventKind !== "delete" || messages.length === 0) return messages;
+
+  const raw = asRecord(eventMessage.raw);
+  const targetMessageId = readModerationTargetMessageId(raw);
+  const targetUsername = normalizeUserKey(readModerationTargetUsername(raw));
+
+  if (targetMessageId) {
+    let changed = false;
+    const next = messages.map((message) => {
+      if (normalizeUserKey(message.username) === "system") return message;
+      if (!messageIdCandidates(message).includes(targetMessageId)) return message;
+      changed = true;
+      return markMessageDeleted(message, eventMessage);
+    });
+    return changed ? next : messages;
+  }
+
+  if (!targetUsername) {
+    return messages;
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const candidate = messages[index];
+    if (normalizeUserKey(candidate.username) === "system") continue;
+    if (normalizeUserKey(candidate.username) !== targetUsername) continue;
+    const next = [...messages];
+    next[index] = markMessageDeleted(candidate, eventMessage);
+    return next;
+  }
+
+  return messages;
+};
+
+const detectEngagementAlertKind = (message: ChatMessage): "follow" | "subscriber" | null => {
   // Prefer explicit platform event metadata only; avoid text-based false positives.
-  const eventType =
-    typeof raw?.eventType === "string"
-      ? raw.eventType
-      : typeof raw?.type === "string"
-        ? raw.type
-        : typeof raw?.msgId === "string"
-          ? raw.msgId
-          : "";
+  const eventType = readMessageEventType(message);
   if (includesEventToken(eventType, FOLLOW_EVENT_TOKENS)) {
     return "follow";
   }
@@ -834,6 +953,22 @@ const clampContextMenuPosition = (x: number, y: number, menuWidth = CONTEXT_MENU
 };
 
 const normalizeOauthToken = (token?: string) => (token ?? "").trim().replace(/^oauth:/i, "");
+
+const closeAllOpenDetailsMenus = () => {
+  if (typeof document === "undefined") return;
+  const openDetails = document.querySelectorAll("details[open]");
+  for (const details of openDetails) {
+    details.removeAttribute("open");
+  }
+};
+
+const closeClosestDetailsMenu = (event: React.MouseEvent<HTMLElement>) => {
+  event.preventDefault();
+  event.stopPropagation();
+  const details = event.currentTarget.closest("details");
+  if (!details) return;
+  details.removeAttribute("open");
+};
 
 const isLikelyTikTokOfflineError = (value: string) => {
   const text = value.toLowerCase();
@@ -1814,6 +1949,17 @@ const MainApp: React.FC = () => {
   }, [tabs]);
 
   useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      closeAllOpenDetailsMenus();
+      setTabMenu(null);
+      setMessageMenu(null);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
     return () => {
       adaptersRef.current.forEach((adapter) => {
         void adapter.disconnect();
@@ -2609,6 +2755,8 @@ const MainApp: React.FC = () => {
     adapter.onMessage((message) => {
       const now = Date.now();
       const raw = asRecord(message.raw);
+      const moderationEventKind = resolveModerationEventKind(message);
+      const isModerationEvent = moderationEventKind !== null;
       const isHiddenMeta = raw?.hidden === true;
       const isSelfRoleState = raw?.selfRoleState === true;
       if (source.platform === "twitch" && raw) {
@@ -2662,20 +2810,22 @@ const MainApp: React.FC = () => {
       lastMessageByUser.current.set(dedupeKey, now);
       const welcomeModeActive = currentSettings.welcomeMode === true;
 
-      if (currentSettings.hideCommands && message.message.startsWith("!")) return;
-      if (currentSettings.smartFilterScam !== false && SCAM_PATTERN.test(message.message)) return;
-      if (currentSettings.smartFilterSpam !== false) {
-        const fingerprint = `${normalizeUserKey(message.username)}|${message.channel}|${message.message.trim().toLowerCase()}`;
-        const prevSeenAt = spamFilterRef.current.get(fingerprint) ?? 0;
-        if (now - prevSeenAt < 8000) return;
-        spamFilterRef.current.set(fingerprint, now);
-      }
-      if (
-        currentSettings.keywordFilters?.some((word) =>
-          message.message.toLowerCase().includes(word.toLowerCase())
-        )
-      ) {
-        return;
+      if (!isModerationEvent) {
+        if (currentSettings.hideCommands && message.message.startsWith("!")) return;
+        if (currentSettings.smartFilterScam !== false && SCAM_PATTERN.test(message.message)) return;
+        if (currentSettings.smartFilterSpam !== false) {
+          const fingerprint = `${normalizeUserKey(message.username)}|${message.channel}|${message.message.trim().toLowerCase()}`;
+          const prevSeenAt = spamFilterRef.current.get(fingerprint) ?? 0;
+          if (now - prevSeenAt < 8000) return;
+          spamFilterRef.current.set(fingerprint, now);
+        }
+        if (
+          currentSettings.keywordFilters?.some((word) =>
+            message.message.toLowerCase().includes(word.toLowerCase())
+          )
+        ) {
+          return;
+        }
       }
 
       const lastHealthPublishAt = lastHealthPublishAtBySourceRef.current[source.id] ?? 0;
@@ -2697,23 +2847,31 @@ const MainApp: React.FC = () => {
         const maxHistory = currentSettings.performanceMode ? 300 : 800;
         const existing = prev[source.id] ?? [];
         let updated = existing;
+        let skipAppend = false;
+
+        if (moderationEventKind) {
+          updated = applyModerationEventToMessages(updated, message, moderationEventKind);
+        }
+
         if (!isLocalEcho(message)) {
           const normalizedMessage = message.message.trim();
-          for (let index = existing.length - 1; index >= 0; index -= 1) {
-            const candidate = existing[index];
+          for (let index = updated.length - 1; index >= 0; index -= 1) {
+            const candidate = updated[index];
             if (!isLocalEcho(candidate)) continue;
             if (candidate.platform !== message.platform || candidate.channel !== message.channel) continue;
             if (normalizeUserKey(candidate.username) !== normalizeUserKey(message.username)) continue;
             if (candidate.message.trim() !== normalizedMessage) continue;
             if (Math.abs(messageTimestamp(candidate) - messageTimestamp(message)) > 6000) continue;
-            const replaced = [...existing];
+            const replaced = [...updated];
             replaced[index] = message;
             updated = replaced;
+            skipAppend = true;
             break;
           }
         }
-        if (updated === existing) {
-          updated = [...existing, message];
+
+        if (!skipAppend) {
+          updated = [...updated, message];
         }
         updated = updated.slice(-maxHistory);
         return { ...prev, [source.id]: updated };
@@ -2738,11 +2896,13 @@ const MainApp: React.FC = () => {
         });
       }
 
-      const mentionReason: "mention" | "reply" | null = isMentionForPlatformUser(message, currentSettings)
-        ? "mention"
-        : isReplyForPlatformUser(message, currentSettings)
-          ? "reply"
-          : null;
+      const mentionReason: "mention" | "reply" | null = isModerationEvent
+        ? null
+        : isMentionForPlatformUser(message, currentSettings)
+          ? "mention"
+          : isReplyForPlatformUser(message, currentSettings)
+            ? "reply"
+            : null;
       if (mentionReason) {
         const mentionAlertKey = `${mentionReason}:${message.platform}:${message.channel}:${normalizeUserKey(message.username)}:${message.message
           .trim()
@@ -3902,7 +4062,7 @@ const MainApp: React.FC = () => {
       return;
     }
 
-    await addSource({
+    await addChannelTab({
       platform,
       channel: username
     });
@@ -4775,6 +4935,18 @@ const MainApp: React.FC = () => {
           <details className="menu-dropdown">
             <summary>Menu</summary>
             <div className="menu-dropdown-panel">
+              <div className="menu-panel-header">
+                <span>Main menu</span>
+                <button
+                  type="button"
+                  className="menu-close-button"
+                  onClick={closeClosestDetailsMenu}
+                  aria-label="Close main menu"
+                  title="Close menu (Esc)"
+                >
+                  ×
+                </button>
+              </div>
               <div className="menu-group">
                 <strong>Experience</strong>
                 <label className="menu-inline">
@@ -5433,13 +5605,24 @@ const MainApp: React.FC = () => {
               </span>
             ) : null}
             {mentionInboxCount > 0 ? <span className="account-pill on">Mentions: {mentionInboxCount}</span> : null}
-            {isAdvancedMode ? (
-              <details className="account-strip-more">
-                <summary>Details</summary>
-                <div className="account-strip-more-menu">
-                  <span className={settings.twitchToken || settings.twitchGuest ? "account-pill on" : "account-pill"}>
-                    <PlatformIcon platform="twitch" />
-                    Twitch: {settings.twitchUsername || "off"}
+	            {isAdvancedMode ? (
+	              <details className="account-strip-more">
+	                <summary>Details</summary>
+	                <div className="account-strip-more-menu">
+                    <div className="menu-popover-header">
+                      <span>Connections</span>
+                      <button
+                        type="button"
+                        className="menu-close-button"
+                        onClick={closeClosestDetailsMenu}
+                        aria-label="Close connections details"
+                      >
+                        ×
+                      </button>
+                    </div>
+	                  <span className={settings.twitchToken || settings.twitchGuest ? "account-pill on" : "account-pill"}>
+	                    <PlatformIcon platform="twitch" />
+	                    Twitch: {settings.twitchUsername || "off"}
                   </span>
                   <span className={settings.kickAccessToken ? "account-pill on" : "account-pill"}>
                     <PlatformIcon platform="kick" />
@@ -5643,17 +5826,28 @@ const MainApp: React.FC = () => {
         {isAdvancedMode && adaptivePerformanceMode ? <span className="account-pill on">Adaptive perf on</span> : null}
       </section>
       ) : null}
-      {isAdvancedMode && activeTab ? (
-        <section className="analytics-strip" aria-label="Live analytics">
-          <span className="analytics-chip strong">Msg/min: {analyticsSummary.messagesPerMinute}</span>
-          <span className="analytics-chip">Chatters: {analyticsSummary.activeChatters}</span>
-          <details className="analytics-more">
-            <summary>More stats</summary>
-            <div className="analytics-more-menu">
-              <span className="analytics-chip">Mentions/min: {analyticsSummary.mentionRatePerMinute}</span>
-              <span className="analytics-chip">Mod actions/min: {analyticsSummary.modActionRatePerMinute}</span>
-            </div>
-          </details>
+	      {isAdvancedMode && activeTab ? (
+	        <section className="analytics-strip" aria-label="Live analytics">
+	          <span className="analytics-chip strong">Msg/min: {analyticsSummary.messagesPerMinute}</span>
+	          <span className="analytics-chip">Chatters: {analyticsSummary.activeChatters}</span>
+	          <details className="analytics-more">
+	            <summary>More stats</summary>
+	            <div className="analytics-more-menu">
+                <div className="menu-popover-header">
+                  <span>Live stats</span>
+                  <button
+                    type="button"
+                    className="menu-close-button"
+                    onClick={closeClosestDetailsMenu}
+                    aria-label="Close stats menu"
+                  >
+                    ×
+                  </button>
+                </div>
+	              <span className="analytics-chip">Mentions/min: {analyticsSummary.mentionRatePerMinute}</span>
+	              <span className="analytics-chip">Mod actions/min: {analyticsSummary.modActionRatePerMinute}</span>
+	            </div>
+	          </details>
         </section>
       ) : null}
 
@@ -5682,13 +5876,24 @@ const MainApp: React.FC = () => {
 	                    </span>
 	                  </span>
 	                ))}
-                  {hiddenActiveSourceCount > 0 ? (
-                    <details className="source-more">
-                      <summary>+{hiddenActiveSourceCount} more</summary>
-                      <div className="source-more-menu">
-	                        {activeSourceStatusItems.slice(activeSourcePreviewItems.length).map(({ source, status, staleSeconds }) => (
-	                          <span key={source.id} className={`source-chip ${status}`}>
-	                            <PlatformIcon platform={source.platform} />
+	                  {hiddenActiveSourceCount > 0 ? (
+	                    <details className="source-more">
+	                      <summary>+{hiddenActiveSourceCount} more</summary>
+	                      <div className="source-more-menu">
+                          <div className="menu-popover-header">
+                            <span>Source status</span>
+                            <button
+                              type="button"
+                              className="menu-close-button"
+                              onClick={closeClosestDetailsMenu}
+                              aria-label="Close source status menu"
+                            >
+                              ×
+                            </button>
+                          </div>
+		                        {activeSourceStatusItems.slice(activeSourcePreviewItems.length).map(({ source, status, staleSeconds }) => (
+		                          <span key={source.id} className={`source-chip ${status}`}>
+		                            <PlatformIcon platform={source.platform} />
 	                            <span>
 	                              {source.platform}/{source.channel} ({status}
 	                              {staleSeconds !== null && staleSeconds > 30 ? ` · lag ${staleSeconds}s` : ""})
@@ -5716,12 +5921,23 @@ const MainApp: React.FC = () => {
                     {welcomeModeEnabled ? "Welcome: on" : "Welcome: off"}
                   </button>
                 </div>
-                <details className="quick-actions-more">
-                  <summary>More</summary>
-                  <div className="quick-actions-more-menu">
-                    <button type="button" className="quick-action-button" onClick={() => window.electronAPI.openOverlay()}>
-                      Open overlay
-                    </button>
+	                <details className="quick-actions-more">
+	                  <summary>More</summary>
+	                  <div className="quick-actions-more-menu">
+                      <div className="menu-popover-header">
+                        <span>Quick actions</span>
+                        <button
+                          type="button"
+                          className="menu-close-button"
+                          onClick={closeClosestDetailsMenu}
+                          aria-label="Close quick actions menu"
+                        >
+                          ×
+                        </button>
+                      </div>
+	                    <button type="button" className="quick-action-button" onClick={() => window.electronAPI.openOverlay()}>
+	                      Open overlay
+	                    </button>
                     <button type="button" className="quick-action-button" onClick={() => void copyActiveTabLinks()}>
                       Copy channel link
                     </button>
@@ -5839,32 +6055,42 @@ const MainApp: React.FC = () => {
                 const prevTs = index > 0 ? messageTimestamp(renderedMessages[index - 1]) : 0;
                 const showUnreadMarker = firstUnreadTimestamp > 0 && ts >= firstUnreadTimestamp && (index === 0 || prevTs < firstUnreadTimestamp);
                 const source = sourceByPlatformChannel.get(`${message.platform}:${message.channel}`);
-                const sourceEmoteMap = source ? channelEmoteMapBySourceId[source.id] : undefined;
-                const resolveEmote = (token: string) => (effectivePerformanceMode ? undefined : sourceEmoteMap?.[token] ?? globalEmoteMap[token]);
-		                const messageChunks = buildMessageChunks(message, resolveEmote);
-		                const combinedChannels = readCombinedChannels(message);
-		                const channelLabel =
-		                  combinedChannels.length > 1
-		                    ? `#${combinedChannels[0]} +${combinedChannels.length - 1}`
-		                    : `#${message.channel}`;
+	                const sourceEmoteMap = source ? channelEmoteMapBySourceId[source.id] : undefined;
+	                const resolveEmote = (token: string) => (effectivePerformanceMode ? undefined : sourceEmoteMap?.[token] ?? globalEmoteMap[token]);
+			                const messageChunks = buildMessageChunks(message, resolveEmote);
+			                const combinedChannels = readCombinedChannels(message);
+			                const messageRaw = asRecord(message.raw);
+			                const isDeletedMessage = messageRaw?.deleted === true;
+			                const channelLabel =
+			                  combinedChannels.length > 1
+			                    ? `#${combinedChannels[0]} +${combinedChannels.length - 1}`
+			                    : `#${message.channel}`;
 		                const channelTitle =
 		                  combinedChannels.length > 1 ? combinedChannels.map((channel) => `#${channel}`).join(", ") : `#${message.channel}`;
 		                const roleBadges = roleBadgesForMessage(message);
 		                const displayName = message.displayName || message.username;
 		                return (
-		                  <React.Fragment key={message.id}>
-                    {showUnreadMarker ? (
-                      <div className="chat-unread-marker" data-unread-marker="1">
-                        New messages
-                      </div>
-                    ) : null}
-		                    <div
-		                      className={highlighted ? "chat-line highlight" : "chat-line"}
-		                      data-jump-key={buildMessageJumpKey(message)}
-		                      onContextMenu={(event) => {
-		                        event.preventDefault();
-		                        setMessageMenu({ x: event.clientX, y: event.clientY, message });
-		                      }}
+			                  <React.Fragment key={message.id}>
+	                    {showUnreadMarker ? (
+	                      <div className="chat-unread-marker" data-unread-marker="1">
+	                        New messages
+	                      </div>
+	                    ) : null}
+			                    <div
+			                      className={
+			                        highlighted
+			                          ? isDeletedMessage
+			                            ? "chat-line highlight deleted"
+			                            : "chat-line highlight"
+			                          : isDeletedMessage
+			                            ? "chat-line deleted"
+			                            : "chat-line"
+			                      }
+			                      data-jump-key={buildMessageJumpKey(message)}
+			                      onContextMenu={(event) => {
+			                        event.preventDefault();
+			                        setMessageMenu({ x: event.clientX, y: event.clientY, message });
+			                      }}
                     >
                     <span className="line-meta">
                       <span className={`platform ${message.platform}`}>
@@ -5900,10 +6126,10 @@ const MainApp: React.FC = () => {
 		                        {displayName}
 		                      </button>
 		                    </span>
-                    <span className="line-message">
-                      {messageChunks.map((chunk, index) =>
-                        chunk.type === "text" ? (
-                          <React.Fragment key={`${message.id}-text-${index}`}>{chunk.value}</React.Fragment>
+	                    <span className={isDeletedMessage ? "line-message deleted" : "line-message"}>
+	                      {messageChunks.map((chunk, index) =>
+	                        chunk.type === "text" ? (
+	                          <React.Fragment key={`${message.id}-text-${index}`}>{chunk.value}</React.Fragment>
                         ) : (
                           <img
                             key={`${message.id}-emote-${index}-${chunk.name}`}
@@ -6105,27 +6331,29 @@ const MainApp: React.FC = () => {
       </div>
       ) : null}
 
-      {tabMenu ? (
-        <div className="context-menu" style={tabMenuStyle} onClick={(event) => event.stopPropagation()}>
-          <strong>Merge This Tab Into</strong>
-          {tabs
-            .filter((tab) => tab.id !== tabMenu.tabId)
-            .map((tab) => (
+	      {tabMenu ? (
+	        <div className="context-menu" style={tabMenuStyle} onClick={(event) => event.stopPropagation()}>
+            <div className="context-menu-header">
+              <strong>Merge This Tab Into</strong>
+              <button type="button" className="menu-close-button" onClick={() => setTabMenu(null)} aria-label="Close tab menu">
+                ×
+              </button>
+            </div>
+	          {tabs
+	            .filter((tab) => tab.id !== tabMenu.tabId)
+	            .map((tab) => (
               <button key={tab.id} type="button" onClick={() => mergeTabs(tabMenu.tabId, tab.id)}>
                 {tabLabel(tab, sourceById)}
               </button>
             ))}
           {tabs.filter((tab) => tab.id !== tabMenu.tabId).length === 0 ? <span>No merge targets</span> : null}
-          {(tabs.find((tab) => tab.id === tabMenu.tabId)?.sourceIds.length ?? 0) > 1 ? (
-            <button type="button" onClick={() => splitMergedTab(tabMenu.tabId)}>
-              Split into single tabs
-            </button>
-          ) : null}
-          <button type="button" onClick={() => setTabMenu(null)}>
-            Close
-          </button>
-        </div>
-      ) : null}
+	          {(tabs.find((tab) => tab.id === tabMenu.tabId)?.sourceIds.length ?? 0) > 1 ? (
+	            <button type="button" onClick={() => splitMergedTab(tabMenu.tabId)}>
+	              Split into single tabs
+	            </button>
+	          ) : null}
+	        </div>
+	      ) : null}
 
 	      {messageMenu ? (
 	        <div
@@ -6133,6 +6361,12 @@ const MainApp: React.FC = () => {
 	          style={messageMenuStyle}
           onClick={(event) => event.stopPropagation()}
         >
+          <div className="context-menu-header">
+            <strong>Message Menu</strong>
+            <button type="button" className="menu-close-button" onClick={() => setMessageMenu(null)} aria-label="Close message menu">
+              ×
+            </button>
+          </div>
           {canShowModerationMenu ? <strong>Moderation</strong> : null}
           {canShowModerationMenu ? (
             <button type="button" onClick={() => void runModeratorAction("timeout_60", messageMenu.message)}>
@@ -6199,9 +6433,6 @@ const MainApp: React.FC = () => {
           </button>
           <button type="button" onClick={() => navigator.clipboard.writeText(messageMenu.message.message)}>
             Copy message
-          </button>
-          <button type="button" onClick={() => setMessageMenu(null)}>
-            Close
           </button>
         </div>
       ) : null}
