@@ -2877,7 +2877,8 @@ const MainApp: React.FC = () => {
       await adapter.connect();
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
-      if (source.platform === "tiktok" && isLikelyTikTokOfflineError(text)) {
+      if (source.platform === "tiktok") {
+        const isOffline = isLikelyTikTokOfflineError(text);
         try {
           await adapter.disconnect();
         } catch {
@@ -2885,20 +2886,25 @@ const MainApp: React.FC = () => {
         } finally {
           adaptersRef.current.delete(source.id);
         }
-        sourceStatusRef.current[source.id] = "disconnected";
-        setStatusBySource((prev) => ({ ...prev, [source.id]: "disconnected" }));
+        const nextStatus: ChatAdapterStatus = isOffline ? "disconnected" : "error";
+        sourceStatusRef.current[source.id] = nextStatus;
+        setStatusBySource((prev) => ({ ...prev, [source.id]: nextStatus }));
         setConnectionHealthBySource((previous) => ({
           ...previous,
           [source.id]: {
-            lastStatus: "disconnected",
+            lastStatus: nextStatus,
             lastStatusAt: Date.now(),
             lastConnectedAt: previous[source.id]?.lastConnectedAt,
-            reconnectReason: `TikTok offline. Checking again every ${Math.round(TIKTOK_OFFLINE_RETRY_MS / 1000)}s.`,
-            lastError: undefined
+            reconnectReason: isOffline
+              ? `TikTok offline. Checking again every ${Math.round(TIKTOK_OFFLINE_RETRY_MS / 1000)}s.`
+              : `TikTok reconnect scheduled in ${Math.round(TIKTOK_OFFLINE_RETRY_MS / 1000)}s.`,
+            lastError: isOffline ? undefined : text
           }
         }));
-        void window.electronAPI.writeLog(`[${source.key}] tiktok offline, scheduling 2m live checks: ${text}`);
-        scheduleTikTokOfflineRetry(source, "channel offline");
+        void window.electronAPI.writeLog(
+          `[${source.key}] tiktok connect failed, scheduling 2m live checks: ${text}`
+        );
+        scheduleTikTokOfflineRetry(source, isOffline ? "channel offline" : text);
         return;
       }
       setStatusBySource((prev) => ({ ...prev, [source.id]: "error" }));
