@@ -11,6 +11,8 @@
   ],
   "scripts": {
     "dev": "pnpm --filter @multichat/desktop dev",
+    "dev:ios": "pnpm --filter @multichat/ios ios",
+    "ios": "pnpm --filter @multichat/ios ios",
     "clean": "rm -rf node_modules .pnpm-store apps/desktop/dist packages/chat-core/dist",
     "build": "pnpm --filter @multichat/chat-core build && pnpm --filter @multichat/desktop build",
     "build:mac": "pnpm --filter @multichat/chat-core build && pnpm --filter @multichat/desktop build:renderer && pnpm --filter @multichat/desktop build:main && pnpm --filter @multichat/desktop package:mac",

@@ -39,7 +39,6 @@ type Settings = {
   uiMode?: "simple" | "advanced";
   workspacePreset?: WorkspacePreset;
   theme?: "dark" | "light" | "classic";
-  streamSafeMode?: boolean;
   welcomeMode?: boolean;
   mentionMutedTabIds?: string[];
   mentionSnoozeUntilByTab?: Record<string, number>;
@@ -242,10 +241,9 @@ type ConnectionHealthState = {
 };
 
 const defaultSettings: Settings = {
-  uiMode: "advanced",
+  uiMode: "simple",
   workspacePreset: "streamer",
   theme: "dark",
-  streamSafeMode: false,
   welcomeMode: false,
   mentionMutedTabIds: [],
   mentionSnoozeUntilByTab: {},
@@ -314,16 +312,6 @@ const defaultSettings: Settings = {
 const hasTikTokSession = (settings: Settings) =>
   Boolean((settings.tiktokSessionId ?? "").trim() && (settings.tiktokTtTargetIdc ?? "").trim());
 const normalizeUserKey = (value: string) => value.trim().toLowerCase();
-const anonymizeName = (value: string) => {
-  const source = value.trim();
-  if (!source) return "Viewer";
-  let hash = 0;
-  for (let index = 0; index < source.length; index += 1) {
-    hash = (hash * 31 + source.charCodeAt(index)) >>> 0;
-  }
-  const suffix = (hash % 9000) + 1000;
-  return `Viewer${suffix}`;
-};
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const SCAM_PATTERN =
   /(t\.me\/|bit\.ly|tinyurl|free (gift|nitro|sub)|claim reward|steamcommunity\.com\/gift|crypto giveaway|double your)/i;
@@ -823,6 +811,7 @@ const SEVENTV_EMOTE_URL = (id: string) => `https://cdn.7tv.app/emote/${id}/1x.we
 const KICK_EMOTE_URL = (id: string) => `https://files.kick.com/emotes/${id}/fullsize`;
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 36;
 const AUTO_RESUME_NEWEST_AFTER_MS = 3 * 60 * 1000;
+const TIKTOK_OFFLINE_RETRY_MS = 2 * 60 * 1000;
 const SETUP_WIZARD_VERSION = 2;
 const LOCKED_RENDERED_MESSAGE_LIMIT = 420;
 const CONTEXT_MENU_EDGE_GAP_PX = 12;
@@ -845,6 +834,21 @@ const clampContextMenuPosition = (x: number, y: number, menuWidth = CONTEXT_MENU
 };
 
 const normalizeOauthToken = (token?: string) => (token ?? "").trim().replace(/^oauth:/i, "");
+
+const isLikelyTikTokOfflineError = (value: string) => {
+  const text = value.toLowerCase();
+  if (!text.trim()) return false;
+  return (
+    text.includes("offline") ||
+    text.includes("not live") ||
+    text.includes("live has ended") ||
+    text.includes("no active live") ||
+    text.includes("failed to retrieve room id") ||
+    text.includes("room id not found") ||
+    text.includes("room not found") ||
+    text.includes("channel is offline")
+  );
+};
 
 const fetchJsonSafe = async (url: string, init?: RequestInit): Promise<unknown | null> => {
   try {
@@ -962,6 +966,21 @@ const checkTwitchModeratorStatus = async (channel: string, username: string): Pr
   try {
     return await window.electronAPI.canModerateSource({
       platform: "twitch",
+      channel: normalizedChannel
+    });
+  } catch {
+    return null;
+  }
+};
+
+const checkKickModeratorStatus = async (channel: string, username: string): Promise<boolean | null> => {
+  const normalizedChannel = normalizeChannel(channel, "kick");
+  const normalizedUser = normalizeUserKey(username);
+  if (!normalizedChannel || !normalizedUser) return null;
+  if (normalizedChannel === normalizedUser) return true;
+  try {
+    return await window.electronAPI.canModerateSource({
+      platform: "kick",
       channel: normalizedChannel
     });
   } catch {
@@ -1135,21 +1154,37 @@ const getRawMessageId = (message: ChatMessage): string | null => {
   return id || null;
 };
 
+const parsePositiveUserId = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
 const getKickRawUserId = (message: ChatMessage): number | null => {
   if (message.platform !== "kick") return null;
   const raw = asRecord(message.raw);
   const sender = asRecord(raw?.sender);
-  const senderId = sender?.id;
-  if (typeof senderId === "number" && Number.isFinite(senderId) && senderId > 0) {
-    return senderId;
-  }
-  const senderUserId = sender?.user_id;
-  if (typeof senderUserId === "number" && Number.isFinite(senderUserId) && senderUserId > 0) {
-    return senderUserId;
-  }
-  const rawUserId = raw?.user_id;
-  if (typeof rawUserId === "number" && Number.isFinite(rawUserId) && rawUserId > 0) {
-    return rawUserId;
+  const senderUser = asRecord(sender?.user);
+  const directCandidates = [
+    sender?.id,
+    sender?.user_id,
+    senderUser?.id,
+    senderUser?.user_id,
+    raw?.user_id,
+    raw?.id
+  ];
+  for (const candidate of directCandidates) {
+    const parsed = parsePositiveUserId(candidate);
+    if (parsed) {
+      return parsed;
+    }
   }
   return null;
 };
@@ -1326,6 +1361,7 @@ const MainApp: React.FC = () => {
   const openingSourceKeysRef = useRef<Set<string>>(new Set());
   const suppressedAutoHealSourceIdsRef = useRef<Set<string>>(new Set());
   const autoHealStateBySourceRef = useRef<Record<string, { attempt: number; timer: number | null }>>({});
+  const tiktokOfflineRetryStateBySourceRef = useRef<Record<string, { attempt: number; timer: number | null }>>({});
   const lastAdaptiveToggleAtRef = useRef(0);
   const lastHealthPublishAtBySourceRef = useRef<Record<string, number>>({});
   const twitchRoomIdToChannelRef = useRef<Map<string, string>>(new Map());
@@ -1352,11 +1388,13 @@ const MainApp: React.FC = () => {
       : notificationScene === "chatting"
         ? { sound: false, notify: true }
         : { sound: true, notify: true };
-  const hasDockedPanels =
-    settings.dockedPanels?.mentions ||
-    settings.dockedPanels?.modHistory ||
-    settings.dockedPanels?.userCard ||
-    settings.dockedPanels?.globalTimeline;
+  const hasDockedPanels = Boolean(
+    isAdvancedMode &&
+      (settings.dockedPanels?.mentions ||
+        settings.dockedPanels?.modHistory ||
+        settings.dockedPanels?.userCard ||
+        settings.dockedPanels?.globalTimeline)
+  );
 
   const startDockPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!hasDockedPanels) return;
@@ -1702,6 +1740,17 @@ const MainApp: React.FC = () => {
       nextAutoHeal[sourceId] = state;
     }
     autoHealStateBySourceRef.current = nextAutoHeal;
+    const nextTikTokOfflineRetry: Record<string, { attempt: number; timer: number | null }> = {};
+    for (const [sourceId, state] of Object.entries(tiktokOfflineRetryStateBySourceRef.current)) {
+      if (!validSourceIds.has(sourceId)) {
+        if (state.timer !== null) {
+          window.clearTimeout(state.timer);
+        }
+        continue;
+      }
+      nextTikTokOfflineRetry[sourceId] = state;
+    }
+    tiktokOfflineRetryStateBySourceRef.current = nextTikTokOfflineRetry;
     suppressedAutoHealSourceIdsRef.current = new Set(
       Array.from(suppressedAutoHealSourceIdsRef.current).filter((sourceId) => validSourceIds.has(sourceId))
     );
@@ -1776,6 +1825,12 @@ const MainApp: React.FC = () => {
         }
       }
       autoHealStateBySourceRef.current = {};
+      for (const state of Object.values(tiktokOfflineRetryStateBySourceRef.current)) {
+        if (state.timer !== null) {
+          window.clearTimeout(state.timer);
+        }
+      }
+      tiktokOfflineRetryStateBySourceRef.current = {};
     };
   }, []);
 
@@ -1842,7 +1897,6 @@ const MainApp: React.FC = () => {
   const setupFirstTabReady = tabs.length > 0;
   const setupMessageReady = settings.setupWizardSendTestCompleted === true || setupTestMessageSent;
   const setupCanFinish = setupPrimaryConnected && setupFirstTabReady;
-  const streamSafeMode = settings.streamSafeMode === true;
   const welcomeModeEnabled = settings.welcomeMode === true;
   const activeTabSendRule = activeTabId ? settings.tabSendRules?.[activeTabId] : undefined;
   const mentionMutedTabIds = new Set((settings.mentionMutedTabIds ?? []).filter((tabId) => typeof tabId === "string" && tabId.length > 0));
@@ -2017,6 +2071,19 @@ const MainApp: React.FC = () => {
       modActionRatePerMinute: modActionsPerMinute
     };
   }, [activeTabSources, chatHealth.messagesPerMinute, chatHealth.uniqueChatters, delayedReplayMessages, moderationHistory, settings]);
+
+  const activeSourceStatusItems = useMemo(
+    () =>
+      activeTabSources.map((source) => {
+        const status = statusBySource[source.id] ?? "connecting";
+        const health = connectionHealthBySource[source.id];
+        const staleSeconds = health?.lastMessageAt ? Math.max(0, Math.floor((Date.now() - health.lastMessageAt) / 1000)) : null;
+        return { source, status, staleSeconds };
+      }),
+    [activeTabSources, connectionHealthBySource, statusBySource]
+  );
+  const activeSourcePreviewItems = isAdvancedMode ? activeSourceStatusItems : activeSourceStatusItems.slice(0, 2);
+  const hiddenActiveSourceCount = Math.max(0, activeSourceStatusItems.length - activeSourcePreviewItems.length);
 
   const globalSearchResults = useMemo(() => {
     if (!globalSearchMode || !normalizedSearch) return [];
@@ -2253,7 +2320,90 @@ const MainApp: React.FC = () => {
     autoHealStateBySourceRef.current[sourceId] = { ...current, timer: null };
   };
 
+  const clearTikTokOfflineRetry = (sourceId: string, resetAttempt = false) => {
+    const current = tiktokOfflineRetryStateBySourceRef.current[sourceId];
+    if (!current) return;
+    if (current.timer !== null) {
+      window.clearTimeout(current.timer);
+    }
+    if (resetAttempt) {
+      tiktokOfflineRetryStateBySourceRef.current[sourceId] = { attempt: 0, timer: null };
+      return;
+    }
+    tiktokOfflineRetryStateBySourceRef.current[sourceId] = { ...current, timer: null };
+  };
+
+  const scheduleTikTokOfflineRetry = (source: ChatSource, reason: string) => {
+    if (source.platform !== "tiktok") return;
+    if (!sourceByIdRef.current.has(source.id)) return;
+    if (suppressedAutoHealSourceIdsRef.current.has(source.id)) return;
+
+    const previous = tiktokOfflineRetryStateBySourceRef.current[source.id] ?? { attempt: 0, timer: null as number | null };
+    if (previous.timer !== null) return;
+    const attempt = previous.attempt + 1;
+
+    setConnectionHealthBySource((existing) => ({
+      ...existing,
+      [source.id]: {
+        ...(existing[source.id] ?? {
+          lastStatus: "disconnected",
+          lastStatusAt: Date.now()
+        }),
+        lastStatus: "disconnected",
+        lastStatusAt: Date.now(),
+        reconnectReason: `TikTok live check ${attempt} in ${Math.round(TIKTOK_OFFLINE_RETRY_MS / 1000)}s (${reason})`,
+        lastError: undefined
+      }
+    }));
+
+    const timer = window.setTimeout(() => {
+      tiktokOfflineRetryStateBySourceRef.current[source.id] = { attempt, timer: null };
+      if (!sourceByIdRef.current.has(source.id)) return;
+      if (suppressedAutoHealSourceIdsRef.current.has(source.id)) return;
+
+      void (async () => {
+        const existingAdapter = adaptersRef.current.get(source.id);
+        if (existingAdapter) {
+          try {
+            await existingAdapter.disconnect();
+          } catch {
+            // no-op
+          } finally {
+            adaptersRef.current.delete(source.id);
+          }
+        }
+
+        sourceStatusRef.current[source.id] = "connecting";
+        setStatusBySource((existing) => ({
+          ...existing,
+          [source.id]: "connecting"
+        }));
+        setConnectionHealthBySource((existing) => ({
+          ...existing,
+          [source.id]: {
+            ...(existing[source.id] ?? {
+              lastStatus: "connecting",
+              lastStatusAt: Date.now()
+            }),
+            lastStatus: "connecting",
+            lastStatusAt: Date.now(),
+            reconnectReason: `TikTok live check ${attempt}...`,
+            lastError: undefined
+          }
+        }));
+
+        await ensureAdapterConnected(source, settingsRef.current);
+      })();
+    }, TIKTOK_OFFLINE_RETRY_MS);
+
+    tiktokOfflineRetryStateBySourceRef.current[source.id] = { attempt, timer };
+  };
+
   const scheduleAutoHealRetry = (source: ChatSource, reason: string) => {
+    if (source.platform === "tiktok") {
+      scheduleTikTokOfflineRetry(source, reason);
+      return;
+    }
     if (!sourceByIdRef.current.has(source.id)) return;
     if (suppressedAutoHealSourceIdsRef.current.has(source.id)) return;
 
@@ -2437,6 +2587,18 @@ const MainApp: React.FC = () => {
       });
       if (status === "connected") {
         clearAutoHealRetry(source.id, true);
+        if (source.platform === "tiktok") {
+          clearTikTokOfflineRetry(source.id, true);
+        }
+        return;
+      }
+      if (source.platform === "tiktok") {
+        if ((status === "error" || status === "disconnected") && previousStatus !== "connecting") {
+          scheduleTikTokOfflineRetry(
+            source,
+            status === "error" ? "adapter error state" : "channel offline or disconnected"
+          );
+        }
         return;
       }
       if ((status === "error" || status === "disconnected") && previousStatus !== "connecting") {
@@ -2697,8 +2859,12 @@ const MainApp: React.FC = () => {
         ...previous,
         [source.id]: isBroadcaster
       }));
-      if (source.platform === "twitch" && currentUsername.length > 0 && !isBroadcaster) {
-        void checkTwitchModeratorStatus(source.channel, currentUsername).then((isModerator) => {
+      if (currentUsername.length > 0 && !isBroadcaster) {
+        const moderatorCheck =
+          source.platform === "twitch"
+            ? checkTwitchModeratorStatus(source.channel, currentUsername)
+            : checkKickModeratorStatus(source.channel, currentUsername);
+        void moderatorCheck.then((isModerator) => {
           if (isModerator === null) return;
           setModeratorBySource((previous) => ({
             ...previous,
@@ -2710,8 +2876,32 @@ const MainApp: React.FC = () => {
     try {
       await adapter.connect();
     } catch (error) {
-      setStatusBySource((prev) => ({ ...prev, [source.id]: "error" }));
       const text = error instanceof Error ? error.message : String(error);
+      if (source.platform === "tiktok" && isLikelyTikTokOfflineError(text)) {
+        try {
+          await adapter.disconnect();
+        } catch {
+          // no-op
+        } finally {
+          adaptersRef.current.delete(source.id);
+        }
+        sourceStatusRef.current[source.id] = "disconnected";
+        setStatusBySource((prev) => ({ ...prev, [source.id]: "disconnected" }));
+        setConnectionHealthBySource((previous) => ({
+          ...previous,
+          [source.id]: {
+            lastStatus: "disconnected",
+            lastStatusAt: Date.now(),
+            lastConnectedAt: previous[source.id]?.lastConnectedAt,
+            reconnectReason: `TikTok offline. Checking again every ${Math.round(TIKTOK_OFFLINE_RETRY_MS / 1000)}s.`,
+            lastError: undefined
+          }
+        }));
+        void window.electronAPI.writeLog(`[${source.key}] tiktok offline, scheduling 2m live checks: ${text}`);
+        scheduleTikTokOfflineRetry(source, "channel offline");
+        return;
+      }
+      setStatusBySource((prev) => ({ ...prev, [source.id]: "error" }));
       sourceStatusRef.current[source.id] = "error";
       setConnectionHealthBySource((previous) => ({
         ...previous,
@@ -2901,6 +3091,7 @@ const MainApp: React.FC = () => {
     for (const source of orphaned) {
       suppressedAutoHealSourceIdsRef.current.add(source.id);
       clearAutoHealRetry(source.id, true);
+      clearTikTokOfflineRetry(source.id, true);
       const adapter = adaptersRef.current.get(source.id);
       if (adapter) {
         try {
@@ -3098,6 +3289,7 @@ const MainApp: React.FC = () => {
         suppressedAutoHealSourceIdsRef.current.add(source.id);
         try {
           clearAutoHealRetry(source.id, true);
+          clearTikTokOfflineRetry(source.id, true);
           const adapter = adaptersRef.current.get(source.id);
           if (adapter) {
             try {
@@ -3277,7 +3469,21 @@ const MainApp: React.FC = () => {
       setAuthMessage(`${platformLabel} moderation actions are not supported in this build.`);
       return;
     }
-    if (!canModerateSource(source)) {
+    let canModerate = canModerateSource(source);
+    if (!canModerate && source.platform === "kick") {
+      const username = normalizeUserKey(settings.kickUsername ?? "");
+      if (username) {
+        const checked = await checkKickModeratorStatus(source.channel, username);
+        if (checked !== null) {
+          setModeratorBySource((previous) => ({
+            ...previous,
+            [source.id]: checked
+          }));
+          canModerate = checked;
+        }
+      }
+    }
+    if (!canModerate) {
       setAuthMessage("You are not a moderator for this channel.");
       return;
     }
@@ -3332,6 +3538,10 @@ const MainApp: React.FC = () => {
         },
         ...previous
       ].slice(0, 120));
+      setModeratorBySource((previous) => ({
+        ...previous,
+        [source.id]: true
+      }));
       setMessageMenu(null);
       appendModeratorAuditMessage(
         true,
@@ -3340,6 +3550,15 @@ const MainApp: React.FC = () => {
       setAuthMessage(`Moderator action sent in ${source.platform}/${source.channel}.`);
     } catch (error) {
       const errorText = error instanceof Error ? error.message : String(error);
+      if (
+        source.platform === "kick" &&
+        /unauthorized|forbidden|not a moderator|permission|scope/i.test(errorText)
+      ) {
+        setModeratorBySource((previous) => ({
+          ...previous,
+          [source.id]: false
+        }));
+      }
       setModerationHistory((previous) => [
         {
           id: createId(),
@@ -4295,9 +4514,14 @@ const MainApp: React.FC = () => {
   }, [activeTabId]);
 
   useEffect(() => {
-    if (!activeSingleSource || activeSingleSource.platform !== "twitch") return;
-    const username = normalizeUserKey(settings.twitchUsername ?? "");
+    if (!activeSingleSource) return;
+    if (activeSingleSource.platform !== "twitch" && activeSingleSource.platform !== "kick") return;
+
+    const username = normalizeUserKey(
+      activeSingleSource.platform === "twitch" ? settings.twitchUsername ?? "" : settings.kickUsername ?? ""
+    );
     if (!username) return;
+
     const sourceId = activeSingleSource.id;
     if (normalizeUserKey(activeSingleSource.channel) === username) {
       setModeratorBySource((previous) => ({
@@ -4306,8 +4530,14 @@ const MainApp: React.FC = () => {
       }));
       return;
     }
+
+    const moderationCheck =
+      activeSingleSource.platform === "twitch"
+        ? checkTwitchModeratorStatus(activeSingleSource.channel, username)
+        : checkKickModeratorStatus(activeSingleSource.channel, username);
+
     let cancelled = false;
-    void checkTwitchModeratorStatus(activeSingleSource.channel, username).then((isModerator) => {
+    void moderationCheck.then((isModerator) => {
       if (cancelled || isModerator === null) return;
       setModeratorBySource((previous) => ({
         ...previous,
@@ -4317,7 +4547,7 @@ const MainApp: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeSingleSource, settings.twitchUsername]);
+  }, [activeSingleSource, settings.kickUsername, settings.twitchUsername]);
 
   useEffect(() => {
     return window.electronAPI.onUpdateStatus((status) => {
@@ -4356,15 +4586,6 @@ const MainApp: React.FC = () => {
       });
     }
   }, []);
-
-  useEffect(() => {
-    if (!streamSafeMode) return;
-    setMessageMenu(null);
-    setTabMenu(null);
-    setUserLogTarget(null);
-    setIdentityTarget(null);
-    setQuickTourOpen(false);
-  }, [streamSafeMode]);
 
   if (loading) {
     return (
@@ -4473,10 +4694,27 @@ const MainApp: React.FC = () => {
     const { x, y } = clampContextMenuPosition(messageMenu.x, messageMenu.y, 300, estimatedHeight);
     return { top: y, left: x };
   })();
+  const toolbarSummaryText = activeTab
+    ? isSimpleMode
+      ? newestLocked
+        ? `${visibleMessages.length} messages`
+        : `${visibleMessages.length} messages (${pendingNewestCount} new)`
+      : newestLocked
+        ? `${visibleMessages.length} msgs · ${analyticsSummary.messagesPerMinute}/min · ${analyticsSummary.activeChatters} chatters`
+        : `${visibleMessages.length} msgs (${pendingNewestCount} paused) · ${analyticsSummary.messagesPerMinute}/min · ${analyticsSummary.activeChatters} chatters`
+    : "Open a channel tab to start";
+  const simpleActiveTabMetaText = activeTabIsMerged
+    ? `${activeTabSources.length} chats in merged tab`
+    : activeSingleSource
+      ? `${activeSingleSource.platform}/${activeSingleSource.channel}`
+      : "";
+  const showAccountStrip = isAdvancedMode || mentionInboxCount > 0;
+  const showToolbar = isAdvancedMode || !activeTab;
+  const showActiveTabMeta = isAdvancedMode || activeTabIsMerged;
 
   return (
     <div
-      className="chat-shell"
+      className={isSimpleMode ? "chat-shell simple" : "chat-shell"}
       onClick={() => {
         setTabMenu(null);
         setMessageMenu(null);
@@ -4491,11 +4729,11 @@ const MainApp: React.FC = () => {
             disabled={!activeTab || refreshingActiveTab}
             title={activeTab ? "Refresh current tab connections" : "Open a tab first"}
           >
-            {refreshingActiveTab ? "Refreshing..." : "Refresh Tab"}
+            {refreshingActiveTab ? "Refreshing..." : isSimpleMode ? "Refresh" : "Refresh Tab"}
           </button>
           <div className="brand-block">
             <h1>MultiChat</h1>
-            <p>Unified chat desk</p>
+            {isAdvancedMode ? <p>Unified chat desk</p> : null}
           </div>
         </div>
         <form
@@ -4521,22 +4759,13 @@ const MainApp: React.FC = () => {
             ref={channelInputRef}
             value={channelInput}
             onChange={(event) => setChannelInput(event.target.value)}
-            placeholder="Type channel username and press Enter"
+            placeholder={isSimpleMode ? "Channel username" : "Type channel username and press Enter"}
             autoCapitalize="off"
             autoCorrect="off"
           />
           <button type="submit">Open Tab</button>
         </form>
         <div className="top-actions">
-          <button
-            type="button"
-            className={streamSafeMode ? "safe-mode-button active" : "safe-mode-button"}
-            onClick={() => void persistSettings({ streamSafeMode: !streamSafeMode })}
-            title={streamSafeMode ? "Exit Stream Safe Mode" : "Enable Stream Safe Mode"}
-          >
-            {streamSafeMode ? "Exit Safe Mode" : "Stream Safe Mode"}
-          </button>
-          {!streamSafeMode ? (
           <details className="menu-dropdown">
             <summary>Menu</summary>
             <div className="menu-dropdown-panel">
@@ -5178,46 +5407,56 @@ const MainApp: React.FC = () => {
               ) : null}
             </div>
           </details>
-          ) : null}
+          {isSimpleMode && mentionInboxCount > 0 ? <span className="top-mention-pill">Mentions {mentionInboxCount}</span> : null}
         </div>
       </header>
 
+      {showAccountStrip ? (
       <div className="account-strip">
-        {streamSafeMode ? (
           <>
-            <span className="account-pill on">Stream Safe Mode active</span>
-            <span className="account-pill">Usernames and menu are hidden on this screen.</span>
-          </>
-        ) : (
-          <>
-            {hasPrimaryAuth ? (
-              <span className={settings.twitchToken || settings.twitchGuest ? "account-pill on" : "account-pill"}>
-                <PlatformIcon platform="twitch" />
-                Twitch: {settings.twitchUsername || "off"}
-              </span>
-            ) : null}
-            {hasPrimaryAuth ? (
-              <span className={settings.kickAccessToken ? "account-pill on" : "account-pill"}>
-                <PlatformIcon platform="kick" />
-                Kick typing: {settings.kickUsername || "off"}
-              </span>
-            ) : null}
-            {youtubeAlphaEnabled ? (
-              <span className="account-pill on">
-                <PlatformIcon platform="youtube" />
-                YouTube: read-only
-              </span>
-            ) : null}
-            {tiktokAlphaEnabled ? (
-              <span className="account-pill on">
-                <PlatformIcon platform="tiktok" />
-                TikTok: read-only
+            <span className={hasPrimaryAuth ? "account-pill on" : "account-pill"}>
+              {hasPrimaryAuth ? "Connected:" : "Not connected"}
+              {hasTwitchAuth ? " Twitch" : ""}
+              {hasKickAuth ? " Kick" : ""}
+            </span>
+            {isAdvancedMode && (youtubeAlphaEnabled || tiktokAlphaEnabled) ? (
+              <span className="account-pill">
+                Read-only:
+                {youtubeAlphaEnabled ? " YouTube" : ""}
+                {tiktokAlphaEnabled ? " TikTok" : ""}
               </span>
             ) : null}
             {mentionInboxCount > 0 ? <span className="account-pill on">Mentions: {mentionInboxCount}</span> : null}
+            {isAdvancedMode ? (
+              <details className="account-strip-more">
+                <summary>Details</summary>
+                <div className="account-strip-more-menu">
+                  <span className={settings.twitchToken || settings.twitchGuest ? "account-pill on" : "account-pill"}>
+                    <PlatformIcon platform="twitch" />
+                    Twitch: {settings.twitchUsername || "off"}
+                  </span>
+                  <span className={settings.kickAccessToken ? "account-pill on" : "account-pill"}>
+                    <PlatformIcon platform="kick" />
+                    Kick typing: {settings.kickUsername || "off"}
+                  </span>
+                  {youtubeAlphaEnabled ? (
+                    <span className="account-pill on">
+                      <PlatformIcon platform="youtube" />
+                      YouTube: read-only
+                    </span>
+                  ) : null}
+                  {tiktokAlphaEnabled ? (
+                    <span className="account-pill on">
+                      <PlatformIcon platform="tiktok" />
+                      TikTok: read-only
+                    </span>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
           </>
-        )}
       </div>
+      ) : null}
 
       {chatDeckMode ? (
         <section className="chat-main">
@@ -5275,22 +5514,21 @@ const MainApp: React.FC = () => {
                           <span className={`platform ${message.platform}`}>{message.platform}</span>
                           <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                         </span>
-	                        <span className="line-author">
-	                          <button
-	                            type="button"
-	                            className="username-button"
-	                            style={{ color: message.color, filter: spoilerBlurDelayed ? "blur(1.5px)" : undefined }}
-	                            onClick={() => {
-	                              if (streamSafeMode) return;
-	                              setIdentityTarget({
-	                                username: message.username,
-	                                displayName: message.displayName || message.username
-	                              });
-	                            }}
-	                          >
-	                            {streamSafeMode ? anonymizeName(message.displayName || message.username) : message.displayName || message.username}
-	                          </button>
-	                        </span>
+		                        <span className="line-author">
+		                          <button
+		                            type="button"
+		                            className="username-button"
+		                            style={{ color: message.color, filter: spoilerBlurDelayed ? "blur(1.5px)" : undefined }}
+		                            onClick={() =>
+		                              setIdentityTarget({
+		                                username: message.username,
+		                                displayName: message.displayName || message.username
+		                              })
+		                            }
+		                          >
+		                            {message.displayName || message.username}
+		                          </button>
+		                        </span>
                         <span className="line-message" style={{ filter: spoilerBlurDelayed ? "blur(1.5px)" : undefined }}>
                           {message.message}
                         </span>
@@ -5346,15 +5584,14 @@ const MainApp: React.FC = () => {
           const unreadCount = tabUnreadCounts[tab.id] ?? 0;
           const mentionCount = tabMentionCounts[tab.id] ?? 0;
           return (
-            <div
-              key={tab.id}
-              className={active ? `tab active${groupMuted ? " muted" : ""}` : `tab${groupMuted ? " muted" : ""}`}
-              onContextMenu={(event) => {
-                if (streamSafeMode) return;
-                event.preventDefault();
-                setTabMenu({ x: event.clientX, y: event.clientY, tabId: tab.id });
-              }}
-            >
+	            <div
+	              key={tab.id}
+	              className={active ? `tab active${groupMuted ? " muted" : ""}` : `tab${groupMuted ? " muted" : ""}`}
+	              onContextMenu={(event) => {
+	                event.preventDefault();
+	                setTabMenu({ x: event.clientX, y: event.clientY, tabId: tab.id });
+	              }}
+	            >
               <button type="button" className="tab-select" onClick={() => setActiveTabId(tab.id)}>
                 {firstSource ? <PlatformIcon platform={firstSource.platform} /> : null}
                 <span>{label}</span>
@@ -5389,27 +5626,30 @@ const MainApp: React.FC = () => {
         })}
       </nav>
 
+      {showToolbar ? (
       <section className="toolbar">
-        <span>
-          {activeTab
-            ? newestLocked
-              ? `${visibleMessages.length} messages · ${analyticsSummary.messagesPerMinute}/min · ${analyticsSummary.activeChatters} chatters`
-              : `${visibleMessages.length} messages (${pendingNewestCount} new paused) · ${analyticsSummary.messagesPerMinute}/min · ${analyticsSummary.activeChatters} chatters`
-            : "Open a channel tab to start"}
-        </span>
-        {firstUnreadTimestamp > 0 ? (
+        <span>{toolbarSummaryText}</span>
+        {isAdvancedMode && firstUnreadTimestamp > 0 ? (
           <button type="button" className="ghost" onClick={jumpToFirstUnread}>
             First unread
           </button>
         ) : null}
-        {adaptivePerformanceMode ? <span className="account-pill on">Adaptive perf on</span> : null}
+        {isAdvancedMode && adaptivePerformanceMode ? <span className="account-pill on">Adaptive perf on</span> : null}
       </section>
-      <section className="analytics-strip" aria-label="Live analytics">
-        <span className="analytics-chip">Chatters: {analyticsSummary.activeChatters}</span>
-        <span className="analytics-chip">Msg/min: {analyticsSummary.messagesPerMinute}</span>
-        <span className="analytics-chip">Mentions/min: {analyticsSummary.mentionRatePerMinute}</span>
-        <span className="analytics-chip">Mod actions/min: {analyticsSummary.modActionRatePerMinute}</span>
-      </section>
+      ) : null}
+      {isAdvancedMode && activeTab ? (
+        <section className="analytics-strip" aria-label="Live analytics">
+          <span className="analytics-chip strong">Msg/min: {analyticsSummary.messagesPerMinute}</span>
+          <span className="analytics-chip">Chatters: {analyticsSummary.activeChatters}</span>
+          <details className="analytics-more">
+            <summary>More stats</summary>
+            <div className="analytics-more-menu">
+              <span className="analytics-chip">Mentions/min: {analyticsSummary.mentionRatePerMinute}</span>
+              <span className="analytics-chip">Mod actions/min: {analyticsSummary.modActionRatePerMinute}</span>
+            </div>
+          </details>
+        </section>
+      ) : null}
 
       <main className="chat-main">
         {!activeTab ? (
@@ -5419,52 +5659,79 @@ const MainApp: React.FC = () => {
           </div>
         ) : (
           <>
+            {showActiveTabMeta ? (
             <div className="active-tab-meta">
-              {activeTab.sourceIds.map((sourceId) => {
-                const source = sourceById.get(sourceId);
-                if (!source) return null;
-                const status = statusBySource[source.id] ?? "connecting";
-                const health = connectionHealthBySource[source.id];
-                const staleSeconds = health?.lastMessageAt ? Math.max(0, Math.floor((Date.now() - health.lastMessageAt) / 1000)) : null;
-                return (
-                  <span key={source.id} className={`source-chip ${status}`}>
-                    <PlatformIcon platform={source.platform} />
+              {isSimpleMode ? (
+                <span className="source-chip connected">
+                  <span>{simpleActiveTabMetaText || "Live chat"}</span>
+                </span>
+              ) : (
+                <>
+	                {activeSourcePreviewItems.map(({ source, status, staleSeconds }) => (
+	                  <span key={source.id} className={`source-chip ${status}`}>
+	                    <PlatformIcon platform={source.platform} />
 	                    <span>
-	                      {streamSafeMode ? `${source.platform}/hidden` : `${source.platform}/${source.channel}`} ({status}
+	                      {source.platform}/{source.channel} ({status}
 	                      {staleSeconds !== null && staleSeconds > 30 ? ` · lag ${staleSeconds}s` : ""})
 	                    </span>
 	                  </span>
-                );
-              })}
+	                ))}
+                  {hiddenActiveSourceCount > 0 ? (
+                    <details className="source-more">
+                      <summary>+{hiddenActiveSourceCount} more</summary>
+                      <div className="source-more-menu">
+	                        {activeSourceStatusItems.slice(activeSourcePreviewItems.length).map(({ source, status, staleSeconds }) => (
+	                          <span key={source.id} className={`source-chip ${status}`}>
+	                            <PlatformIcon platform={source.platform} />
+	                            <span>
+	                              {source.platform}/{source.channel} ({status}
+	                              {staleSeconds !== null && staleSeconds > 30 ? ` · lag ${staleSeconds}s` : ""})
+	                            </span>
+	                          </span>
+	                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </>
+              )}
             </div>
-            <div className="quick-actions-row">
-              <strong>Quick Actions</strong>
-              <button type="button" className="quick-action-button" onClick={() => void refreshActiveTab()}>
-                Reconnect tab
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => setReplayBufferSeconds((previous) => (previous === 30 ? 0 : 30))}>
-                {replayBufferSeconds === 30 ? "Replay 30s off" : "Replay 30s"}
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => setReplayBufferSeconds((previous) => (previous === 60 ? 0 : 60))}>
-                {replayBufferSeconds === 60 ? "Replay 60s off" : "Replay 60s"}
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => window.electronAPI.openOverlay()}>
-                Open overlay
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => void copyActiveTabLinks()}>
-                Copy channel link
-              </button>
-              <button
-                type="button"
-                className={welcomeModeEnabled ? "quick-action-button active" : "quick-action-button"}
-                onClick={() => void persistSettings({ welcomeMode: !welcomeModeEnabled })}
-              >
-                {welcomeModeEnabled ? "Welcome mode: on" : "Welcome mode: off"}
-              </button>
-              <button type="button" className="quick-action-button" onClick={() => setPollComposerOpen((previous) => !previous)}>
-                {pollComposerOpen ? "Close poll builder" : "Create poll"}
-              </button>
-            </div>
+            ) : null}
+            {isAdvancedMode ? (
+              <div className="quick-actions-row">
+                <div className="quick-actions-primary">
+                  <button type="button" className="quick-action-button" onClick={() => void refreshActiveTab()}>
+                    Reconnect
+                  </button>
+                  <button
+                    type="button"
+                    className={welcomeModeEnabled ? "quick-action-button active" : "quick-action-button"}
+                    onClick={() => void persistSettings({ welcomeMode: !welcomeModeEnabled })}
+                  >
+                    {welcomeModeEnabled ? "Welcome: on" : "Welcome: off"}
+                  </button>
+                </div>
+                <details className="quick-actions-more">
+                  <summary>More</summary>
+                  <div className="quick-actions-more-menu">
+                    <button type="button" className="quick-action-button" onClick={() => window.electronAPI.openOverlay()}>
+                      Open overlay
+                    </button>
+                    <button type="button" className="quick-action-button" onClick={() => void copyActiveTabLinks()}>
+                      Copy channel link
+                    </button>
+                    <button type="button" className="quick-action-button" onClick={() => setReplayBufferSeconds((previous) => (previous === 30 ? 0 : 30))}>
+                      {replayBufferSeconds === 30 ? "Replay 30s: off" : "Replay 30s"}
+                    </button>
+                    <button type="button" className="quick-action-button" onClick={() => setReplayBufferSeconds((previous) => (previous === 60 ? 0 : 60))}>
+                      {replayBufferSeconds === 60 ? "Replay 60s: off" : "Replay 60s"}
+                    </button>
+                    <button type="button" className="quick-action-button" onClick={() => setPollComposerOpen((previous) => !previous)}>
+                      {pollComposerOpen ? "Close poll builder" : "Create poll"}
+                    </button>
+                  </div>
+                </details>
+              </div>
+            ) : null}
             {activeRaidSignal ? (
               <div className="raid-alert">
                 <strong>Possible raid/host spike detected</strong>
@@ -5568,37 +5835,30 @@ const MainApp: React.FC = () => {
                 const source = sourceByPlatformChannel.get(`${message.platform}:${message.channel}`);
                 const sourceEmoteMap = source ? channelEmoteMapBySourceId[source.id] : undefined;
                 const resolveEmote = (token: string) => (effectivePerformanceMode ? undefined : sourceEmoteMap?.[token] ?? globalEmoteMap[token]);
-	                const messageChunks = buildMessageChunks(message, resolveEmote);
-	                const combinedChannels = readCombinedChannels(message);
-	                const channelLabel =
-	                  streamSafeMode
-	                    ? "#hidden"
-	                    : combinedChannels.length > 1
-	                      ? `#${combinedChannels[0]} +${combinedChannels.length - 1}`
-	                      : `#${message.channel}`;
-	                const channelTitle = streamSafeMode
-	                  ? "Hidden while Stream Safe Mode is active"
-	                  : combinedChannels.length > 1
-	                    ? combinedChannels.map((channel) => `#${channel}`).join(", ")
-	                    : `#${message.channel}`;
-	                const roleBadges = streamSafeMode ? [] : roleBadgesForMessage(message);
-	                const displayName = message.displayName || message.username;
-	                const renderedDisplayName = streamSafeMode ? anonymizeName(displayName) : displayName;
-	                return (
-	                  <React.Fragment key={message.id}>
+		                const messageChunks = buildMessageChunks(message, resolveEmote);
+		                const combinedChannels = readCombinedChannels(message);
+		                const channelLabel =
+		                  combinedChannels.length > 1
+		                    ? `#${combinedChannels[0]} +${combinedChannels.length - 1}`
+		                    : `#${message.channel}`;
+		                const channelTitle =
+		                  combinedChannels.length > 1 ? combinedChannels.map((channel) => `#${channel}`).join(", ") : `#${message.channel}`;
+		                const roleBadges = roleBadgesForMessage(message);
+		                const displayName = message.displayName || message.username;
+		                return (
+		                  <React.Fragment key={message.id}>
                     {showUnreadMarker ? (
                       <div className="chat-unread-marker" data-unread-marker="1">
                         New messages
                       </div>
                     ) : null}
-	                    <div
-	                      className={highlighted ? "chat-line highlight" : "chat-line"}
-	                      data-jump-key={buildMessageJumpKey(message)}
-	                      onContextMenu={(event) => {
-	                        if (streamSafeMode) return;
-	                        event.preventDefault();
-	                        setMessageMenu({ x: event.clientX, y: event.clientY, message });
-	                      }}
+		                    <div
+		                      className={highlighted ? "chat-line highlight" : "chat-line"}
+		                      data-jump-key={buildMessageJumpKey(message)}
+		                      onContextMenu={(event) => {
+		                        event.preventDefault();
+		                        setMessageMenu({ x: event.clientX, y: event.clientY, message });
+		                      }}
                     >
                     <span className="line-meta">
                       <span className={`platform ${message.platform}`}>
@@ -5620,21 +5880,20 @@ const MainApp: React.FC = () => {
                           ))}
                         </span>
                       ) : null}
-	                      <button
-	                        type="button"
-	                        className="username-button"
-	                        style={{ color: message.color }}
-	                        onClick={() => {
-	                          if (streamSafeMode) return;
-	                          setIdentityTarget({
-	                            username: message.username,
-	                            displayName: message.displayName || message.username
-	                          });
-	                        }}
-	                      >
-	                        {renderedDisplayName}
-	                      </button>
-	                    </span>
+		                      <button
+		                        type="button"
+		                        className="username-button"
+		                        style={{ color: message.color }}
+		                        onClick={() =>
+		                          setIdentityTarget({
+		                            username: message.username,
+		                            displayName: message.displayName || message.username
+		                          })
+		                        }
+		                      >
+		                        {displayName}
+		                      </button>
+		                    </span>
                     <span className="line-message">
                       {messageChunks.map((chunk, index) =>
                         chunk.type === "text" ? (
@@ -5862,7 +6121,7 @@ const MainApp: React.FC = () => {
         </div>
       ) : null}
 
-	      {messageMenu && !streamSafeMode ? (
+	      {messageMenu ? (
 	        <div
 	          className="context-menu"
 	          style={messageMenuStyle}

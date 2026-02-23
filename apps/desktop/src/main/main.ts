@@ -30,7 +30,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 type AppSettings = {
   workspacePreset?: "streamer" | "moddesk" | "viewer";
   theme?: "dark" | "light" | "classic";
-  streamSafeMode?: boolean;
   welcomeMode?: boolean;
   mentionMutedTabIds?: string[];
   mentionSnoozeUntilByTab?: Record<string, number>;
@@ -688,6 +687,21 @@ const asString = (value: unknown) => {
 
 const normalizeTikTokChannel = (input: string) => input.trim().replace(/^@+/, "").toLowerCase();
 
+const isLikelyTikTokOfflineError = (value: string) => {
+  const text = value.toLowerCase();
+  if (!text.trim()) return false;
+  return (
+    text.includes("offline") ||
+    text.includes("not live") ||
+    text.includes("live has ended") ||
+    text.includes("no active live") ||
+    text.includes("failed to retrieve room id") ||
+    text.includes("room id not found") ||
+    text.includes("room not found") ||
+    text.includes("channel is offline")
+  );
+};
+
 type NormalizedTikTokChatMessage = {
   id: string;
   platform: "tiktok";
@@ -821,17 +835,31 @@ const normalizeTikTokFollowMessage = (channel: string, payload: unknown): Normal
   };
 };
 
+const parsePositiveInteger = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value);
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
 const parseKickChatroomId = (payload: unknown): number | null => {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
 
   const chatroom = record.chatroom;
   if (chatroom && typeof chatroom === "object") {
-    const chatroomId = (chatroom as Record<string, unknown>).id;
-    if (typeof chatroomId === "number") return chatroomId;
+    const chatroomId = parsePositiveInteger((chatroom as Record<string, unknown>).id);
+    if (chatroomId) return chatroomId;
   }
 
-  if (typeof record.chatroom_id === "number") return record.chatroom_id;
+  const directChatroomId = parsePositiveInteger(record.chatroom_id);
+  if (directChatroomId) return directChatroomId;
 
   if (Array.isArray(record.data)) {
     for (const item of record.data) {
@@ -850,17 +878,28 @@ const parseKickUserId = (payload: unknown): number | null => {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
 
-  if (typeof record.broadcaster_user_id === "number") return record.broadcaster_user_id;
-  if (typeof record.user_id === "number") return record.user_id;
-  if (typeof record.id === "number") return record.id;
+  for (const direct of [record.broadcaster_user_id, record.user_id, record.id]) {
+    const parsed = parsePositiveInteger(direct);
+    if (parsed) return parsed;
+  }
 
   const user = asUnknownRecord(record.user);
-  if (typeof user?.id === "number") return user.id;
-  if (typeof user?.user_id === "number") return user.user_id;
+  for (const direct of [user?.id, user?.user_id]) {
+    const parsed = parsePositiveInteger(direct);
+    if (parsed) return parsed;
+  }
 
   const sender = asUnknownRecord(record.sender);
-  if (typeof sender?.id === "number") return sender.id;
-  if (typeof sender?.user_id === "number") return sender.user_id;
+  for (const direct of [sender?.id, sender?.user_id]) {
+    const parsed = parsePositiveInteger(direct);
+    if (parsed) return parsed;
+  }
+
+  const broadcaster = asUnknownRecord(record.broadcaster);
+  for (const direct of [broadcaster?.id, broadcaster?.user_id]) {
+    const parsed = parsePositiveInteger(direct);
+    if (parsed) return parsed;
+  }
 
   if (Array.isArray(record.data)) {
     for (const item of record.data) {
@@ -2125,12 +2164,39 @@ const moderateTwitch = async (request: ModerationRequest): Promise<void> => {
   );
 };
 
-const kickApiFetchJson = async <T>(
+const parseKickTokenScopes = (token: string): Set<string> => {
+  const trimmed = token.trim();
+  if (!trimmed.includes(".")) return new Set();
+  const [, payloadPart] = trimmed.split(".");
+  if (!payloadPart) return new Set();
+  try {
+    const payloadText = Buffer.from(payloadPart, "base64url").toString("utf8");
+    const payload = JSON.parse(payloadText) as { scope?: unknown; scopes?: unknown };
+    const scopes = new Set<string>();
+    if (typeof payload.scope === "string") {
+      for (const scope of payload.scope.split(/\s+/).map((entry) => entry.trim()).filter(Boolean)) {
+        scopes.add(scope);
+      }
+    }
+    if (Array.isArray(payload.scopes)) {
+      for (const scope of payload.scopes) {
+        if (typeof scope === "string" && scope.trim()) {
+          scopes.add(scope.trim());
+        }
+      }
+    }
+    return scopes;
+  } catch {
+    return new Set();
+  }
+};
+
+const kickApiFetchRaw = async (
   input: string | URL,
   init: RequestInit = {},
   source = "Kick API",
   allowRetry = true
-): Promise<T> => {
+): Promise<Response> => {
   const firstToken = store.get("kickAccessToken")?.trim() || (await refreshKickAccessToken());
   const doFetch = async (token: string) => {
     const headers = new Headers(init.headers ?? {});
@@ -2145,13 +2211,33 @@ const kickApiFetchJson = async <T>(
   };
 
   let response = await doFetch(firstToken);
-  if ((response.status === 401 || response.status === 403) && allowRetry) {
+  if (response.status === 401 && allowRetry) {
     const refreshedToken = await refreshKickAccessToken();
     response = await doFetch(refreshedToken);
   }
-  if (response.status === 401 || response.status === 403) {
+  if (response.status === 401) {
     throw new Error(KICK_REAUTH_REQUIRED_MESSAGE);
   }
+  if (response.status === 403 && source.toLowerCase().includes("moderat")) {
+    const body = await response.text();
+    const payload = body ? parseUnknownJson(body) : {};
+    const detail =
+      payload && typeof payload === "object" && typeof (payload as Record<string, unknown>).message === "string"
+        ? ((payload as Record<string, unknown>).message as string)
+        : "";
+    const suffix = detail ? ` (${detail})` : "";
+    throw new Error(`Kick moderation is unauthorized for this channel or account${suffix}.`);
+  }
+  return response;
+};
+
+const kickApiFetchJson = async <T>(
+  input: string | URL,
+  init: RequestInit = {},
+  source = "Kick API",
+  allowRetry = true
+): Promise<T> => {
+  const response = await kickApiFetchRaw(input, init, source, allowRetry);
   return fetchJsonOrThrow<T>(response, source);
 };
 
@@ -2159,6 +2245,21 @@ const resolveKickBroadcasterUserId = async (channel: string): Promise<number> =>
   const slug = normalizeLogin(channel);
   if (!slug) {
     throw new Error("Kick channel is required.");
+  }
+  const params = new URLSearchParams();
+  params.append("slug", slug);
+  try {
+    const channelPayload = await kickApiFetchJson<unknown>(
+      `https://api.kick.com/public/v1/channels?${params.toString()}`,
+      {},
+      "Kick channel lookup"
+    );
+    const apiUserId = parseKickUserId(channelPayload);
+    if (apiUserId) {
+      return apiUserId;
+    }
+  } catch {
+    // Fall through to unauthenticated lookup fallback.
   }
   const lookup = await resolveKickChannelLookup(slug);
   if (!lookup.ok) {
@@ -2179,15 +2280,74 @@ const resolveKickTargetUserId = async (request: ModerationRequest): Promise<numb
   if (!username) {
     throw new Error("Kick username is required for this moderation action.");
   }
+  const params = new URLSearchParams();
+  params.append("slug", username);
+  try {
+    const channelPayload = await kickApiFetchJson<unknown>(
+      `https://api.kick.com/public/v1/channels?${params.toString()}`,
+      {},
+      "Kick user lookup"
+    );
+    const userIdFromApi = parseKickUserId(channelPayload);
+    if (userIdFromApi) {
+      return userIdFromApi;
+    }
+  } catch {
+    // Fall through to website lookup fallback.
+  }
+
   const lookup = await resolveKickChannelLookup(username);
-  if (!lookup.ok) {
+  if (lookup.ok) {
+    const userId = parseKickUserId(lookup.payload);
+    if (userId) {
+      return userId;
+    }
+  } else {
     throw new Error(lookup.message);
   }
-  const userId = parseKickUserId(lookup.payload);
-  if (!userId) {
-    throw new Error("Kick user lookup failed for this username.");
+
+  throw new Error(
+    "Kick user lookup failed for this username. Ask the user to send a recent message so MultiChat can capture their user ID."
+  );
+};
+
+const canModerateKickChannel = async (channel: string): Promise<boolean> => {
+  const normalizedChannel = normalizeLogin(channel);
+  if (!normalizedChannel) return false;
+
+  const token = store.get("kickAccessToken")?.trim() ?? "";
+  if (!token) return false;
+
+  const scopes = parseKickTokenScopes(token);
+  const hasModerationScope = scopes.has("moderation:ban") || scopes.has("moderation:chat_message:manage");
+  if (!hasModerationScope) return false;
+
+  const kickUsername = normalizeLogin(store.get("kickUsername")?.trim() ?? "");
+  if (kickUsername && kickUsername === normalizedChannel) {
+    return true;
   }
-  return userId;
+
+  const broadcasterUserId = await resolveKickBroadcasterUserId(normalizedChannel);
+  const probeResponse = await kickApiFetchRaw(
+    "https://api.kick.com/public/v1/moderation/bans",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        broadcaster_user_id: broadcasterUserId,
+        user_id: 0,
+        duration: 1
+      })
+    },
+    "Kick permission probe"
+  );
+
+  if (probeResponse.ok) return true;
+  if (probeResponse.status === 400 || probeResponse.status === 404 || probeResponse.status === 422) return true;
+  if (probeResponse.status === 403) return false;
+  return false;
 };
 
 const moderateKick = async (request: ModerationRequest): Promise<void> => {
@@ -2778,7 +2938,6 @@ app.whenReady().then(() => {
   store = new JsonSettingsStore({
     workspacePreset: "streamer",
     theme: "dark",
-    streamSafeMode: false,
     welcomeMode: false,
     mentionMutedTabIds: [],
     mentionSnoozeUntilByTab: {},
@@ -3394,11 +3553,11 @@ app.whenReady().then(() => {
       }
     }
 
-    const kickUsername = normalizeLogin(store.get("kickUsername")?.trim() ?? "");
-    if (kickUsername && kickUsername === channel) {
-      return true;
+    try {
+      return await canModerateKickChannel(channel);
+    } catch {
+      return false;
     }
-    return false;
   });
   ipcMain.handle("kick:resolveChatroom", async (_event, channel: string) => {
     const slug = channel.trim().toLowerCase();
@@ -3626,6 +3785,9 @@ app.whenReady().then(() => {
         type: "error",
         error: text
       });
+      if (isLikelyTikTokOfflineError(text)) {
+        throw new Error(`TikTok channel @${normalizedChannel} is offline right now.`);
+      }
       throw new Error(`TikTok connect failed: ${text}`);
     }
   });

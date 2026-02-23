@@ -215,6 +215,62 @@ select {
   min-width: 0;
 }
 
+.chat-shell.simple .topbar {
+  padding: 10px 14px;
+  gap: 12px;
+}
+
+.chat-shell.simple .tab-refresh-button {
+  padding: 8px 10px;
+}
+
+.chat-shell.simple .brand-block h1 {
+  font-size: 18px;
+}
+
+.chat-shell.simple .channel-form {
+  grid-template-columns: 120px 1fr auto;
+}
+
+.chat-shell.simple .top-actions {
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-shell.simple .tabbar {
+  padding: 8px 14px;
+}
+
+.chat-shell.simple .account-strip {
+  padding: 8px 14px;
+  gap: 6px;
+}
+
+.chat-shell.simple .toolbar {
+  padding: 8px 14px;
+}
+
+.chat-shell.simple .toolbar span {
+  flex: 0 1 auto;
+}
+
+.chat-shell.simple .chat-main {
+  padding: 0 14px 12px;
+}
+
+.chat-shell.simple .active-tab-meta {
+  margin: 6px 0 4px;
+}
+
+.chat-shell.simple .message-list {
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.chat-shell.simple .composer {
+  margin-top: 8px;
+}
+
 .topbar {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -309,10 +365,17 @@ select {
   position: relative;
 }
 
-.safe-mode-button.active {
-  border-color: color-mix(in srgb, #ffb347, var(--accent) 30%);
-  background: color-mix(in srgb, var(--bg-panel), #ffb347 28%);
-  color: var(--text-main);
+.top-mention-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #2f8f75;
+  border-radius: 999px;
+  background: rgba(47, 143, 117, 0.2);
+  color: #cbfff0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 9px;
+  white-space: nowrap;
 }
 
 .menu-dropdown {
@@ -591,6 +654,42 @@ select {
   border-color: #2f8f75;
 }
 
+.account-strip-more {
+  position: relative;
+  margin-left: auto;
+}
+
+.account-strip-more > summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+}
+
+.account-strip-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-strip-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  display: grid;
+  gap: 6px;
+  min-width: 240px;
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  box-shadow: 0 8px 20px var(--shadow);
+}
+
 .ghost {
   padding: 6px 10px;
   border-radius: 8px;
@@ -715,11 +814,12 @@ select {
 
 .analytics-strip {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 6px 16px;
   border-bottom: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--bg-soft), var(--bg-panel) 22%);
+  background: var(--bg-panel);
 }
 
 .analytics-chip {
@@ -731,6 +831,46 @@ select {
   font-size: 11px;
   color: var(--text-dim);
   background: var(--bg-pill);
+}
+
+.analytics-chip.strong {
+  color: var(--text-main);
+  border-color: color-mix(in srgb, var(--accent), var(--border-soft) 55%);
+}
+
+.analytics-more {
+  margin-left: auto;
+  position: relative;
+}
+
+.analytics-more > summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+}
+
+.analytics-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.analytics-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  min-width: 210px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  box-shadow: 0 8px 18px var(--shadow);
 }
 
 .main-layout {
@@ -805,20 +945,91 @@ select {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin: 12px 0;
+  margin: 8px 0 6px;
+}
+
+.source-more {
+  position: relative;
+}
+
+.source-more > summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-panel);
+}
+
+.source-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.source-more-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  min-width: 250px;
+  max-width: min(420px, calc(100vw - 32px));
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  box-shadow: 0 10px 24px var(--shadow);
 }
 
 .quick-actions-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 0 0 10px;
+  margin: 0 0 6px;
 }
 
-.quick-actions-row strong {
-  font-size: 12px;
-  color: var(--text-dim);
+.quick-actions-primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-actions-more {
+  position: relative;
+  margin-left: auto;
+}
+
+.quick-actions-more > summary {
+  list-style: none;
+  border: 1px solid var(--border-soft);
+  background: var(--btn-solid-bg);
+  color: var(--text-main);
+  border-radius: 8px;
+  padding: 7px 11px;
+  cursor: pointer;
+}
+
+.quick-actions-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.quick-actions-more-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 55;
+  min-width: 220px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  box-shadow: 0 8px 18px var(--shadow);
 }
 
 .quick-action-button {
@@ -1603,6 +1814,12 @@ select {
   background: rgba(16, 33, 49, 0.06);
 }
 
+:root[data-theme="light"] .top-mention-pill {
+  border-color: #0e8d6b;
+  background: rgba(14, 141, 107, 0.16);
+  color: #0b6b53;
+}
+
 @media (max-width: 1200px) {
   .topbar {
     grid-template-columns: 1fr;
@@ -1671,21 +1888,20 @@ select {
 
 /* ---- UI v3 Rebuild (visual-only override) ---- */
 :root {
-  --ui-radius-sm: 10px;
-  --ui-radius-md: 14px;
-  --ui-radius-lg: 18px;
-  --ui-shadow-1: 0 12px 32px rgba(0, 0, 0, 0.24);
-  --ui-shadow-2: 0 22px 56px rgba(0, 0, 0, 0.32);
-  --ui-gap-xs: 6px;
-  --ui-gap-sm: 10px;
-  --ui-gap-md: 14px;
-  --ui-gap-lg: 18px;
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 10px;
+  --ui-radius-lg: 12px;
+  --ui-shadow-1: 0 6px 14px rgba(0, 0, 0, 0.16);
+  --ui-shadow-2: 0 10px 22px rgba(0, 0, 0, 0.22);
+  --ui-gap-xs: 4px;
+  --ui-gap-sm: 8px;
+  --ui-gap-md: 10px;
+  --ui-gap-lg: 12px;
 }
 
 body {
   background:
-    radial-gradient(circle at 12% 0%, rgba(22, 199, 154, 0.16), transparent 42%),
-    radial-gradient(circle at 95% 100%, rgba(127, 90, 255, 0.14), transparent 40%),
+    radial-gradient(circle at 10% 0%, rgba(22, 199, 154, 0.08), transparent 45%),
     var(--bg-main);
   line-height: 1.35;
 }
@@ -1695,10 +1911,10 @@ body {
 }
 
 .topbar {
-  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 6%);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-panel), white 2%), var(--bg-panel));
-  padding: 12px 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 5%);
+  background: var(--bg-panel);
+  padding: 10px 14px;
+  box-shadow: none;
   overflow: visible;
 }
 
@@ -1714,7 +1930,7 @@ body {
 
 .channel-form,
 .top-actions {
-  gap: var(--ui-gap-sm);
+  gap: 8px;
   overflow: visible;
 }
 
@@ -1726,18 +1942,14 @@ body {
 .ghost,
 .menu-dropdown > summary {
   border-radius: var(--ui-radius-sm);
-  border-color: color-mix(in srgb, var(--border-soft), white 8%);
-  background: color-mix(in srgb, var(--bg-panel), white 3%);
+  border-color: color-mix(in srgb, var(--border-soft), white 4%);
+  background: color-mix(in srgb, var(--bg-panel), white 1%);
 }
 
 .channel-form button,
 .top-actions button,
 .tab-refresh-button {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--btn-solid-bg-hover), white 5%),
-    var(--btn-solid-bg)
-  );
+  background: var(--btn-solid-bg);
 }
 
 .channel-form button:hover,
@@ -1756,9 +1968,9 @@ body {
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 84px);
   border-radius: var(--ui-radius-md);
-  border-color: color-mix(in srgb, var(--border-soft), white 10%);
-  background: color-mix(in srgb, var(--bg-soft), white 2%);
-  box-shadow: var(--ui-shadow-2);
+  border-color: color-mix(in srgb, var(--border-soft), white 6%);
+  background: var(--bg-soft);
+  box-shadow: var(--ui-shadow-1);
   padding: 12px;
 }
 
@@ -1767,19 +1979,19 @@ body {
 }
 
 .account-strip {
-  background: color-mix(in srgb, var(--bg-soft), white 3%);
+  background: var(--bg-panel);
 }
 
 .account-pill {
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-pill), white 5%);
+  background: var(--bg-pill);
 }
 
 .tabbar {
-  padding: 10px 14px;
-  gap: var(--ui-gap-sm);
-  background: color-mix(in srgb, var(--bg-soft), white 2%);
-  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 8%);
+  padding: 8px 12px;
+  gap: 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 5%);
 }
 
 .tab {
@@ -1789,9 +2001,7 @@ body {
 
 .tab.active {
   border-color: color-mix(in srgb, var(--accent), white 8%);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent), transparent 55%),
-    0 10px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent), transparent 60%);
 }
 
 .tab-select {
@@ -1805,22 +2015,18 @@ body {
 }
 
 .toolbar {
-  background: color-mix(in srgb, var(--bg-soft), white 2%);
-  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 6%);
-  gap: var(--ui-gap-sm);
+  background: var(--bg-panel);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 5%);
+  gap: 8px;
 }
 
 .main-layout {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--bg-main), white 1%),
-    color-mix(in srgb, var(--bg-main), black 4%)
-  );
+  background: var(--bg-main);
 }
 
 .dock-sidebar {
-  border-left-color: color-mix(in srgb, var(--border-soft), white 8%);
-  box-shadow: -8px 0 20px rgba(0, 0, 0, 0.18);
+  border-left-color: color-mix(in srgb, var(--border-soft), white 5%);
+  box-shadow: none;
 }
 
 .chat-main {
@@ -1828,21 +2034,20 @@ body {
 }
 
 .message-list {
-  gap: var(--ui-gap-sm);
-  padding: 12px 14px 18px;
+  gap: 0;
+  padding: 8px 10px 10px;
   scrollbar-gutter: stable;
+  border-radius: var(--ui-radius-md);
+  background: var(--bg-panel);
 }
 
 .chat-line {
-  border: 1px solid color-mix(in srgb, var(--border-soft), white 8%);
-  border-radius: var(--ui-radius-md);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--bg-panel-alt), white 2%),
-    color-mix(in srgb, var(--bg-panel), black 2%)
-  );
-  padding: 9px 10px;
-  box-shadow: var(--ui-shadow-1);
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-soft), white 4%);
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 0;
+  box-shadow: none;
 }
 
 .line-meta {
@@ -1860,8 +2065,8 @@ body {
 }
 
 .line-message {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .inline-emote {
@@ -1872,16 +2077,16 @@ body {
 
 .go-newest-button {
   border-radius: 999px;
-  border-color: color-mix(in srgb, var(--accent), white 8%);
-  background: color-mix(in srgb, var(--bg-panel), var(--accent) 16%);
-  box-shadow: var(--ui-shadow-1);
+  border-color: color-mix(in srgb, var(--accent), white 3%);
+  background: color-mix(in srgb, var(--bg-panel), var(--accent) 12%);
+  box-shadow: none;
 }
 
 .composer {
-  border-top: 1px solid color-mix(in srgb, var(--border-soft), white 8%);
-  background: color-mix(in srgb, var(--bg-soft), white 1%);
-  padding: 12px 14px;
-  gap: var(--ui-gap-sm);
+  border-top: 1px solid color-mix(in srgb, var(--border-soft), white 5%);
+  background: var(--bg-panel);
+  padding: 10px 12px;
+  gap: 8px;
 }
 
 .composer input,
@@ -1909,8 +2114,8 @@ body {
 .guide-modal,
 .user-logs-modal {
   border-radius: var(--ui-radius-lg);
-  border: 1px solid color-mix(in srgb, var(--border-soft), white 10%);
-  box-shadow: var(--ui-shadow-2);
+  border: 1px solid color-mix(in srgb, var(--border-soft), white 7%);
+  box-shadow: var(--ui-shadow-1);
 }
 
 .user-logs-list,
@@ -1921,9 +2126,9 @@ body {
 
 .floating-status {
   border-radius: var(--ui-radius-sm);
-  border: 1px solid color-mix(in srgb, var(--border-soft), white 10%);
-  background: color-mix(in srgb, var(--bg-soft), white 2%);
-  box-shadow: var(--ui-shadow-1);
+  border: 1px solid color-mix(in srgb, var(--border-soft), white 7%);
+  background: var(--bg-soft);
+  box-shadow: none;
 }
 
 .login-card {
@@ -1973,9 +2178,18 @@ body {
 
   .tabbar,
   .toolbar,
+  .analytics-strip,
   .account-strip {
     padding-left: 10px;
     padding-right: 10px;
+  }
+
+  .quick-actions-row {
+    align-items: flex-start;
+  }
+
+  .quick-actions-more {
+    margin-left: 0;
   }
 
   .channel-form {

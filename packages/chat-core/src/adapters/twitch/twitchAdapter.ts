@@ -22,7 +22,7 @@ export class TwitchAdapter implements ChatAdapter {
   private readonly auth: TwitchAuth;
   private readonly logger?: (message: string) => void;
   private joinQueue: string[] = [];
-  private joinTimer: number | null = null;
+  private joinTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: ChatAdapterOptions & { auth?: TwitchAuth }) {
     this.channel = options.channel;
@@ -120,14 +120,14 @@ export class TwitchAdapter implements ChatAdapter {
   private queueJoin(channel: string) {
     this.joinQueue.push(channel);
     if (this.joinTimer) return;
-    this.joinTimer = window.setInterval(() => {
+    this.joinTimer = globalThis.setInterval(() => {
       if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
       const next = this.joinQueue.shift();
       if (next) {
         this.socket.send(`JOIN #${next}`);
       }
       if (this.joinQueue.length === 0 && this.joinTimer) {
-        window.clearInterval(this.joinTimer);
+        globalThis.clearInterval(this.joinTimer);
         this.joinTimer = null;
       }
     }, 1200);
@@ -138,7 +138,7 @@ export class TwitchAdapter implements ChatAdapter {
     const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts);
     this.reconnectAttempts += 1;
     this.setStatus("connecting");
-    window.setTimeout(() => {
+    globalThis.setTimeout(() => {
       this.socket = null;
       this.connect();
     }, delay);
@@ -147,7 +147,7 @@ export class TwitchAdapter implements ChatAdapter {
   private cleanupSocket() {
     this.socket = null;
     if (this.joinTimer) {
-      window.clearInterval(this.joinTimer);
+      globalThis.clearInterval(this.joinTimer);
       this.joinTimer = null;
     }
   }

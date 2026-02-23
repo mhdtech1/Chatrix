@@ -1,4 +1,4 @@
-# MultiChat (Electron)
+# MultiChat (Desktop + iOS)
 
 Creator-facing and viewer-facing multi-chat desktop app built with Electron + Vite + React + TypeScript.
 
@@ -60,6 +60,20 @@ pnpm install
 ```bash
 pnpm dev
 ```
+
+### iOS Development (Expo)
+
+```bash
+pnpm ios
+```
+
+Notes:
+
+- iOS app source: `apps/ios`
+- Twitch/Kick chat can be read-only without auth; sending uses OAuth sign-in in the iOS config panel.
+- YouTube support is read-only and uses Live Chat ID + API key.
+- If `pnpm ios` asks for Xcode setup, finish install and run:
+  `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
 
 ## Testing
 
@@ -181,6 +195,9 @@ Settings are stored locally in `settings.json` under Electron `userData` (not in
         preload/
         renderer/
       electron-builder.yml
+    ios/
+      App.tsx
+      app.json
   packages/
     chat-core/
       src/

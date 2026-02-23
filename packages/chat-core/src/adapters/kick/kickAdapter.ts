@@ -72,7 +72,7 @@ const parseKickBadges = (badges: unknown): string[] => {
 export class KickAdapter implements ChatAdapter {
   private emitter = new EventEmitter();
   private socket: WebSocket | null = null;
-  private reconnectTimer: number | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private chatroomId: number | null = null;
   private broadcasterUserId: number | null = null;
@@ -256,7 +256,7 @@ export class KickAdapter implements ChatAdapter {
     const delay = Math.min(30_000, 1000 * 2 ** this.reconnectAttempts);
     this.reconnectAttempts += 1;
     this.setStatus("connecting");
-    this.reconnectTimer = window.setTimeout(() => {
+    this.reconnectTimer = globalThis.setTimeout(() => {
       this.reconnectTimer = null;
       void this.connectSocketOnly();
     }, delay);
@@ -312,7 +312,7 @@ export class KickAdapter implements ChatAdapter {
   async disconnect() {
     this.setStatus("disconnected");
     if (this.reconnectTimer) {
-      window.clearTimeout(this.reconnectTimer);
+      globalThis.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     this.reconnectAttempts = 0;
