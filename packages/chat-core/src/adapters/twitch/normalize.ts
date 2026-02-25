@@ -1,5 +1,5 @@
-import type { ChatMessage } from "../../types";
-import type { IrcMessage } from "./ircParser";
+import type { ChatMessage } from "../../types.js";
+import type { IrcMessage } from "./ircParser.js";
 
 const unescapeIrcTagValue = (value: string) =>
   value

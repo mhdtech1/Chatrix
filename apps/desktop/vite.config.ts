@@ -10,6 +10,11 @@ export default defineConfig({
   // Electron file:// loads need relative asset paths in production.
   base: "./",
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@multichat/chat-core": path.join(__dirname, "../../packages/chat-core/src/index.ts")
+    }
+  },
   build: {
     outDir: path.join(__dirname, "dist/renderer"),
     emptyOutDir: true,

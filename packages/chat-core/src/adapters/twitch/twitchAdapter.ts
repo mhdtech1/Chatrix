@@ -1,7 +1,7 @@
 import EventEmitter from "eventemitter3";
-import type { ChatAdapter, ChatAdapterOptions, ChatAdapterStatus, ChatMessage } from "../../types";
-import { parseIrcMessage } from "./ircParser";
-import { normalizeTwitchMessage } from "./normalize";
+import type { ChatAdapter, ChatAdapterOptions, ChatAdapterStatus, ChatMessage } from "../../types.js";
+import { parseIrcMessage } from "./ircParser.js";
+import { normalizeTwitchMessage } from "./normalize.js";
 
 export type TwitchAuth = {
   token?: string;

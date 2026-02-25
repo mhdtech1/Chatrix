@@ -1,141 +1,11 @@
-type AppSettings = {
-  workspacePreset?: "streamer" | "moddesk" | "viewer";
-  theme?: "dark" | "light" | "classic";
-  welcomeMode?: boolean;
-  mentionMutedTabIds?: string[];
-  mentionSnoozeUntilByTab?: Record<string, number>;
-  tabSendRules?: Record<string, {
-    defaultTarget?: "all" | "first" | "specific";
-    sourceId?: string;
-    confirmOnSendAll?: boolean;
-    blockSendAll?: boolean;
-  }>;
-  pinnedMessageByTabId?: Record<string, {
-    platform: "twitch" | "kick" | "youtube" | "tiktok";
-    channel: string;
-    displayName: string;
-    message: string;
-    timestamp: string;
-  }>;
-  localPollByTabId?: Record<string, {
-    id: string;
-    question: string;
-    options: Array<{ id: string; label: string; votes: number }>;
-    active: boolean;
-    createdAt: string;
-  }>;
-  twitchToken?: string;
-  twitchUsername?: string;
-  twitchGuest?: boolean;
-  twitchScopeVersion?: number;
-  twitchClientId?: string;
-  twitchRedirectUri?: string;
-  kickClientId?: string;
-  kickClientSecret?: string;
-  kickRedirectUri?: string;
-  kickAccessToken?: string;
-  kickRefreshToken?: string;
-  kickUsername?: string;
-  kickGuest?: boolean;
-  kickScopeVersion?: number;
-  youtubeClientId?: string;
-  youtubeClientSecret?: string;
-  youtubeRedirectUri?: string;
-  youtubeAccessToken?: string;
-  youtubeRefreshToken?: string;
-  youtubeTokenExpiry?: number;
-  youtubeUsername?: string;
-  youtubeApiKey?: string;
-  youtubeLiveChatId?: string;
-  youtubeAlphaEnabled?: boolean;
-  tiktokAlphaEnabled?: boolean;
-  tiktokSessionId?: string;
-  tiktokTtTargetIdc?: string;
-  tiktokUsername?: string;
-  verboseLogs?: boolean;
-  performanceMode?: boolean;
-  smartFilterSpam?: boolean;
-  smartFilterScam?: boolean;
-  confirmSendAll?: boolean;
-  updateChannel?: "stable" | "beta";
-  tabAlertRules?: Record<string, {
-    keyword?: string;
-    sound?: boolean;
-    notify?: boolean;
-    mentionSound?: boolean;
-    mentionNotify?: boolean;
-  }>;
-  columns?: number;
-  hideCommands?: boolean;
-  keywordFilters?: string[];
-  highlightKeywords?: string[];
-  sessionSources?: Array<{
-    id: string;
-    platform: "twitch" | "kick" | "youtube" | "tiktok";
-    channel: string;
-    key: string;
-    liveChatId?: string;
-    youtubeChannelId?: string;
-    youtubeVideoId?: string;
-  }>;
-  sessionTabs?: Array<{
-    id: string;
-    sourceIds: string[];
-  }>;
-  sessionActiveTabId?: string;
-  setupWizardCompleted?: boolean;
-  setupWizardVersion?: number;
-  setupWizardSendTestCompleted?: boolean;
-  lastLaunchedVersion?: string;
-  forcedResetAppliedVersion?: string;
-};
-
-type UpdateStatus = {
-  state: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
-  message: string;
-  channel: "stable" | "beta";
-  currentVersion: string;
-  availableVersion?: string;
-  releaseDate?: string;
-  releaseNotes?: string;
-};
-
-type AuthPermissionSnapshot = {
-  platform: "twitch" | "kick";
-  signedIn: boolean;
-  username: string;
-  canSend: boolean;
-  canModerate: boolean;
-  tokenExpiry: number | null;
-  lastCheckedAt: number;
-  error?: string;
-};
-
-type AuthHealthSnapshot = {
-  twitch: AuthPermissionSnapshot;
-  kick: AuthPermissionSnapshot;
-  youtubeTokenExpiry: number | null;
-  updateChannel: "stable" | "beta";
-};
-
-type TikTokRendererEvent = {
-  connectionId: string;
-  type: "connected" | "disconnected" | "chat" | "error";
-  roomId?: string;
-  message?: unknown;
-  error?: string;
-};
-
-type ModeratorAction = "timeout_60" | "timeout_600" | "ban" | "unban" | "delete";
-
-type ModerationRequest = {
-  platform: "twitch" | "kick";
-  channel: string;
-  action: ModeratorAction;
-  username?: string;
-  messageId?: string;
-  targetUserId?: number;
-};
+import type {
+  AppSettings,
+  AuthHealthSnapshot,
+  ModerationRequest,
+  TikTokRendererEvent,
+  UpdateChannel,
+  UpdateStatus
+} from "../shared/types";
 
 type ElectronAPI = {
   getSettings: () => Promise<AppSettings>;
@@ -177,7 +47,7 @@ type ElectronAPI = {
   onTikTokEvent: (callback: (event: TikTokRendererEvent) => void) => () => void;
   checkForUpdates: () => Promise<UpdateStatus>;
   downloadUpdate: () => Promise<void>;
-  setUpdateChannel: (channel: "stable" | "beta") => Promise<UpdateStatus>;
+  setUpdateChannel: (channel: UpdateChannel) => Promise<UpdateStatus>;
   installUpdate: () => Promise<void>;
   getUpdateStatus: () => Promise<UpdateStatus>;
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
