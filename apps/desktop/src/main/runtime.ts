@@ -2765,6 +2765,7 @@ app.whenReady().then(async () => {
   store = new JsonSettingsStore({
     workspacePreset: "streamer",
     theme: "dark",
+    chatTextScale: 100,
     welcomeMode: false,
     mentionMutedTabIds: [],
     mentionSnoozeUntilByTab: {},

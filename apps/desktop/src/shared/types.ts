@@ -53,6 +53,7 @@ export type ChatTab = {
 export type AppSettings = {
   workspacePreset?: WorkspacePreset;
   theme?: ThemeOption;
+  chatTextScale?: number;
   welcomeMode?: boolean;
   mentionMutedTabIds?: string[];
   mentionSnoozeUntilByTab?: Record<string, number>;

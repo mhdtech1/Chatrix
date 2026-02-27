@@ -7,6 +7,9 @@ import { WelcomeScreen } from "../common/WelcomeScreen";
 
 type VirtualizedMessageListProps = {
   messages: ChatMessage[];
+  autoScrollEnabled?: boolean;
+  onPauseAutoScroll?: () => void;
+  onUserActivity?: () => void;
   onUsernameClick?: (username: string, platform: string) => void;
   onMessageClick?: (message: ChatMessage) => void;
   onAddChannel?: () => void;
@@ -18,6 +21,9 @@ const OVERSCAN_COUNT = 10;
 
 export function VirtualizedMessageList({
   messages,
+  autoScrollEnabled = true,
+  onPauseAutoScroll,
+  onUserActivity,
   onUsernameClick,
   onMessageClick,
   onAddChannel,
@@ -26,6 +32,7 @@ export function VirtualizedMessageList({
   const showTimestamps = useSettingsStore((state) => state.showTimestamps);
   const showBadges = useSettingsStore((state) => state.showBadges);
   const parentRef = useRef<HTMLDivElement>(null);
+  const lastScrollTopRef = useRef(0);
   const isAtBottomRef = useRef(true);
   const prevMessageCountRef = useRef(messages.length);
 
@@ -51,22 +58,44 @@ export function VirtualizedMessageList({
     const container = parentRef.current;
     if (!container) return;
     container.scrollTop = container.scrollHeight;
+    lastScrollTopRef.current = container.scrollTop;
     isAtBottomRef.current = true;
   }, []);
 
   const handleScroll = useCallback(() => {
+    const container = parentRef.current;
+    if (!container) return;
+    const currentScrollTop = container.scrollTop;
+    const previousScrollTop = lastScrollTopRef.current;
+    lastScrollTopRef.current = currentScrollTop;
     checkIfAtBottom();
-  }, [checkIfAtBottom]);
+    const movedUp = currentScrollTop + 2 < previousScrollTop;
+    if (autoScrollEnabled && movedUp && !isAtBottomRef.current) {
+      onPauseAutoScroll?.();
+      return;
+    }
+    if (!autoScrollEnabled) {
+      onUserActivity?.();
+    }
+  }, [autoScrollEnabled, checkIfAtBottom, onPauseAutoScroll, onUserActivity]);
 
   useEffect(() => {
     const isNewMessage = messages.length > prevMessageCountRef.current;
     prevMessageCountRef.current = messages.length;
+    if (!autoScrollEnabled) return;
     if (isNewMessage && isAtBottomRef.current) {
       requestAnimationFrame(() => {
         scrollToBottom();
       });
     }
-  }, [messages.length, scrollToBottom]);
+  }, [autoScrollEnabled, messages.length, scrollToBottom]);
+
+  useEffect(() => {
+    if (!autoScrollEnabled) return;
+    requestAnimationFrame(() => {
+      scrollToBottom();
+    });
+  }, [autoScrollEnabled, scrollToBottom]);
 
   return (
     <div className="message-list-container">
@@ -108,7 +137,14 @@ export function VirtualizedMessageList({
                     showTimestamp={showTimestamps}
                     showBadges={showBadges}
                     onUsernameClick={onUsernameClick}
-                    onMessageClick={onMessageClick}
+                    onMessageClick={(chatMessage) => {
+                      if (autoScrollEnabled) {
+                        onPauseAutoScroll?.();
+                      } else {
+                        onUserActivity?.();
+                      }
+                      onMessageClick?.(chatMessage);
+                    }}
                   />
                 </div>
               );
@@ -116,12 +152,6 @@ export function VirtualizedMessageList({
           </div>
         )}
       </div>
-
-      {!isAtBottomRef.current && messages.length > 0 ? (
-        <button className="scroll-to-bottom" onClick={scrollToBottom} aria-label="Scroll to latest messages">
-          ↓ New messages
-        </button>
-      ) : null}
     </div>
   );
 }

@@ -3516,3 +3516,83 @@ h3 {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ===== Chat Text Scale ===== */
+.chat-shell {
+  --chat-text-scale: 1;
+}
+
+.chat-shell .menu-inline--slider {
+  gap: 8px;
+}
+
+.chat-shell .menu-inline--slider input[type="range"] {
+  width: 100%;
+}
+
+.chat-shell .menu-inline--slider .menu-muted {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-shell .line-meta,
+.chat-shell .chat-line__time {
+  font-size: calc(11px * var(--chat-text-scale));
+}
+
+.chat-shell .line-author,
+.chat-shell .username-button,
+.chat-shell .chat-line__author,
+.chat-shell .line-message,
+.chat-shell .chat-line__message {
+  font-size: calc(14px * var(--chat-text-scale));
+}
+
+.chat-shell .composer input,
+.chat-shell .composer select,
+.chat-shell .composer button {
+  font-size: calc(12px * var(--chat-text-scale));
+}
+
+/* ===== Main Composer Responsive Layout ===== */
+.composer--main {
+  width: 100%;
+  margin-top: 0;
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border-soft), white 5%);
+  background: var(--bg-panel);
+}
+
+.composer--main .composer-main__target {
+  flex: 0 1 clamp(190px, 30%, 360px);
+  min-width: 170px;
+}
+
+.composer--main .composer-main__message {
+  flex: 1 1 360px;
+  min-width: 0;
+}
+
+.composer--main .composer-main__snippets {
+  flex: 0 1 170px;
+  min-width: 140px;
+}
+
+.composer--main .composer-main__send {
+  flex: 0 0 auto;
+  min-width: 112px;
+}
+
+@media (max-width: 980px) {
+  .composer--main .composer-main__target,
+  .composer--main .composer-main__message,
+  .composer--main .composer-main__snippets,
+  .composer--main .composer-main__send {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}

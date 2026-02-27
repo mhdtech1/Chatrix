@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { ChatAdapter, ChatAdapterStatus, ChatMessage } from "@multichat/chat-core";
 import { KickAdapter, TikTokAdapter, TwitchAdapter, YouTubeAdapter } from "@multichat/chat-core";
 import { VirtualizedMessageList } from "../components/MessageList";
@@ -43,6 +43,7 @@ type Settings = {
   uiMode?: "simple" | "advanced";
   workspacePreset?: WorkspacePreset;
   theme?: "dark" | "light" | "classic";
+  chatTextScale?: number;
   welcomeMode?: boolean;
   mentionMutedTabIds?: string[];
   mentionSnoozeUntilByTab?: Record<string, number>;
@@ -249,6 +250,7 @@ const defaultSettings: Settings = {
   uiMode: "simple",
   workspacePreset: "streamer",
   theme: "dark",
+  chatTextScale: 100,
   welcomeMode: false,
   mentionMutedTabIds: [],
   mentionSnoozeUntilByTab: {},
@@ -333,6 +335,14 @@ const TAB_ALERT_PROFILES: Record<Exclude<TabAlertProfile, "custom">, { sound: bo
   quiet: { sound: false, notify: true, mentionSound: false, mentionNotify: true },
   "mod-heavy": { sound: true, notify: true, mentionSound: true, mentionNotify: true },
   tournament: { sound: false, notify: true, mentionSound: true, mentionNotify: true }
+};
+const CHAT_TEXT_SCALE_DEFAULT = 100;
+const CHAT_TEXT_SCALE_MIN = 80;
+const CHAT_TEXT_SCALE_MAX = 175;
+
+const clampChatTextScale = (value: number) => {
+  if (!Number.isFinite(value)) return CHAT_TEXT_SCALE_DEFAULT;
+  return Math.max(CHAT_TEXT_SCALE_MIN, Math.min(CHAT_TEXT_SCALE_MAX, Math.round(value)));
 };
 
 const messageMentionsUser = (message: ChatMessage, username?: string) => {
@@ -945,7 +955,7 @@ const BTTV_EMOTE_URL = (id: string) => `https://cdn.betterttv.net/emote/${id}/1x
 const SEVENTV_EMOTE_URL = (id: string) => `https://cdn.7tv.app/emote/${id}/1x.webp`;
 const KICK_EMOTE_URL = (id: string) => `https://files.kick.com/emotes/${id}/fullsize`;
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 36;
-const AUTO_RESUME_NEWEST_AFTER_MS = 3 * 60 * 1000;
+const AUTO_RESUME_NEWEST_AFTER_MS = 15_000;
 const TIKTOK_OFFLINE_RETRY_MS = 2 * 60 * 1000;
 const SETUP_WIZARD_VERSION = 2;
 const LOCKED_RENDERED_MESSAGE_LIMIT = 420;
@@ -1497,6 +1507,8 @@ const MainApp: React.FC = () => {
   const menuDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const importSessionInputRef = useRef<HTMLInputElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const lastMessageListScrollTopRef = useRef(0);
+  const autoResumeTimerRef = useRef<number | null>(null);
   const mainLayoutRef = useRef<HTMLDivElement | null>(null);
   const adaptersRef = useRef<Map<string, ChatAdapter>>(new Map());
   const lastMessageByUser = useRef<Map<string, number>>(new Map());
@@ -1526,6 +1538,7 @@ const MainApp: React.FC = () => {
   const isSimpleMode = settings.uiMode === "simple";
   const isAdvancedMode = !isSimpleMode;
   const theme = settings.theme === "light" ? "light" : settings.theme === "classic" ? "classic" : "dark";
+  const chatTextScale = clampChatTextScale(Number(settings.chatTextScale ?? CHAT_TEXT_SCALE_DEFAULT));
   const chatDeckMode = false;
   const effectivePerformanceMode = settings.performanceMode === true || adaptivePerformanceMode;
   const mutedGroups = settings.mutedGroups ?? [];
@@ -2180,18 +2193,84 @@ const MainApp: React.FC = () => {
     return Math.max(0, delayedReplayMessages.length - visibleMessages.length);
   }, [delayedReplayMessages.length, newestLocked, visibleMessages.length]);
 
-  useEffect(() => {
-    if (newestLocked) return;
-    const timer = window.setTimeout(() => {
-      setNewestLocked(true);
-      setLockCutoffTimestamp(null);
-      const list = messageListRef.current;
-      if (list) {
-        list.scrollTop = list.scrollHeight;
-      }
+  const getActiveMessageListElement = useCallback((): HTMLElement | null => {
+    const list = messageListRef.current;
+    if (!list) return null;
+    const virtualizedList = list.querySelector<HTMLElement>(".message-list.virtualized");
+    return virtualizedList ?? list;
+  }, []);
+
+  const clearAutoResumeTimer = useCallback(() => {
+    const timer = autoResumeTimerRef.current;
+    if (timer === null) return;
+    window.clearTimeout(timer);
+    autoResumeTimerRef.current = null;
+  }, []);
+
+  const resumeAutoScrollToLatest = useCallback(() => {
+    clearAutoResumeTimer();
+    setNewestLocked(true);
+    setLockCutoffTimestamp(null);
+    const list = getActiveMessageListElement();
+    if (!list) return;
+    window.requestAnimationFrame(() => {
+      list.scrollTop = list.scrollHeight;
+      lastMessageListScrollTopRef.current = list.scrollTop;
+    });
+  }, [clearAutoResumeTimer, getActiveMessageListElement]);
+
+  const scheduleAutoResume = useCallback(() => {
+    clearAutoResumeTimer();
+    autoResumeTimerRef.current = window.setTimeout(() => {
+      resumeAutoScrollToLatest();
     }, AUTO_RESUME_NEWEST_AFTER_MS);
-    return () => window.clearTimeout(timer);
-  }, [activeTabId, newestLocked]);
+  }, [clearAutoResumeTimer, resumeAutoScrollToLatest]);
+
+  const notePausedFeedActivity = useCallback(() => {
+    if (newestLocked) return;
+    scheduleAutoResume();
+  }, [newestLocked, scheduleAutoResume]);
+
+  const pauseAutoScroll = useCallback(() => {
+    if (!newestLocked) return;
+    const cutoffMessage = delayedReplayMessages[delayedReplayMessages.length - 1];
+    setNewestLocked(false);
+    setLockCutoffTimestamp(cutoffMessage ? messageTimestamp(cutoffMessage) : Date.now());
+  }, [delayedReplayMessages, newestLocked]);
+
+  const handleMessageInteraction = useCallback(() => {
+    if (newestLocked) {
+      pauseAutoScroll();
+      return;
+    }
+    notePausedFeedActivity();
+  }, [newestLocked, notePausedFeedActivity, pauseAutoScroll]);
+
+  const handleMainMessageListScroll = useCallback(
+    (element: HTMLDivElement) => {
+      const currentScrollTop = element.scrollTop;
+      const previousScrollTop = lastMessageListScrollTopRef.current;
+      lastMessageListScrollTopRef.current = currentScrollTop;
+      if (!newestLocked) {
+        notePausedFeedActivity();
+        return;
+      }
+      const movedUp = currentScrollTop + 2 < previousScrollTop;
+      if (!movedUp) return;
+      if (isNearBottom(element)) return;
+      pauseAutoScroll();
+    },
+    [newestLocked, notePausedFeedActivity, pauseAutoScroll]
+  );
+
+  useEffect(() => {
+    if (newestLocked) {
+      clearAutoResumeTimer();
+      return;
+    }
+    scheduleAutoResume();
+    return clearAutoResumeTimer;
+  }, [clearAutoResumeTimer, newestLocked, scheduleAutoResume]);
 
   const renderedMessages = useMemo(() => {
     if (!newestLocked) return visibleMessages;
@@ -2331,14 +2410,15 @@ const MainApp: React.FC = () => {
   }, [identityMessages, identityTarget]);
 
   useEffect(() => {
-    const list = messageListRef.current;
+    const list = getActiveMessageListElement();
     if (!list) return;
     if (!newestLocked) return;
     const raf = window.requestAnimationFrame(() => {
       list.scrollTop = list.scrollHeight;
+      lastMessageListScrollTopRef.current = list.scrollTop;
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [activeMessages, newestLocked]);
+  }, [activeMessages, getActiveMessageListElement, newestLocked]);
 
   useEffect(() => {
     const now = Date.now();
@@ -4035,8 +4115,7 @@ const MainApp: React.FC = () => {
   };
 
   const jumpToNewest = () => {
-    setNewestLocked(true);
-    setLockCutoffTimestamp(null);
+    resumeAutoScrollToLatest();
     if (activeTabId && delayedReplayMessages.length > 0) {
       const latestTs = messageTimestamp(delayedReplayMessages[delayedReplayMessages.length - 1]);
       if (latestTs > 0) {
@@ -4046,11 +4125,6 @@ const MainApp: React.FC = () => {
         }));
       }
     }
-    const list = messageListRef.current;
-    if (!list) return;
-    window.requestAnimationFrame(() => {
-      list.scrollTop = list.scrollHeight;
-    });
   };
 
   const jumpToFirstUnread = () => {
@@ -4686,6 +4760,7 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     setNewestLocked(true);
     setLockCutoffTimestamp(null);
+    lastMessageListScrollTopRef.current = 0;
     if (!activeTabId) return;
     setLastReadAtByTab((previous) => {
       if (previous[activeTabId]) return previous;
@@ -4910,10 +4985,16 @@ const MainApp: React.FC = () => {
       closeButton?.focus();
     }, 0);
   };
+  const updateChatTextScale = (nextValue: number) => {
+    const nextScale = clampChatTextScale(nextValue);
+    if (nextScale === chatTextScale) return;
+    void persistSettings({ chatTextScale: nextScale });
+  };
 
   return (
     <div
       className={isSimpleMode ? "chat-shell simple" : "chat-shell"}
+      style={{ "--chat-text-scale": (chatTextScale / 100).toFixed(2) } as React.CSSProperties}
       onClick={() => {
         setTabMenu(null);
         setMessageMenu(null);
@@ -5028,6 +5109,19 @@ const MainApp: React.FC = () => {
                     <option value="light">Light</option>
                     <option value="classic">Classic</option>
                   </select>
+                </label>
+                <label className="menu-inline menu-inline--slider">
+                  <span>Chat text size</span>
+                  <input
+                    type="range"
+                    min={CHAT_TEXT_SCALE_MIN}
+                    max={CHAT_TEXT_SCALE_MAX}
+                    step={1}
+                    value={chatTextScale}
+                    onChange={(event) => updateChatTextScale(Number(event.target.value))}
+                    aria-label="Chat text size"
+                  />
+                  <span className="menu-muted">{chatTextScale}%</span>
                 </label>
                 <span className="menu-muted">
                   {isSimpleMode ? "Simple mode: core streamer tools only." : "Advanced mode: full controls and diagnostics."}
@@ -6092,23 +6186,21 @@ const MainApp: React.FC = () => {
               ref={messageListRef}
               className="message-list"
               onWheel={(event) => event.stopPropagation()}
-              onScroll={(event) => {
-                if (!newestLocked) return;
-                if (isNearBottom(event.currentTarget)) return;
-                setNewestLocked(false);
-                const cutoffMessage = visibleMessages[visibleMessages.length - 1];
-                setLockCutoffTimestamp(cutoffMessage ? messageTimestamp(cutoffMessage) : Date.now());
-              }}
+              onScroll={(event) => handleMainMessageListScroll(event.currentTarget)}
             >
               {renderedMessages.length > 1000 ? (
                 <VirtualizedMessageList
                   messages={renderedMessages}
+                  autoScrollEnabled={newestLocked}
+                  onPauseAutoScroll={pauseAutoScroll}
+                  onUserActivity={notePausedFeedActivity}
                   onUsernameClick={(username) =>
                     setIdentityTarget({
                       username,
                       displayName: username
                     })
                   }
+                  onMessageClick={() => handleMessageInteraction()}
                 />
               ) : (
                 renderedMessages.map((message, index) => {
@@ -6151,6 +6243,7 @@ const MainApp: React.FC = () => {
                             : "chat-line chat-line--legacy"
                       }
                       data-jump-key={buildMessageJumpKey(message)}
+                      onClick={() => handleMessageInteraction()}
                       onContextMenu={(event) => {
                         event.preventDefault();
                         setMessageMenu({ x: event.clientX, y: event.clientY, message });
@@ -6221,18 +6314,18 @@ const MainApp: React.FC = () => {
             </div>
             {!newestLocked ? (
               <button type="button" className="go-newest-button" onClick={jumpToNewest}>
-                {pendingNewestCount > 0 ? `Go to newest message (${pendingNewestCount})` : "Go to newest message"}
+                {pendingNewestCount > 0 ? `Go to latest message (${pendingNewestCount})` : "Go to latest message"}
               </button>
             ) : null}
             <form
-              className="composer"
+              className="composer composer--main"
               onSubmit={(event) => {
                 event.preventDefault();
                 void sendActiveMessage();
               }}
             >
               {writableActiveTabSources.length > 0 ? (
-                <select value={sendTargetId} onChange={(event) => setSendTargetId(event.target.value)}>
+                <select className="composer-main__target" value={sendTargetId} onChange={(event) => setSendTargetId(event.target.value)}>
                   {writableActiveTabSources.length > 1 ? (
                     <option value={SEND_TARGET_TAB_ALL}>[ALL] All writable chats in this tab ({writableActiveTabSources.length})</option>
                   ) : null}
@@ -6244,6 +6337,7 @@ const MainApp: React.FC = () => {
                 </select>
               ) : null}
               <input
+                className="composer-main__message"
                 value={composerText}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -6256,6 +6350,7 @@ const MainApp: React.FC = () => {
               />
               {isAdvancedMode && canModerateActiveTab ? (
                 <select
+                  className="composer-main__snippets"
                   value={snippetToInsert}
                   onChange={(event) => {
                     const value = event.target.value;
@@ -6273,7 +6368,7 @@ const MainApp: React.FC = () => {
                   ))}
                 </select>
               ) : null}
-              <button type="submit" disabled={sending || writableActiveTabSources.length === 0 || !composerText.trim()}>
+              <button className="composer-main__send" type="submit" disabled={sending || writableActiveTabSources.length === 0 || !composerText.trim()}>
                 {sending ? "Sending..." : "Send"}
               </button>
             </form>
@@ -6733,7 +6828,7 @@ const MainApp: React.FC = () => {
                 <h3>Messages</h3>
                 <ul>
                   <li>Search only filters the active tab.</li>
-                  <li>If you scroll up, auto-scroll pauses until you use Go to newest message.</li>
+                  <li>If you scroll up, auto-scroll pauses and resumes after 15s of inactivity, or instantly via Go to latest message.</li>
                   <li>Right-click a message to pin it in MultiChat for the current tab.</li>
                   <li>Use Quick Actions to start local polls per tab.</li>
                 </ul>
