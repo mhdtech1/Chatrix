@@ -198,6 +198,34 @@ type RoleBadge = {
   icon: string;
 };
 
+type TwitchBadgeDescriptor = {
+  key: string;
+  setId: string;
+  versionId: string;
+};
+
+type TwitchBadgeAsset = {
+  key: string;
+  setId: string;
+  versionId: string;
+  title: string;
+  imageUrl: string;
+};
+
+type TwitchBadgeCatalog = Record<string, Record<string, TwitchBadgeAsset>>;
+
+type DisplayBadge =
+  | {
+      key: string;
+      kind: "image";
+      asset: TwitchBadgeAsset;
+    }
+  | {
+      key: string;
+      kind: "role";
+      badge: RoleBadge;
+    };
+
 type UpdateStatusSnapshot = {
   state: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
   message: string;
@@ -657,6 +685,41 @@ const roleBadgesForMessage = (message: ChatMessage): RoleBadge[] => {
   }
 
   return resolved;
+};
+
+const resolveDisplayedBadgesForMessage = (
+  message: ChatMessage,
+  twitchGlobalBadgeCatalog: TwitchBadgeCatalog,
+  twitchChannelBadgeCatalogByRoomId: Record<string, TwitchBadgeCatalog>
+): DisplayBadge[] => {
+  const displayBadges: DisplayBadge[] = [];
+  const renderedKeys = new Set<string>();
+
+  if (message.platform === "twitch") {
+    const roomId = extractTwitchRoomId(message);
+    const roomCatalog = roomId ? twitchChannelBadgeCatalogByRoomId[roomId] : undefined;
+    for (const descriptor of getTwitchBadgeDescriptors(message)) {
+      const asset = roomCatalog?.[descriptor.setId]?.[descriptor.versionId] ?? twitchGlobalBadgeCatalog[descriptor.setId]?.[descriptor.versionId];
+      if (!asset || renderedKeys.has(asset.key)) continue;
+      renderedKeys.add(asset.key);
+      displayBadges.push({
+        key: asset.key,
+        kind: "image",
+        asset
+      });
+    }
+  }
+
+  for (const badge of roleBadgesForMessage(message)) {
+    if (renderedKeys.has(badge.key)) continue;
+    displayBadges.push({
+      key: badge.key,
+      kind: "role",
+      badge
+    });
+  }
+
+  return displayBadges;
 };
 
 const messageHasModerationBadge = (message: ChatMessage) =>
@@ -1274,6 +1337,105 @@ const extractTwitchRoomId = (message: ChatMessage): string | null => {
   return roomId.trim() || null;
 };
 
+const addTwitchBadgeDescriptor = (target: Map<string, TwitchBadgeDescriptor>, badge: string) => {
+  const [rawSetId, rawVersionId] = badge.split("/", 2);
+  const setId = (rawSetId ?? "").trim().toLowerCase();
+  const versionId = (rawVersionId ?? "").trim();
+  if (!setId || !versionId) return;
+  const key = `${setId}/${versionId}`;
+  if (target.has(key)) return;
+  target.set(key, { key, setId, versionId });
+};
+
+const getTwitchBadgeDescriptors = (message: ChatMessage): TwitchBadgeDescriptor[] => {
+  if (message.platform !== "twitch") return [];
+  const badges = new Map<string, TwitchBadgeDescriptor>();
+  if (Array.isArray(message.badges)) {
+    for (const badge of message.badges) {
+      if (typeof badge === "string") {
+        addTwitchBadgeDescriptor(badges, badge);
+      }
+    }
+  }
+  const raw = asRecord(message.raw);
+  if (typeof raw?.badges === "string") {
+    for (const badge of raw.badges.split(",")) {
+      addTwitchBadgeDescriptor(badges, badge);
+    }
+  }
+  return Array.from(badges.values());
+};
+
+const pickTwitchBadgeImageUrl = (record: Record<string, unknown>) => {
+  const preferredKeys = ["image_url_2x", "image_url_4x", "image_url_1x"];
+  for (const key of preferredKeys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
+const buildTwitchBadgeCatalog = (payload: unknown): TwitchBadgeCatalog => {
+  const catalog: TwitchBadgeCatalog = {};
+  const record = asRecord(payload);
+  if (!Array.isArray(record?.data)) return catalog;
+  for (const setEntry of record.data) {
+    const setRecord = asRecord(setEntry);
+    const setId = typeof setRecord?.set_id === "string" ? setRecord.set_id.trim().toLowerCase() : "";
+    if (!setId || !Array.isArray(setRecord.versions)) continue;
+    const versions: Record<string, TwitchBadgeAsset> = {};
+    for (const versionEntry of setRecord.versions) {
+      const versionRecord = asRecord(versionEntry);
+      const versionId = typeof versionRecord?.id === "string" ? versionRecord.id.trim() : "";
+      const imageUrl = versionRecord ? pickTwitchBadgeImageUrl(versionRecord) : "";
+      if (!versionId || !imageUrl) continue;
+      versions[versionId] = {
+        key: `${setId}/${versionId}`,
+        setId,
+        versionId,
+        title: typeof versionRecord?.title === "string" ? versionRecord.title.trim() || setId : setId,
+        imageUrl
+      };
+    }
+    if (Object.keys(versions).length > 0) {
+      catalog[setId] = versions;
+    }
+  }
+  return catalog;
+};
+
+const fetchTwitchBadgeCatalog = async (
+  url: string,
+  twitchClientId?: string,
+  twitchToken?: string
+): Promise<TwitchBadgeCatalog> => {
+  const clientId = (twitchClientId ?? "").trim();
+  const token = normalizeOauthToken(twitchToken);
+  if (!clientId || !token) return {};
+  const payload = await fetchJsonSafe(url, {
+    headers: {
+      "Client-ID": clientId,
+      Authorization: `Bearer ${token}`
+    }
+  });
+  return buildTwitchBadgeCatalog(payload);
+};
+
+const fetchTwitchGlobalBadgeCatalog = async (twitchClientId?: string, twitchToken?: string) =>
+  fetchTwitchBadgeCatalog("https://api.twitch.tv/helix/chat/badges/global", twitchClientId, twitchToken);
+
+const fetchTwitchChannelBadgeCatalog = async (broadcasterId: string, twitchClientId?: string, twitchToken?: string) => {
+  const normalizedId = broadcasterId.trim();
+  if (!normalizedId) return {};
+  return fetchTwitchBadgeCatalog(
+    `https://api.twitch.tv/helix/chat/badges?broadcaster_id=${encodeURIComponent(normalizedId)}`,
+    twitchClientId,
+    twitchToken
+  );
+};
+
 const fetchBttvGlobalEmotes = async (): Promise<EmoteMap> => {
   const payload = await fetchJsonSafe("https://api.betterttv.net/3/cached/emotes/global");
   const map: EmoteMap = {};
@@ -1681,6 +1843,8 @@ const MainApp: React.FC = () => {
   const [moderatorBySource, setModeratorBySource] = useState<Record<string, boolean>>({});
   const [globalEmoteMap, setGlobalEmoteMap] = useState<EmoteMap>({});
   const [channelEmoteMapBySourceId, setChannelEmoteMapBySourceId] = useState<Record<string, EmoteMap>>({});
+  const [twitchGlobalBadgeCatalog, setTwitchGlobalBadgeCatalog] = useState<TwitchBadgeCatalog>({});
+  const [twitchChannelBadgeCatalogByRoomId, setTwitchChannelBadgeCatalogByRoomId] = useState<Record<string, TwitchBadgeCatalog>>({});
   const [tabMenu, setTabMenu] = useState<TabMenuState | null>(null);
   const [messageMenu, setMessageMenu] = useState<MessageMenuState | null>(null);
   const [userLogTarget, setUserLogTarget] = useState<UserLogTarget | null>(null);
@@ -1726,6 +1890,9 @@ const MainApp: React.FC = () => {
   const lastMessageByUser = useRef<Map<string, number>>(new Map());
   const emoteFetchInFlight = useRef<Set<string>>(new Set());
   const channelEmoteMapBySourceIdRef = useRef<Record<string, EmoteMap>>({});
+  const twitchBadgeFetchInFlightRef = useRef<Set<string>>(new Set());
+  const twitchBadgeFetchLoadedRef = useRef<Set<string>>(new Set());
+  const twitchChannelBadgeCatalogByRoomIdRef = useRef<Record<string, TwitchBadgeCatalog>>({});
   const mentionAudioContextRef = useRef<AudioContext | null>(null);
   const lastMentionAlertAtRef = useRef(0);
   const spamFilterRef = useRef<Map<string, number>>(new Map());
@@ -2015,6 +2182,10 @@ const MainApp: React.FC = () => {
   }, [channelEmoteMapBySourceId]);
 
   useEffect(() => {
+    twitchChannelBadgeCatalogByRoomIdRef.current = twitchChannelBadgeCatalogByRoomId;
+  }, [twitchChannelBadgeCatalogByRoomId]);
+
+  useEffect(() => {
     tabsRef.current = tabs;
     const next: Record<string, string[]> = {};
     for (const tab of tabs) {
@@ -2248,6 +2419,58 @@ const MainApp: React.FC = () => {
       cancelled = true;
     };
   }, [channelEmoteMapBySourceId, effectivePerformanceMode, settings.twitchClientId, settings.twitchToken, sources]);
+
+  const ensureTwitchGlobalBadgeCatalogLoaded = useCallback(() => {
+    const clientId = settings.twitchClientId?.trim() ?? "";
+    const token = normalizeOauthToken(settings.twitchToken);
+    const cacheKey = "global";
+    if (!clientId || !token) return;
+    if (twitchBadgeFetchLoadedRef.current.has(cacheKey) || twitchBadgeFetchInFlightRef.current.has(cacheKey)) return;
+    twitchBadgeFetchInFlightRef.current.add(cacheKey);
+    void fetchTwitchGlobalBadgeCatalog(clientId, token)
+      .then((catalog) => {
+        twitchBadgeFetchLoadedRef.current.add(cacheKey);
+        setTwitchGlobalBadgeCatalog(catalog);
+      })
+      .finally(() => {
+        twitchBadgeFetchInFlightRef.current.delete(cacheKey);
+      });
+  }, [settings.twitchClientId, settings.twitchToken]);
+
+  const ensureTwitchChannelBadgeCatalogLoaded = useCallback(
+    (roomId: string) => {
+      const normalizedRoomId = roomId.trim();
+      const clientId = settings.twitchClientId?.trim() ?? "";
+      const token = normalizeOauthToken(settings.twitchToken);
+      if (!normalizedRoomId || !clientId || !token) return;
+      const cacheKey = `room:${normalizedRoomId}`;
+      if (
+        twitchBadgeFetchLoadedRef.current.has(cacheKey) ||
+        twitchBadgeFetchInFlightRef.current.has(cacheKey) ||
+        Object.prototype.hasOwnProperty.call(twitchChannelBadgeCatalogByRoomIdRef.current, normalizedRoomId)
+      ) {
+        return;
+      }
+      twitchBadgeFetchInFlightRef.current.add(cacheKey);
+      void fetchTwitchChannelBadgeCatalog(normalizedRoomId, clientId, token)
+        .then((catalog) => {
+          twitchBadgeFetchLoadedRef.current.add(cacheKey);
+          setTwitchChannelBadgeCatalogByRoomId((previous) => ({
+            ...previous,
+            [normalizedRoomId]: catalog
+          }));
+        })
+        .finally(() => {
+          twitchBadgeFetchInFlightRef.current.delete(cacheKey);
+        });
+    },
+    [settings.twitchClientId, settings.twitchToken]
+  );
+
+  useEffect(() => {
+    if (!sources.some((source) => source.platform === "twitch")) return;
+    ensureTwitchGlobalBadgeCatalogLoaded();
+  }, [ensureTwitchGlobalBadgeCatalogLoaded, sources]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -3168,6 +3391,7 @@ const MainApp: React.FC = () => {
         const sourceRoomIdRaw = typeof raw["source-room-id"] === "string" ? raw["source-room-id"].trim() : "";
         if (roomIdRaw) {
           twitchRoomIdToChannelRef.current.set(roomIdRaw, message.channel);
+          ensureTwitchChannelBadgeCatalogLoaded(roomIdRaw);
         }
         if (roomIdRaw && sourceRoomIdRaw && sourceRoomIdRaw !== roomIdRaw) {
           const currentChannel = twitchRoomIdToChannelRef.current.get(roomIdRaw) ?? message.channel;
@@ -6532,6 +6756,8 @@ const MainApp: React.FC = () => {
                   autoScrollEnabled={newestLocked}
                   onPauseAutoScroll={pauseAutoScroll}
                   onUserActivity={notePausedFeedActivity}
+                  twitchGlobalBadgeCatalog={twitchGlobalBadgeCatalog}
+                  twitchChannelBadgeCatalogByRoomId={twitchChannelBadgeCatalogByRoomId}
                   onUsernameClick={(username) =>
                     setIdentityTarget({
                       username,
@@ -6561,8 +6787,12 @@ const MainApp: React.FC = () => {
 			                    : `#${message.channel}`;
 		                const channelTitle =
 		                  combinedChannels.length > 1 ? combinedChannels.map((channel) => `#${channel}`).join(", ") : `#${message.channel}`;
-		                const roleBadges = roleBadgesForMessage(message);
-		                const displayName = message.displayName || message.username;
+			                const displayBadges = resolveDisplayedBadgesForMessage(
+			                  message,
+			                  twitchGlobalBadgeCatalog,
+			                  twitchChannelBadgeCatalogByRoomId
+			                );
+			                const displayName = message.displayName || message.username;
 		                return (
 			                  <React.Fragment key={message.id}>
 	                    {showUnreadMarker ? (
@@ -6599,19 +6829,36 @@ const MainApp: React.FC = () => {
                           <span>{new Date(message.timestamp).toLocaleTimeString()}</span>
                         </div>
                         <div className="line-author">
-                          {roleBadges.length > 0 ? (
-                            <span className="role-badges">
-                              {roleBadges.map((badge) => {
-                                const uiRole = toUiRoleType(badge.key);
-                                if (uiRole) {
-                                  return <UiRoleBadge key={`${message.id}-${badge.key}`} role={uiRole} size="sm" />;
-                                }
-                                return (
-                                  <span key={`${message.id}-${badge.key}`} className={`role-badge role-${badge.key}`} title={badge.label}>
-                                    {badge.icon}
-                                  </span>
-                                );
-                              })}
+	                          {displayBadges.length > 0 ? (
+	                            <span className="role-badges">
+	                              {displayBadges.map((badge) => {
+	                                if (badge.kind === "image") {
+	                                  return (
+	                                    <img
+	                                      key={`${message.id}-${badge.key}`}
+	                                      className="message-badge-image"
+	                                      src={badge.asset.imageUrl}
+	                                      alt=""
+	                                      title={badge.asset.title}
+	                                      loading="lazy"
+	                                      decoding="async"
+	                                    />
+	                                  );
+	                                }
+	                                const uiRole = toUiRoleType(badge.badge.key);
+	                                if (uiRole) {
+	                                  return <UiRoleBadge key={`${message.id}-${badge.key}`} role={uiRole} size="sm" />;
+	                                }
+	                                return (
+	                                  <span
+	                                    key={`${message.id}-${badge.key}`}
+	                                    className={`role-badge role-${badge.badge.key}`}
+	                                    title={badge.badge.label}
+	                                  >
+	                                    {badge.badge.icon}
+	                                  </span>
+	                                );
+	                              })}
                             </span>
                           ) : null}
                           <button

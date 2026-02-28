@@ -2584,7 +2584,18 @@ h3 {
 
 .chat-line__badges {
   display: inline-flex;
+  align-items: center;
   gap: 4px;
+}
+
+.chat-line__badge-image,
+.message-badge-image {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
+  object-fit: contain;
+  border-radius: 4px;
 }
 
 .chat-line__time {

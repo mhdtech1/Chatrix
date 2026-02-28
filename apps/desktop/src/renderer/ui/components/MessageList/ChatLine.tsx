@@ -2,12 +2,21 @@ import type { ChatMessage } from "@multichat/chat-core";
 import { PlatformIcon } from "../common/PlatformIcon";
 import { RoleBadge, type RoleType } from "../common/RoleBadge";
 
+type TwitchBadgeAsset = {
+  title: string;
+  imageUrl: string;
+};
+
+type TwitchBadgeCatalog = Record<string, Record<string, TwitchBadgeAsset>>;
+
 type ChatLineProps = {
   message: ChatMessage;
   showTimestamp?: boolean;
   showBadges?: boolean;
   showPlatformIcon?: boolean;
   isHighlighted?: boolean;
+  twitchGlobalBadgeCatalog?: TwitchBadgeCatalog;
+  twitchChannelBadgeCatalogByRoomId?: Record<string, TwitchBadgeCatalog>;
   onUsernameClick?: (username: string, platform: string) => void;
   onMessageClick?: (message: ChatMessage) => void;
 };
@@ -31,15 +40,64 @@ const roleFromBadge = (badge: string): RoleType | null => {
   return null;
 };
 
+const asRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== "object") return null;
+  return value as Record<string, unknown>;
+};
+
+const addTwitchBadgeEntry = (target: Map<string, { setId: string; versionId: string; key: string }>, badge: string) => {
+  const [rawSetId, rawVersionId] = badge.split("/", 2);
+  const setId = (rawSetId ?? "").trim().toLowerCase();
+  const versionId = (rawVersionId ?? "").trim();
+  if (!setId || !versionId) return;
+  const key = `${setId}/${versionId}`;
+  if (target.has(key)) return;
+  target.set(key, { setId, versionId, key });
+};
+
+const extractTwitchRoomId = (message: ChatMessage): string | null => {
+  if (message.platform !== "twitch") return null;
+  const raw = asRecord(message.raw);
+  const roomId = typeof raw?.["room-id"] === "string" ? raw["room-id"] : "";
+  return roomId.trim() || null;
+};
+
+const getTwitchBadgeEntries = (message: ChatMessage) => {
+  const badges = new Map<string, { setId: string; versionId: string; key: string }>();
+  if (Array.isArray(message.badges)) {
+    for (const badge of message.badges) {
+      if (typeof badge === "string") {
+        addTwitchBadgeEntry(badges, badge);
+      }
+    }
+  }
+  const raw = asRecord(message.raw);
+  if (typeof raw?.badges === "string") {
+    for (const badge of raw.badges.split(",")) {
+      addTwitchBadgeEntry(badges, badge);
+    }
+  }
+  return Array.from(badges.values());
+};
+
 export function ChatLine({
   message,
   showTimestamp = true,
   showBadges = true,
   showPlatformIcon = true,
   isHighlighted = false,
+  twitchGlobalBadgeCatalog = {},
+  twitchChannelBadgeCatalogByRoomId = {},
   onUsernameClick,
   onMessageClick
 }: ChatLineProps) {
+  const twitchBadgeEntries = message.platform === "twitch" ? getTwitchBadgeEntries(message) : [];
+  const twitchRoomId = message.platform === "twitch" ? extractTwitchRoomId(message) : null;
+  const twitchRoomCatalog = twitchRoomId ? twitchChannelBadgeCatalogByRoomId[twitchRoomId] : undefined;
+  const renderedTwitchSetIds = new Set<string>();
+  const fallbackBadgeValues = (message.badges?.length ? message.badges : twitchBadgeEntries.map((badge) => badge.key)) ?? [];
+  const hasAnyBadges = (message.badges?.length ?? 0) > 0 || twitchBadgeEntries.length > 0;
+
   return (
     <div className={`chat-line ${isHighlighted ? "chat-line--highlighted" : ""}`} role="listitem" onClick={() => onMessageClick?.(message)}>
       {showPlatformIcon ? (
@@ -60,9 +118,28 @@ export function ChatLine({
           >
             {message.displayName || message.username}
           </button>
-          {showBadges && message.badges?.length ? (
+          {showBadges && hasAnyBadges ? (
             <span className="chat-line__badges">
-              {message.badges.map((badge) => {
+              {twitchBadgeEntries.map((badge) => {
+                const asset =
+                  twitchRoomCatalog?.[badge.setId]?.[badge.versionId] ?? twitchGlobalBadgeCatalog?.[badge.setId]?.[badge.versionId];
+                if (!asset) return null;
+                renderedTwitchSetIds.add(badge.setId);
+                return (
+                  <img
+                    key={`${message.id}-${badge.key}`}
+                    className="chat-line__badge-image"
+                    src={asset.imageUrl}
+                    alt=""
+                    title={asset.title}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                );
+              })}
+              {fallbackBadgeValues.map((badge) => {
+                const setId = badge.trim().toLowerCase().split(/[/:]/)[0] ?? "";
+                if (renderedTwitchSetIds.has(setId)) return null;
                 const role = roleFromBadge(badge);
                 return role ? <RoleBadge key={`${message.id}-${badge}`} role={role} size="sm" /> : null;
               })}

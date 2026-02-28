@@ -10,6 +10,8 @@ type VirtualizedMessageListProps = {
   autoScrollEnabled?: boolean;
   onPauseAutoScroll?: () => void;
   onUserActivity?: () => void;
+  twitchGlobalBadgeCatalog?: Record<string, Record<string, { title: string; imageUrl: string }>>;
+  twitchChannelBadgeCatalogByRoomId?: Record<string, Record<string, Record<string, { title: string; imageUrl: string }>>>;
   onUsernameClick?: (username: string, platform: string) => void;
   onMessageClick?: (message: ChatMessage) => void;
   onAddChannel?: () => void;
@@ -24,6 +26,8 @@ export function VirtualizedMessageList({
   autoScrollEnabled = true,
   onPauseAutoScroll,
   onUserActivity,
+  twitchGlobalBadgeCatalog,
+  twitchChannelBadgeCatalogByRoomId,
   onUsernameClick,
   onMessageClick,
   onAddChannel,
@@ -136,6 +140,8 @@ export function VirtualizedMessageList({
                     message={message}
                     showTimestamp={showTimestamps}
                     showBadges={showBadges}
+                    twitchGlobalBadgeCatalog={twitchGlobalBadgeCatalog}
+                    twitchChannelBadgeCatalogByRoomId={twitchChannelBadgeCatalogByRoomId}
                     onUsernameClick={onUsernameClick}
                     onMessageClick={(chatMessage) => {
                       if (autoScrollEnabled) {
