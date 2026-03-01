@@ -1430,6 +1430,16 @@ select {
   margin: 0 1px;
 }
 
+.chat-message-link {
+  color: #8fd7ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-message-link:hover {
+  color: #bfe9ff;
+}
+
 .empty-state {
   margin: auto;
   text-align: center;

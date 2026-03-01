@@ -1064,6 +1064,7 @@ const TWITCH_EMOTE_URL = (id: string) => `https://static-cdn.jtvnw.net/emoticons
 const BTTV_EMOTE_URL = (id: string) => `https://cdn.betterttv.net/emote/${id}/1x`;
 const SEVENTV_EMOTE_URL = (id: string) => `https://cdn.7tv.app/emote/${id}/1x.webp`;
 const KICK_EMOTE_URL = (id: string) => `https://files.kick.com/emotes/${id}/fullsize`;
+const MESSAGE_LINK_REGEX = /(?:https?:\/\/|www\.)[^\s<]+/gi;
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 36;
 const AUTO_RESUME_NEWEST_AFTER_MS = 15_000;
 const TIKTOK_OFFLINE_RETRY_MS = 2 * 60 * 1000;
@@ -1274,6 +1275,69 @@ const transliterateArabicToEgyptianFranco = (input: string) => {
   }
   return output;
 };
+
+const splitTrailingLinkText = (value: string) => {
+  const match = value.match(/^(.*?)([)\]}.,!?;:'"`]+)$/);
+  if (!match || !match[1]) {
+    return {
+      linkText: value,
+      trailingText: ""
+    };
+  }
+  return {
+    linkText: match[1],
+    trailingText: match[2]
+  };
+};
+
+const normalizeMessageLinkHref = (value: string) =>
+  value.trim().toLowerCase().startsWith("www.") ? `https://${value.trim()}` : value.trim();
+
+const renderTextWithLinks = (text: string, keyPrefix: string): React.ReactNode[] => {
+  if (!text) return [];
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let matchIndex = 0;
+
+  for (const match of text.matchAll(MESSAGE_LINK_REGEX)) {
+    const rawMatch = match[0] ?? "";
+    const start = match.index ?? -1;
+    if (!rawMatch || start < 0) continue;
+
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start));
+    }
+
+    const { linkText, trailingText } = splitTrailingLinkText(rawMatch);
+    if (linkText) {
+      parts.push(
+        <a
+          key={`${keyPrefix}-link-${matchIndex}`}
+          className="chat-message-link"
+          href={normalizeMessageLinkHref(linkText)}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {linkText}
+        </a>
+      );
+      matchIndex += 1;
+    }
+    if (trailingText) {
+      parts.push(trailingText);
+    }
+    lastIndex = start + rawMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+};
+
 const LOCKED_RENDERED_MESSAGE_LIMIT = 420;
 const CONTEXT_MENU_EDGE_GAP_PX = 12;
 const CONTEXT_MENU_DEFAULT_WIDTH_PX = 250;
@@ -1783,7 +1847,7 @@ const OverlayView: React.FC = () => {
     };
     broadcast.addEventListener("message", handler);
     return () => broadcast.removeEventListener("message", handler);
-  }, [settings.backgroundMonitorOnClose]);
+  }, []);
 
   const visible = messages.filter((message) => !channelFilter || message.channel === channelFilter);
   const channels = Array.from(new Set(messages.map((message) => message.channel)));
@@ -3027,7 +3091,7 @@ const MainApp: React.FC = () => {
 
   const composerPlaceholder =
     writableActiveTabSources.length === 0
-      ? "Read-only for YouTube/TikTok in this build"
+      ? "Read-Only Mode"
       : sendTargetId === SEND_TARGET_TAB_ALL && writableActiveTabSources.length > 1
         ? `Type a message to all ${writableActiveTabSources.length} chats in this tab`
         : "Type a message";
@@ -6858,7 +6922,9 @@ const MainApp: React.FC = () => {
                         <div className={isDeletedMessage ? "line-message deleted" : "line-message"}>
                           {messageChunks.map((chunk, index) =>
                             chunk.type === "text" ? (
-                              <React.Fragment key={`${message.id}-text-${index}`}>{chunk.value}</React.Fragment>
+                              <React.Fragment key={`${message.id}-text-${index}`}>
+                                {renderTextWithLinks(chunk.value, `${message.id}-text-${index}`)}
+                              </React.Fragment>
                             ) : (
                               <img
                                 key={`${message.id}-emote-${index}-${chunk.name}`}

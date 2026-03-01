@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { ChatMessage } from "@multichat/chat-core";
 import { PlatformIcon } from "../common/PlatformIcon";
 import { RoleBadge, type RoleType } from "../common/RoleBadge";
@@ -8,6 +9,8 @@ type TwitchBadgeAsset = {
 };
 
 type TwitchBadgeCatalog = Record<string, Record<string, TwitchBadgeAsset>>;
+
+const MESSAGE_LINK_REGEX = /(?:https?:\/\/|www\.)[^\s<]+/gi;
 
 type ChatLineProps = {
   message: ChatMessage;
@@ -80,6 +83,68 @@ const getTwitchBadgeEntries = (message: ChatMessage) => {
   return Array.from(badges.values());
 };
 
+const splitTrailingLinkText = (value: string) => {
+  const match = value.match(/^(.*?)([)\]}.,!?;:'"`]+)$/);
+  if (!match || !match[1]) {
+    return {
+      linkText: value,
+      trailingText: ""
+    };
+  }
+  return {
+    linkText: match[1],
+    trailingText: match[2]
+  };
+};
+
+const normalizeMessageLinkHref = (value: string) =>
+  value.trim().toLowerCase().startsWith("www.") ? `https://${value.trim()}` : value.trim();
+
+const renderTextWithLinks = (text: string, keyPrefix: string): ReactNode[] => {
+  if (!text) return [];
+
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+  let matchIndex = 0;
+
+  for (const match of text.matchAll(MESSAGE_LINK_REGEX)) {
+    const rawMatch = match[0] ?? "";
+    const start = match.index ?? -1;
+    if (!rawMatch || start < 0) continue;
+
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start));
+    }
+
+    const { linkText, trailingText } = splitTrailingLinkText(rawMatch);
+    if (linkText) {
+      parts.push(
+        <a
+          key={`${keyPrefix}-link-${matchIndex}`}
+          className="chat-message-link"
+          href={normalizeMessageLinkHref(linkText)}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {linkText}
+        </a>
+      );
+      matchIndex += 1;
+    }
+    if (trailingText) {
+      parts.push(trailingText);
+    }
+    lastIndex = start + rawMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+};
+
 export function ChatLine({
   message,
   showTimestamp = true,
@@ -147,7 +212,7 @@ export function ChatLine({
           ) : null}
           {showTimestamp ? <span className="chat-line__time">{formatTime(message.timestamp)}</span> : null}
         </div>
-        <div className="chat-line__message">{message.message}</div>
+        <div className="chat-line__message">{renderTextWithLinks(message.message, `${message.id}-body`)}</div>
       </div>
     </div>
   );
