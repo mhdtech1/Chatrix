@@ -466,15 +466,6 @@ const normalizeChannel = (input: string, platform: Platform = "twitch") => {
   return trimmed.toLowerCase();
 };
 
-const hasAuthForPlatform = (platform: Platform, settings: Settings) =>
-  platform === "twitch"
-    ? Boolean(settings.twitchToken || settings.twitchGuest)
-    : platform === "kick"
-      ? Boolean(settings.kickAccessToken)
-      : platform === "youtube"
-        ? true
-        : true;
-
 const buildAdapterConnectionKey = (source: ChatSource, settings: Settings) => {
   if (source.platform === "twitch") {
     return [
@@ -2189,15 +2180,7 @@ const MainApp: React.FC = () => {
           }));
         }
 
-        const reconnectableSources = restoredSources.filter((source) => {
-          if (source.platform === "twitch") {
-            return Boolean(nextSettings.twitchToken || nextSettings.twitchGuest);
-          }
-          if (source.platform === "kick") {
-            return Boolean(nextSettings.kickAccessToken);
-          }
-          return true;
-        });
+        const reconnectableSources = restoredSources;
 
         if (reconnectableSources.length > 0) {
           void connectRestoredSources(reconnectableSources, nextSettings);
@@ -2663,8 +2646,8 @@ const MainApp: React.FC = () => {
     raidSignal && raidSignal.tabId === activeTabId && Date.now() - raidSignal.detectedAt < 10 * 60_000
       ? raidSignal
       : null;
-  const readOnlyPlatforms = useMemo(() => {
-    const next: Platform[] = [];
+  const availablePlatforms = useMemo(() => {
+    const next: Platform[] = ["twitch", "kick"];
     if (youtubeAlphaEnabled) {
       next.push("youtube");
     }
@@ -2673,25 +2656,6 @@ const MainApp: React.FC = () => {
     }
     return next;
   }, [tiktokAlphaEnabled, youtubeAlphaEnabled]);
-  const availablePlatforms = useMemo(() => {
-    if (!hasPrimaryAuth && readOnlyGuideMode) {
-      return readOnlyPlatforms;
-    }
-    const next: Platform[] = [];
-    if (hasTwitchAuth) {
-      next.push("twitch");
-    }
-    if (hasKickAuth) {
-      next.push("kick");
-    }
-    if (youtubeAlphaEnabled) {
-      next.push("youtube");
-    }
-    if (tiktokAlphaEnabled) {
-      next.push("tiktok");
-    }
-    return next;
-  }, [hasKickAuth, hasPrimaryAuth, hasTwitchAuth, readOnlyGuideMode, readOnlyPlatforms, tiktokAlphaEnabled, youtubeAlphaEnabled]);
   const layoutPresetOptions = [
     { id: "stream", label: "Stream" },
     { id: "mod", label: "Mod" },
@@ -3230,10 +3194,6 @@ const MainApp: React.FC = () => {
     if (!sourceByIdRef.current.has(source.id)) return;
     if (suppressedAutoHealSourceIdsRef.current.has(source.id)) return;
 
-    const currentSettings = settingsRef.current;
-    if (source.platform === "twitch" && !hasAuthForPlatform("twitch", currentSettings)) return;
-    if (source.platform === "kick" && !hasAuthForPlatform("kick", currentSettings)) return;
-
     const previous = autoHealStateBySourceRef.current[source.id] ?? { attempt: 0, timer: null as number | null };
     if (previous.timer !== null) return;
     const attempt = Math.min(previous.attempt + 1, 8);
@@ -3256,8 +3216,6 @@ const MainApp: React.FC = () => {
       if (suppressedAutoHealSourceIdsRef.current.has(source.id)) return;
 
       const latestSettings = settingsRef.current;
-      if (source.platform === "twitch" && !hasAuthForPlatform("twitch", latestSettings)) return;
-      if (source.platform === "kick" && !hasAuthForPlatform("kick", latestSettings)) return;
 
       const existingAdapter = adaptersRef.current.get(source.id);
       if (existingAdapter) {
@@ -3812,15 +3770,6 @@ const MainApp: React.FC = () => {
     const channel = normalizeChannel(selectedChannelInput, selectedPlatform);
     if (!channel) return;
 
-    if (selectedPlatform === "twitch" && !hasAuthForPlatform("twitch", settings)) {
-      setAuthMessage(`Sign in to twitch before opening twitch/${channel}.`);
-      return;
-    }
-    if (selectedPlatform === "kick" && !hasAuthForPlatform("kick", settings)) {
-      setAuthMessage(`Sign in to kick before opening kick/${channel}.`);
-      return;
-    }
-
     let key = `${selectedPlatform}:${channel}`;
     let liveChatId: string | undefined;
     let youtubeChannelId: string | undefined;
@@ -3889,7 +3838,13 @@ const MainApp: React.FC = () => {
     setTabs((prev) => [...prev, tab]);
     setActiveTabId(tab.id);
     setChannelInput("");
-    setAuthMessage("");
+    const openingReadOnlyTwitch = selectedPlatform === "twitch" && !settings.twitchToken;
+    const openingReadOnlyKick = selectedPlatform === "kick" && !settings.kickAccessToken;
+    setAuthMessage(
+      openingReadOnlyTwitch || openingReadOnlyKick
+        ? `Opened ${selectedPlatform}/${channel} in read-only mode. Sign in to send messages.`
+        : ""
+    );
 
     const shouldConnectNow = !adaptersRef.current.has(source.id);
     if (!existingSource) {
@@ -4074,8 +4029,6 @@ const MainApp: React.FC = () => {
     setTabs(restoredTabs);
     setActiveTabId(restoredTabs.some((tab) => tab.id === layout.activeTabId) ? layout.activeTabId ?? restoredTabs[0].id : restoredTabs[0].id);
     for (const source of restoredSources) {
-      if (source.platform === "twitch" && !hasAuthForPlatform("twitch", settings)) continue;
-      if (source.platform === "kick" && !hasAuthForPlatform("kick", settings)) continue;
       void ensureAdapterConnected(source, settings);
     }
     setAuthMessage(`Loaded layout preset: ${presetId}.`);
@@ -4164,8 +4117,6 @@ const MainApp: React.FC = () => {
       });
     }
     for (const source of restoredSources) {
-      if (source.platform === "twitch" && !hasAuthForPlatform("twitch", settings)) continue;
-      if (source.platform === "kick" && !hasAuthForPlatform("kick", settings)) continue;
       void ensureAdapterConnected(source, settings);
     }
     setAuthMessage("Imported session snapshot.");
@@ -4841,59 +4792,9 @@ const MainApp: React.FC = () => {
   };
 
   const enterReadOnlyGuide = async () => {
-    if (readOnlyPlatforms.length === 0) {
-      setAuthMessage("YouTube/TikTok read-only is not available in this build.");
-      return;
-    }
-
-    const restrictedSources = sources.filter((source) => source.platform === "twitch" || source.platform === "kick");
-    const restrictedSourceIds = new Set(restrictedSources.map((source) => source.id));
-
-    if (restrictedSourceIds.size > 0) {
-      const nextSources = sources.filter((source) => !restrictedSourceIds.has(source.id));
-      const nextTabs = tabs
-        .map((tab) => ({
-          ...tab,
-          sourceIds: tab.sourceIds.filter((sourceId) => !restrictedSourceIds.has(sourceId))
-        }))
-        .filter((tab) => tab.sourceIds.length > 0);
-      const nextActiveTabId = nextTabs.some((tab) => tab.id === activeTabId) ? activeTabId : (nextTabs[0]?.id ?? "");
-
-      setSources(nextSources);
-      setTabs(nextTabs);
-      setActiveTabId(nextActiveTabId);
-      setMessagesBySource((previous) => {
-        const next = { ...previous };
-        for (const sourceId of restrictedSourceIds) {
-          delete next[sourceId];
-        }
-        return next;
-      });
-      setStatusBySource((previous) => {
-        const next = { ...previous };
-        for (const sourceId of restrictedSourceIds) {
-          delete next[sourceId];
-        }
-        return next;
-      });
-
-      for (const source of restrictedSources) {
-        const adapter = adaptersRef.current.get(source.id);
-        if (!adapter) continue;
-        try {
-          await adapter.disconnect();
-        } catch {
-          // no-op
-        } finally {
-          adaptersRef.current.delete(source.id);
-          delete adapterConnectionKeysRef.current[source.id];
-        }
-      }
-    }
-
     setReadOnlyGuideMode(true);
-    setPlatformInput(readOnlyPlatforms[0] ?? "youtube");
-    setAuthMessage("Read-only guide enabled: YouTube/TikTok chats only.");
+    setPlatformInput("twitch");
+    setAuthMessage("Read-only mode enabled. You can open Twitch, Kick, YouTube, and TikTok without signing in.");
   };
 
   useEffect(() => {
@@ -4947,8 +4848,6 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     if (!sessionHydrated || sources.length === 0) return;
     for (const source of sources) {
-      if (source.platform === "twitch" && !hasAuthForPlatform("twitch", settings)) continue;
-      if (source.platform === "kick" && !hasAuthForPlatform("kick", settings)) continue;
       void ensureAdapterConnected(source, settings);
     }
   }, [sessionHydrated, sources, settings]);
@@ -5514,13 +5413,11 @@ const MainApp: React.FC = () => {
                 {authBusy === "kick" ? "Signing in Kick..." : "Sign in Kick"}
               </button>
             </div>
-            {readOnlyPlatforms.length > 0 ? (
-              <div className="login-buttons">
-                <button type="button" onClick={() => void enterReadOnlyGuide()} disabled={authBusy !== null}>
-                  Continue with YouTube/TikTok guide
-                </button>
-              </div>
-            ) : null}
+            <div className="login-buttons">
+              <button type="button" onClick={() => void enterReadOnlyGuide()} disabled={authBusy !== null}>
+                Continue in Read-Only Mode
+              </button>
+            </div>
             {authMessage ? <p className="login-message">{authMessage}</p> : null}
           </div>
         </div>
