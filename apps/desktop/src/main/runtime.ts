@@ -314,6 +314,55 @@ const parseKickUserName = (response: unknown): string | undefined => {
   return undefined;
 };
 
+const hydrateAccountIdentityFromStoredTokens = async (settingsStore: JsonSettingsStore) => {
+  const updates: Partial<AppSettings> = {};
+
+  const twitchToken = settingsStore.get("twitchToken")?.trim() ?? "";
+  const twitchUsername = settingsStore.get("twitchUsername")?.trim() ?? "";
+  if (twitchToken && !twitchUsername) {
+    try {
+      const response = await fetch("https://id.twitch.tv/oauth2/validate", {
+        headers: {
+          Authorization: `OAuth ${twitchToken}`
+        }
+      });
+      const payload = await fetchJsonOrThrow<{ login?: string }>(response, "Twitch token validation");
+      const login = payload.login?.trim() ?? "";
+      if (login) {
+        updates.twitchUsername = login;
+        updates.twitchGuest = false;
+      }
+    } catch (error) {
+      console.warn("[auth] unable to restore Twitch username from stored token", error);
+    }
+  }
+
+  const kickAccessToken = settingsStore.get("kickAccessToken")?.trim() ?? "";
+  const kickUsername = settingsStore.get("kickUsername")?.trim() ?? "";
+  if (kickAccessToken && !kickUsername) {
+    try {
+      const response = await fetch("https://api.kick.com/public/v1/users", {
+        headers: {
+          Authorization: `Bearer ${kickAccessToken}`,
+          Accept: "application/json"
+        }
+      });
+      const payload = await fetchJsonOrThrow<unknown>(response, "Kick user profile");
+      const restoredKickUsername = parseKickUserName(payload)?.trim() ?? "";
+      if (restoredKickUsername) {
+        updates.kickUsername = restoredKickUsername;
+        updates.kickGuest = false;
+      }
+    } catch (error) {
+      console.warn("[auth] unable to restore Kick username from stored token", error);
+    }
+  }
+
+  if (Object.keys(updates).length > 0) {
+    settingsStore.set(updates);
+  }
+};
+
 const formatUpdaterErrorMessage = (errorText: string) => {
   const lower = errorText.toLowerCase();
   if (
@@ -2845,6 +2894,7 @@ app.whenReady().then(async () => {
   try {
     await migrateLegacySettingsTokens(store);
     await hydrateTokenStateFromSecureStorage(store);
+    await hydrateAccountIdentityFromStoredTokens(store);
   } catch (error) {
     console.warn("[auth] unable to migrate/hydrate secure tokens", error);
   }

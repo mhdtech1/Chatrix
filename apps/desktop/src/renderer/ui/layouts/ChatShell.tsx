@@ -475,6 +475,44 @@ const hasAuthForPlatform = (platform: Platform, settings: Settings) =>
         ? true
         : true;
 
+const buildAdapterConnectionKey = (source: ChatSource, settings: Settings) => {
+  if (source.platform === "twitch") {
+    return [
+      source.platform,
+      source.channel,
+      settings.twitchToken?.trim() ?? "",
+      settings.twitchUsername?.trim() ?? "",
+      settings.twitchGuest === true ? "1" : "0"
+    ].join("|");
+  }
+  if (source.platform === "kick") {
+    return [
+      source.platform,
+      source.channel,
+      settings.kickAccessToken?.trim() ?? "",
+      settings.kickRefreshToken?.trim() ?? "",
+      settings.kickUsername?.trim() ?? "",
+      settings.kickGuest === true ? "1" : "0"
+    ].join("|");
+  }
+  if (source.platform === "youtube") {
+    return [
+      source.platform,
+      source.channel,
+      source.liveChatId ?? "",
+      settings.youtubeAccessToken?.trim() ?? "",
+      settings.youtubeRefreshToken?.trim() ?? ""
+    ].join("|");
+  }
+  return [
+    source.platform,
+    source.channel,
+    settings.tiktokSessionId?.trim() ?? "",
+    settings.tiktokTtTargetIdc?.trim() ?? "",
+    settings.tiktokUsername?.trim() ?? ""
+  ].join("|");
+};
+
 const tabLabel = (tab: ChatTab, sourceById: Map<string, ChatSource>) => {
   const sources = tab.sourceIds.map((id) => sourceById.get(id)).filter(Boolean) as ChatSource[];
   if (sources.length === 0) return "Empty";
@@ -597,6 +635,18 @@ const roleBadgeFromKey = (key: string): RoleBadge | null => {
   return null;
 };
 
+const twitchRoleBadgeKeysForSetId = (setId: string): string[] => {
+  const normalized = setId.trim().toLowerCase();
+  if (!normalized) return [];
+  if (normalized === "broadcaster" || normalized === "streamer" || normalized === "owner") return ["broadcaster"];
+  if (normalized === "moderator" || normalized === "mod" || normalized === "global_mod") return ["moderator"];
+  if (normalized === "admin" || normalized === "staff") return ["staff"];
+  if (normalized === "vip") return ["vip"];
+  if (normalized === "subscriber" || normalized === "sub" || normalized === "founder") return ["subscriber"];
+  if (normalized === "verified" || normalized === "partner") return ["verified"];
+  return [];
+};
+
 const toUiRoleType = (key: string): UiRoleType | null => {
   if (key === "broadcaster") return "broadcaster";
   if (key === "moderator") return "moderator";
@@ -693,15 +743,19 @@ const resolveDisplayedBadgesForMessage = (
   twitchChannelBadgeCatalogByRoomId: Record<string, TwitchBadgeCatalog>
 ): DisplayBadge[] => {
   const displayBadges: DisplayBadge[] = [];
-  const renderedKeys = new Set<string>();
+  const renderedBadgeKeys = new Set<string>();
+  const suppressedRoleKeys = new Set<string>();
 
   if (message.platform === "twitch") {
     const roomId = extractTwitchRoomId(message);
     const roomCatalog = roomId ? twitchChannelBadgeCatalogByRoomId[roomId] : undefined;
     for (const descriptor of getTwitchBadgeDescriptors(message)) {
       const asset = roomCatalog?.[descriptor.setId]?.[descriptor.versionId] ?? twitchGlobalBadgeCatalog[descriptor.setId]?.[descriptor.versionId];
-      if (!asset || renderedKeys.has(asset.key)) continue;
-      renderedKeys.add(asset.key);
+      if (!asset || renderedBadgeKeys.has(asset.key)) continue;
+      renderedBadgeKeys.add(asset.key);
+      for (const roleKey of twitchRoleBadgeKeysForSetId(descriptor.setId)) {
+        suppressedRoleKeys.add(roleKey);
+      }
       displayBadges.push({
         key: asset.key,
         kind: "image",
@@ -711,7 +765,7 @@ const resolveDisplayedBadgesForMessage = (
   }
 
   for (const badge of roleBadgesForMessage(message)) {
-    if (renderedKeys.has(badge.key)) continue;
+    if (suppressedRoleKeys.has(badge.key)) continue;
     displayBadges.push({
       key: badge.key,
       kind: "role",
@@ -1887,6 +1941,7 @@ const MainApp: React.FC = () => {
   const autoResumeTimerRef = useRef<number | null>(null);
   const mainLayoutRef = useRef<HTMLDivElement | null>(null);
   const adaptersRef = useRef<Map<string, ChatAdapter>>(new Map());
+  const adapterConnectionKeysRef = useRef<Record<string, string>>({});
   const lastMessageByUser = useRef<Map<string, number>>(new Map());
   const emoteFetchInFlight = useRef<Set<string>>(new Set());
   const channelEmoteMapBySourceIdRef = useRef<Record<string, EmoteMap>>({});
@@ -2518,6 +2573,7 @@ const MainApp: React.FC = () => {
         void adapter.disconnect();
       });
       adaptersRef.current.clear();
+      adapterConnectionKeysRef.current = {};
       for (const state of Object.values(autoHealStateBySourceRef.current)) {
         if (state.timer !== null) {
           window.clearTimeout(state.timer);
@@ -2554,14 +2610,14 @@ const MainApp: React.FC = () => {
     () =>
       activeTabSources.filter((source) => {
         if (source.platform === "twitch") {
-          return Boolean(settings.twitchToken);
+          return Boolean(settings.twitchToken && settings.twitchUsername);
         }
         if (source.platform === "kick") {
           return Boolean(settings.kickAccessToken);
         }
         return false;
       }),
-    [activeTabSources, settings.kickAccessToken, settings.twitchToken]
+    [activeTabSources, settings.kickAccessToken, settings.twitchToken, settings.twitchUsername]
   );
   const canModerateSource = (source: ChatSource | null): boolean => {
     if (!source) return false;
@@ -3136,6 +3192,7 @@ const MainApp: React.FC = () => {
             // no-op
           } finally {
             adaptersRef.current.delete(source.id);
+            delete adapterConnectionKeysRef.current[source.id];
           }
         }
 
@@ -3211,6 +3268,7 @@ const MainApp: React.FC = () => {
           })
           .finally(() => {
             adaptersRef.current.delete(source.id);
+            delete adapterConnectionKeysRef.current[source.id];
           });
       }
       sourceStatusRef.current[source.id] = "connecting";
@@ -3251,7 +3309,24 @@ const MainApp: React.FC = () => {
   };
 
   const ensureAdapterConnected = async (source: ChatSource, currentSettings: Settings) => {
-    if (adaptersRef.current.has(source.id)) return;
+    const nextConnectionKey = buildAdapterConnectionKey(source, currentSettings);
+    const existingAdapter = adaptersRef.current.get(source.id);
+    const existingConnectionKey = adapterConnectionKeysRef.current[source.id] ?? "";
+
+    if (existingAdapter && existingConnectionKey === nextConnectionKey) {
+      return;
+    }
+
+    if (existingAdapter) {
+      try {
+        await existingAdapter.disconnect();
+      } catch {
+        // no-op
+      } finally {
+        adaptersRef.current.delete(source.id);
+        delete adapterConnectionKeysRef.current[source.id];
+      }
+    }
 
     const logger = (message: string) => {
       void window.electronAPI.writeLog(`[${source.key}] ${message}`);
@@ -3638,6 +3713,7 @@ const MainApp: React.FC = () => {
     });
 
     adaptersRef.current.set(source.id, adapter);
+    adapterConnectionKeysRef.current[source.id] = nextConnectionKey;
     if (source.platform === "twitch" || source.platform === "kick") {
       const currentUsername =
         source.platform === "twitch"
@@ -3674,6 +3750,7 @@ const MainApp: React.FC = () => {
           // no-op
         } finally {
           adaptersRef.current.delete(source.id);
+          delete adapterConnectionKeysRef.current[source.id];
         }
         const nextStatus: ChatAdapterStatus = isOffline ? "disconnected" : "error";
         sourceStatusRef.current[source.id] = nextStatus;
@@ -3724,6 +3801,8 @@ const MainApp: React.FC = () => {
       });
       void window.electronAPI.writeLog(`[${source.key}] connect failed: ${text}`);
       scheduleAutoHealRetry(source, text);
+      adaptersRef.current.delete(source.id);
+      delete adapterConnectionKeysRef.current[source.id];
     }
   };
 
@@ -3911,6 +3990,7 @@ const MainApp: React.FC = () => {
           // no-op
         } finally {
           adaptersRef.current.delete(source.id);
+          delete adapterConnectionKeysRef.current[source.id];
         }
       }
       suppressedAutoHealSourceIdsRef.current.delete(source.id);
@@ -4109,6 +4189,7 @@ const MainApp: React.FC = () => {
               // no-op
             } finally {
               adaptersRef.current.delete(source.id);
+              delete adapterConnectionKeysRef.current[source.id];
             }
           }
 
@@ -4805,6 +4886,7 @@ const MainApp: React.FC = () => {
           // no-op
         } finally {
           adaptersRef.current.delete(source.id);
+          delete adapterConnectionKeysRef.current[source.id];
         }
       }
     }
@@ -5254,6 +5336,7 @@ const MainApp: React.FC = () => {
       }
     }
     adaptersRef.current.clear();
+    adapterConnectionKeysRef.current = {};
     for (const source of sources) {
       if (source.platform === "twitch" && !profile.twitchToken) continue;
       if (source.platform === "kick" && !profile.kickAccessToken) continue;
