@@ -139,12 +139,14 @@ export type AuthHealthSnapshot = {
 };
 
 export type ModerationRequest = {
-  platform?: "twitch" | "kick";
+  platform?: "twitch" | "kick" | "youtube" | "tiktok";
   channel?: string;
   action?: ModeratorAction;
   username?: string;
   messageId?: string;
   targetUserId?: number;
+  liveChatId?: string;
+  targetChannelId?: string;
 };
 
 export type TikTokRendererEvent = {

@@ -67,7 +67,7 @@ const api = {
   getAuthHealth: (): Promise<AuthHealthSnapshot> => ipcRenderer.invoke(IPC_CHANNELS.AUTH_GET_HEALTH),
   testAuthPermissions: (): Promise<AuthHealthSnapshot> => ipcRenderer.invoke(IPC_CHANNELS.AUTH_TEST_PERMISSIONS),
   moderateChat: (payload: ModerationRequest): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.MODERATION_ACT, payload),
-  canModerateSource: (payload: { platform: "twitch" | "kick"; channel: string }): Promise<boolean> =>
+  canModerateSource: (payload: { platform: "twitch" | "kick" | "youtube" | "tiktok"; channel: string }): Promise<boolean> =>
     ipcRenderer.invoke(IPC_CHANNELS.MODERATION_CAN_MODERATE, payload),
   resolveKickChatroom: (channel: string): Promise<{ chatroomId: number }> =>
     ipcRenderer.invoke(IPC_CHANNELS.KICK_RESOLVE_CHATROOM, channel),

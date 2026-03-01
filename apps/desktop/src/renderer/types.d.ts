@@ -27,7 +27,7 @@ type ElectronAPI = {
   getAuthHealth: () => Promise<AuthHealthSnapshot>;
   testAuthPermissions: () => Promise<AuthHealthSnapshot>;
   moderateChat: (payload: ModerationRequest) => Promise<void>;
-  canModerateSource: (payload: { platform: "twitch" | "kick"; channel: string }) => Promise<boolean>;
+  canModerateSource: (payload: { platform: "twitch" | "kick" | "youtube" | "tiktok"; channel: string }) => Promise<boolean>;
   resolveKickChatroom: (channel: string) => Promise<{ chatroomId: number }>;
   resolveYouTubeLiveChat: (channel: string) => Promise<{
     liveChatId: string;

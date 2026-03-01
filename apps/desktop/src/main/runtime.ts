@@ -2288,6 +2288,98 @@ const moderateKick = async (request: ModerationRequest): Promise<void> => {
   );
 };
 
+const canModerateYouTubeChannel = (_channel: string): boolean =>
+  Boolean((store.get("youtubeAccessToken")?.trim() ?? "") || (store.get("youtubeRefreshToken")?.trim() ?? ""));
+
+const buildYouTubeBanCacheKey = (liveChatId: string, targetChannelId: string) => `${liveChatId}:${targetChannelId}`;
+
+const resolveYouTubeTargetChannelId = (request: ModerationRequest): string => {
+  const channelId = (request.targetChannelId ?? request.username ?? "").trim();
+  if (!channelId) {
+    throw new Error("YouTube target channel id is required for this moderation action.");
+  }
+  return channelId;
+};
+
+const moderateYouTube = async (request: ModerationRequest): Promise<void> => {
+  const action = request.action;
+  if (!action) {
+    throw new Error("YouTube moderation action is required.");
+  }
+
+  const liveChatId = (request.liveChatId ?? "").trim();
+  if (!liveChatId) {
+    throw new Error("YouTube live chat id is required for moderation.");
+  }
+  if (liveChatId.startsWith("web:")) {
+    throw new Error("YouTube web read-only sessions do not support moderation.");
+  }
+
+  if (!canModerateYouTubeChannel(request.channel ?? "")) {
+    throw new Error("YouTube sign-in required. Sign in again to use moderation.");
+  }
+
+  if (action === "delete") {
+    const messageId = (request.messageId ?? "").trim();
+    if (!messageId) {
+      throw new Error("YouTube message id is required to delete a message.");
+    }
+    const endpoint = new URL("https://www.googleapis.com/youtube/v3/liveChat/messages");
+    endpoint.searchParams.set("id", messageId);
+    const response = await youtubeFetchWithAuth(endpoint, {
+      method: "DELETE"
+    });
+    await fetchJsonOrThrow<Record<string, unknown>>(response, "YouTube delete message");
+    return;
+  }
+
+  const targetChannelId = resolveYouTubeTargetChannelId(request);
+  const cacheKey = buildYouTubeBanCacheKey(liveChatId, targetChannelId);
+
+  if (action === "unban") {
+    const cachedBanId = youtubeBanIdsByTarget.get(cacheKey)?.trim() ?? "";
+    if (!cachedBanId) {
+      throw new Error("YouTube unban is only available after MultiChat created that ban in this session.");
+    }
+    const endpoint = new URL("https://www.googleapis.com/youtube/v3/liveChat/bans");
+    endpoint.searchParams.set("id", cachedBanId);
+    const response = await youtubeFetchWithAuth(endpoint, {
+      method: "DELETE"
+    });
+    await fetchJsonOrThrow<Record<string, unknown>>(response, "YouTube unban user");
+    youtubeBanIdsByTarget.delete(cacheKey);
+    return;
+  }
+
+  const durationSeconds = action === "timeout_60" ? 60 : action === "timeout_600" ? 600 : 0;
+  const endpoint = new URL("https://www.googleapis.com/youtube/v3/liveChat/bans");
+  endpoint.searchParams.set("part", "snippet");
+  const response = await youtubeFetchWithAuth(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      snippet: {
+        liveChatId,
+        type: durationSeconds > 0 ? "temporary" : "permanent",
+        ...(durationSeconds > 0 ? { banDurationSeconds: durationSeconds } : {}),
+        bannedUserDetails: {
+          channelId: targetChannelId
+        }
+      }
+    })
+  });
+  const payload = await fetchJsonOrThrow<{ id?: string }>(
+    response,
+    durationSeconds > 0 ? "YouTube timeout user" : "YouTube ban user"
+  );
+  const banId = payload.id?.trim() ?? "";
+  if (banId) {
+    youtubeBanIdsByTarget.set(cacheKey, banId);
+  }
+};
+
 const runModerationAction = async (request: ModerationRequest): Promise<void> => {
   if (request.platform === "twitch") {
     await moderateTwitch(request);
@@ -2295,6 +2387,10 @@ const runModerationAction = async (request: ModerationRequest): Promise<void> =>
   }
   if (request.platform === "kick") {
     await moderateKick(request);
+    return;
+  }
+  if (request.platform === "youtube") {
+    await moderateYouTube(request);
     return;
   }
   throw new Error("Unsupported moderation platform.");
@@ -2312,6 +2408,7 @@ let store!: JsonSettingsStore;
 let updaterInitialized = false;
 const tiktokConnections = new Map<string, TikTokConnectionRecord>();
 const youtubeWebChatSessions = new Map<string, YouTubeWebChatSession>();
+const youtubeBanIdsByTarget = new Map<string, string>();
 let pendingAutoInstallTimer: ReturnType<typeof setTimeout> | null = null;
 let updateInstallTriggered = false;
 const isWindows = process.platform === "win32";
@@ -3473,6 +3570,7 @@ app.whenReady().then(async () => {
       youtubeUsername: "",
       youtubeLiveChatId: ""
     });
+    youtubeBanIdsByTarget.clear();
     await clearAuthTokens("youtube");
     return store.store;
   });
@@ -3529,25 +3627,40 @@ app.whenReady().then(async () => {
       action
     });
   });
-  ipcMain.handle(IPC_CHANNELS.MODERATION_CAN_MODERATE, async (_event, payload: { platform?: "twitch" | "kick"; channel?: string }) => {
-    const platform = payload?.platform;
-    const channel = normalizeLogin(payload?.channel ?? "");
-    if (!platform || !channel) return false;
+  ipcMain.handle(
+    IPC_CHANNELS.MODERATION_CAN_MODERATE,
+    async (_event, payload: { platform?: "twitch" | "kick" | "youtube" | "tiktok"; channel?: string }) => {
+      const platform = payload?.platform;
+      const channel = normalizeLogin(payload?.channel ?? "");
+      if (!platform || !channel) return false;
 
-    if (platform === "twitch") {
+      if (platform === "twitch") {
+        try {
+          return await canModerateTwitchChannel(channel);
+        } catch {
+          return false;
+        }
+      }
+
+      if (platform === "youtube") {
+        try {
+          return canModerateYouTubeChannel(channel);
+        } catch {
+          return false;
+        }
+      }
+
+      if (platform === "tiktok") {
+        return false;
+      }
+
       try {
-        return await canModerateTwitchChannel(channel);
+        return await canModerateKickChannel(channel);
       } catch {
         return false;
       }
     }
-
-    try {
-      return await canModerateKickChannel(channel);
-    } catch {
-      return false;
-    }
-  });
+  );
   ipcMain.handle(IPC_CHANNELS.KICK_RESOLVE_CHATROOM, async (_event, channel: string) => {
     const slug = channel.trim().toLowerCase();
     if (!slug) {
