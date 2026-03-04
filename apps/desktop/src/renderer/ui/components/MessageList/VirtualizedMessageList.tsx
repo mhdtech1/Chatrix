@@ -18,8 +18,9 @@ type VirtualizedMessageListProps = {
   onOpenSettings?: () => void;
 };
 
-const ESTIMATED_ROW_HEIGHT = 32;
+const ESTIMATED_ROW_HEIGHT = 52;
 const OVERSCAN_COUNT = 10;
+const SCROLL_BOTTOM_THRESHOLD_PX = 220;
 
 export function VirtualizedMessageList({
   messages,
@@ -55,7 +56,7 @@ export function VirtualizedMessageList({
     const container = parentRef.current;
     if (!container) return;
     const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    isAtBottomRef.current = distanceFromBottom < 120;
+    isAtBottomRef.current = distanceFromBottom < SCROLL_BOTTOM_THRESHOLD_PX;
   }, []);
 
   const scrollToBottom = useCallback(() => {

@@ -226,6 +226,77 @@ type DisplayBadge =
       badge: RoleBadge;
     };
 
+const buildKickBadgeAsset = (key: string, title: string, slug = key): TwitchBadgeAsset => ({
+  key: `kick:${key}`,
+  setId: key,
+  versionId: "1",
+  title,
+  imageUrl: `https://www.kickdatabase.com/kickBadges/${slug}.svg`
+});
+
+const KICK_BADGE_ASSET_BY_CANONICAL_KEY: Record<string, TwitchBadgeAsset> = {
+  trainwreckstv: buildKickBadgeAsset("trainwreckstv", "Trainwreckstv"),
+  staff: buildKickBadgeAsset("staff", "Staff"),
+  verified: buildKickBadgeAsset("verified", "Verified"),
+  sidekick: buildKickBadgeAsset("sidekick", "Sidekick"),
+  broadcaster: buildKickBadgeAsset("broadcaster", "Broadcaster"),
+  moderator: buildKickBadgeAsset("moderator", "Moderator"),
+  vip: buildKickBadgeAsset("vip", "VIP"),
+  og: buildKickBadgeAsset("og", "OG"),
+  founder: buildKickBadgeAsset("founder", "Founder"),
+  subscriber: buildKickBadgeAsset("subscriber", "Subscriber"),
+  subgifter: buildKickBadgeAsset("subgifter", "Gift Sub Gifter", "subGifter"),
+  subgifter25: buildKickBadgeAsset("subgifter25", "25 Gift Subs", "subGifter25"),
+  subgifter50: buildKickBadgeAsset("subgifter50", "50 Gift Subs", "subGifter50"),
+  subgifter100: buildKickBadgeAsset("subgifter100", "100 Gift Subs", "subGifter100"),
+  subgifter200: buildKickBadgeAsset("subgifter200", "200 Gift Subs", "subGifter200")
+};
+
+const KICK_BADGE_CANONICAL_BY_KEY: Record<string, string> = {
+  admin: "staff",
+  broadcaster: "broadcaster",
+  founder: "founder",
+  globalmod: "moderator",
+  mod: "moderator",
+  moderator: "moderator",
+  og: "og",
+  owner: "broadcaster",
+  partner: "verified",
+  sidekick: "sidekick",
+  staff: "staff",
+  streamer: "broadcaster",
+  sub: "subscriber",
+  subscriber: "subscriber",
+  subgift: "subgifter",
+  subgifter: "subgifter",
+  subgifter1: "subgifter",
+  subgifter25: "subgifter25",
+  subgifter50: "subgifter50",
+  subgifter100: "subgifter100",
+  subgifter200: "subgifter200",
+  trainwreckstv: "trainwreckstv",
+  verified: "verified",
+  vip: "vip"
+};
+
+const resolveKickBadgeAsset = (key: string): TwitchBadgeAsset | null => {
+  const canonicalKey = KICK_BADGE_CANONICAL_BY_KEY[normalizeKickBadgeAssetKey(key)];
+  if (!canonicalKey) return null;
+  return KICK_BADGE_ASSET_BY_CANONICAL_KEY[canonicalKey] ?? null;
+};
+
+const kickRoleBadgeKeysForBadge = (key: string): string[] => {
+  const canonicalKey = KICK_BADGE_CANONICAL_BY_KEY[normalizeKickBadgeAssetKey(key)];
+  if (!canonicalKey) return [];
+  if (canonicalKey === "broadcaster") return ["broadcaster"];
+  if (canonicalKey === "moderator") return ["moderator"];
+  if (canonicalKey === "staff") return ["staff"];
+  if (canonicalKey === "vip") return ["vip"];
+  if (canonicalKey === "subscriber" || canonicalKey === "founder") return ["subscriber"];
+  if (canonicalKey === "verified") return ["verified"];
+  return [];
+};
+
 type UpdateStatusSnapshot = {
   state: "idle" | "checking" | "available" | "not-available" | "downloading" | "downloaded" | "error";
   message: string;
@@ -565,6 +636,7 @@ const buildModerationCommand = (
 };
 
 const normalizeBadgeKey = (rawBadge: string) => rawBadge.trim().toLowerCase().split(/[/:]/)[0] ?? "";
+const normalizeKickBadgeAssetKey = (rawBadge: string) => rawBadge.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 
 const isTruthyFlag = (value: unknown) => value === true || value === 1 || value === "1" || value === "true";
 
@@ -745,6 +817,79 @@ const resolveDisplayedBadgesForMessage = (
       if (!asset || renderedBadgeKeys.has(asset.key)) continue;
       renderedBadgeKeys.add(asset.key);
       for (const roleKey of twitchRoleBadgeKeysForSetId(descriptor.setId)) {
+        suppressedRoleKeys.add(roleKey);
+      }
+      displayBadges.push({
+        key: asset.key,
+        kind: "image",
+        asset
+      });
+    }
+  } else if (message.platform === "kick") {
+    const raw = asRecord(message.raw);
+    const rawBadges: string[] = [];
+    if (Array.isArray(message.badges)) {
+      rawBadges.push(...message.badges);
+    }
+    if (typeof raw?.badges === "string") {
+      rawBadges.push(...raw.badges.split(",").filter(Boolean));
+    } else if (raw?.badges) {
+      rawBadges.push(...collectBadgeCandidates(raw.badges));
+    }
+    if (typeof raw?.["badge-info"] === "string") {
+      rawBadges.push(...raw["badge-info"].split(",").filter(Boolean));
+    }
+    const rawSender = asRecord(raw?.sender);
+    if (rawSender) {
+      rawBadges.push(...collectBadgeCandidates(rawSender.badges));
+      const senderIdentity = asRecord(rawSender.identity);
+      if (senderIdentity) {
+        rawBadges.push(...collectBadgeCandidates(senderIdentity.badges));
+        if (isTruthyFlag(senderIdentity.is_moderator) || isTruthyFlag(senderIdentity.mod) || isTruthyFlag(senderIdentity.is_mod)) {
+          rawBadges.push("moderator");
+        }
+        if (
+          isTruthyFlag(senderIdentity.is_broadcaster) ||
+          isTruthyFlag(senderIdentity.broadcaster) ||
+          isTruthyFlag(senderIdentity.owner)
+        ) {
+          rawBadges.push("broadcaster");
+        }
+        if (isTruthyFlag(senderIdentity.vip)) {
+          rawBadges.push("vip");
+        }
+        if (isTruthyFlag(senderIdentity.subscriber)) {
+          rawBadges.push("subscriber");
+        }
+        if (isTruthyFlag(senderIdentity.verified)) {
+          rawBadges.push("verified");
+        }
+      }
+    }
+    if (raw?.mod === "1" || raw?.mod === 1) {
+      rawBadges.push("moderator");
+    }
+    if (raw?.subscriber === "1" || raw?.subscriber === 1) {
+      rawBadges.push("subscriber");
+    }
+    if (raw?.vip === "1" || raw?.vip === 1) {
+      rawBadges.push("vip");
+    }
+    if (isTruthyFlag(raw?.is_moderator) || isTruthyFlag(raw?.is_mod)) {
+      rawBadges.push("moderator");
+    }
+    if (isTruthyFlag(raw?.is_broadcaster) || isTruthyFlag(raw?.broadcaster) || isTruthyFlag(raw?.owner)) {
+      rawBadges.push("broadcaster");
+    }
+    if (isTruthyFlag(raw?.is_verified) || isTruthyFlag(raw?.verified)) {
+      rawBadges.push("verified");
+    }
+
+    for (const rawBadge of rawBadges) {
+      const asset = resolveKickBadgeAsset(rawBadge);
+      if (!asset || renderedBadgeKeys.has(asset.key)) continue;
+      renderedBadgeKeys.add(asset.key);
+      for (const roleKey of kickRoleBadgeKeysForBadge(rawBadge)) {
         suppressedRoleKeys.add(roleKey);
       }
       displayBadges.push({
@@ -1064,8 +1209,13 @@ const TWITCH_EMOTE_URL = (id: string) => `https://static-cdn.jtvnw.net/emoticons
 const BTTV_EMOTE_URL = (id: string) => `https://cdn.betterttv.net/emote/${id}/1x`;
 const SEVENTV_EMOTE_URL = (id: string) => `https://cdn.7tv.app/emote/${id}/1x.webp`;
 const KICK_EMOTE_URL = (id: string) => `https://files.kick.com/emotes/${id}/fullsize`;
+const KICK_GLOBAL_EMOTE_URL = "https://kick.com/emotes/eddie";
 const MESSAGE_LINK_REGEX = /(?:https?:\/\/|www\.)[^\s<]+/gi;
-const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 36;
+const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 220;
+const COMPOSER_MESSAGE_LIMIT = 500;
+const COMPOSER_HISTORY_LIMIT = 20;
+const COMPOSER_COUNTER_WARN_THRESHOLD = 450;
+const COMPOSER_COUNTER_DANGER_THRESHOLD = 485;
 const AUTO_RESUME_NEWEST_AFTER_MS = 15_000;
 const TIKTOK_OFFLINE_RETRY_MS = 2 * 60 * 1000;
 const SETUP_WIZARD_VERSION = 2;
@@ -1593,6 +1743,41 @@ const fetchSevenTvGlobalEmotes = async (): Promise<EmoteMap> => {
   return map;
 };
 
+const pushKickList = (target: EmoteMap, value: unknown) => {
+  if (!Array.isArray(value)) return;
+  for (const item of value) {
+    const record = asRecord(item);
+    const name = typeof record?.name === "string" ? record.name.trim() : "";
+    const id = record?.id;
+    const emoteId = typeof id === "string" ? id.trim() : typeof id === "number" ? String(id) : "";
+    if (!name || !emoteId || target[name]) continue;
+    target[name] = KICK_EMOTE_URL(emoteId);
+  }
+};
+
+const fetchKickGlobalEmotes = async (): Promise<EmoteMap> => {
+  const payload = await fetchJsonSafe(KICK_GLOBAL_EMOTE_URL);
+  const map: EmoteMap = {};
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const record = asRecord(item);
+      pushKickList(map, record?.emotes);
+    }
+    return map;
+  }
+
+  const record = asRecord(payload);
+  pushKickList(map, record?.emotes);
+  if (Array.isArray(record?.data)) {
+    for (const item of record.data) {
+      const nestedRecord = asRecord(item);
+      pushKickList(map, nestedRecord?.emotes);
+    }
+  }
+  return map;
+};
+
 const fetchTwitchThirdPartyEmotesByUserId = async (userId: string): Promise<EmoteMap> => {
   if (!userId.trim()) return {};
   const [bttvPayload, sevenTvPayload] = await Promise.all([
@@ -1952,6 +2137,7 @@ const MainApp: React.FC = () => {
   const [channelInput, setChannelInput] = useState("");
   const [search, setSearch] = useState("");
   const [composerText, setComposerText] = useState("");
+  const [composerHistory, setComposerHistory] = useState<string[]>([]);
   const [sendTargetId, setSendTargetId] = useState<string>(SEND_TARGET_TAB_ALL);
   const [sending, setSending] = useState(false);
   const [replayWindow, setReplayWindow] = useState<ReplayWindow>(0);
@@ -1986,6 +2172,7 @@ const MainApp: React.FC = () => {
   const [statusBySource, setStatusBySource] = useState<Record<string, ChatAdapterStatus>>({});
   const [moderatorBySource, setModeratorBySource] = useState<Record<string, boolean>>({});
   const [globalEmoteMap, setGlobalEmoteMap] = useState<EmoteMap>({});
+  const [kickGlobalEmoteMap, setKickGlobalEmoteMap] = useState<EmoteMap>({});
   const [channelEmoteMapBySourceId, setChannelEmoteMapBySourceId] = useState<Record<string, EmoteMap>>({});
   const [twitchGlobalBadgeCatalog, setTwitchGlobalBadgeCatalog] = useState<TwitchBadgeCatalog>({});
   const [twitchChannelBadgeCatalogByRoomId, setTwitchChannelBadgeCatalogByRoomId] = useState<Record<string, TwitchBadgeCatalog>>({});
@@ -2024,6 +2211,8 @@ const MainApp: React.FC = () => {
   const menuDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const importSessionInputRef = useRef<HTMLInputElement | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const composerHistoryIndexRef = useRef(-1);
+  const composerHistoryDraftRef = useRef("");
   const recentHistoryBySourceKeyRef = useRef<Record<string, ChatMessage[]>>({});
   const recentHistorySaveTimerRef = useRef<number | null>(null);
   const twitchRemoteHistoryAttemptedRef = useRef<Set<string>>(new Set());
@@ -2498,15 +2687,19 @@ const MainApp: React.FC = () => {
     let cancelled = false;
     if (effectivePerformanceMode) {
       setGlobalEmoteMap({});
+      setKickGlobalEmoteMap({});
       return;
     }
-    void Promise.all([fetchBttvGlobalEmotes(), fetchSevenTvGlobalEmotes()]).then(([bttvMap, sevenTvMap]) => {
-      if (cancelled) return;
-      setGlobalEmoteMap({
-        ...bttvMap,
-        ...sevenTvMap
-      });
-    });
+    void Promise.all([fetchBttvGlobalEmotes(), fetchSevenTvGlobalEmotes(), fetchKickGlobalEmotes()]).then(
+      ([bttvMap, sevenTvMap, kickMap]) => {
+        if (cancelled) return;
+        setGlobalEmoteMap({
+          ...bttvMap,
+          ...sevenTvMap
+        });
+        setKickGlobalEmoteMap(kickMap);
+      }
+    );
     return () => {
       cancelled = true;
     };
@@ -2943,17 +3136,27 @@ const MainApp: React.FC = () => {
     autoResumeTimerRef.current = null;
   }, []);
 
-  const resumeAutoScrollToLatest = useCallback(() => {
-    clearAutoResumeTimer();
-    setNewestLocked(true);
-    setLockCutoffTimestamp(null);
-    const list = getActiveMessageListElement();
-    if (!list) return;
-    window.requestAnimationFrame(() => {
-      list.scrollTop = list.scrollHeight;
-      lastMessageListScrollTopRef.current = list.scrollTop;
-    });
-  }, [clearAutoResumeTimer, getActiveMessageListElement]);
+  const resumeAutoScrollToLatest = useCallback(
+    (smooth = false) => {
+      clearAutoResumeTimer();
+      setNewestLocked(true);
+      setLockCutoffTimestamp(null);
+      const list = getActiveMessageListElement();
+      if (!list) return;
+      window.requestAnimationFrame(() => {
+        if (typeof list.scrollTo === "function") {
+          list.scrollTo({
+            top: list.scrollHeight,
+            behavior: smooth ? "smooth" : "auto"
+          });
+        } else {
+          list.scrollTop = list.scrollHeight;
+        }
+        lastMessageListScrollTopRef.current = list.scrollHeight;
+      });
+    },
+    [clearAutoResumeTimer, getActiveMessageListElement]
+  );
 
   const scheduleAutoResume = useCallback(() => {
     clearAutoResumeTimer();
@@ -3226,6 +3429,56 @@ const MainApp: React.FC = () => {
       : sendTargetId === SEND_TARGET_TAB_ALL && writableActiveTabSources.length > 1
         ? `Type a message to all ${writableActiveTabSources.length} chats in this tab`
         : "Type a message";
+  const composerCharacterCount = composerText.length;
+  const composerCounterTone =
+    composerCharacterCount >= COMPOSER_COUNTER_DANGER_THRESHOLD
+      ? "danger"
+      : composerCharacterCount >= COMPOSER_COUNTER_WARN_THRESHOLD
+        ? "warn"
+        : "normal";
+
+  const setComposerDraft = useCallback((nextText: string) => {
+    composerHistoryIndexRef.current = -1;
+    composerHistoryDraftRef.current = nextText;
+    setComposerText(nextText);
+    setCommandPaletteOpen(nextText.trim().startsWith("/"));
+  }, []);
+
+  const navigateComposerHistory = useCallback(
+    (direction: -1 | 1) => {
+      if (composerHistory.length === 0) return;
+
+      if (direction < 0) {
+        if (composerHistoryIndexRef.current === -1) {
+          composerHistoryDraftRef.current = composerText;
+          composerHistoryIndexRef.current = composerHistory.length - 1;
+        } else if (composerHistoryIndexRef.current > 0) {
+          composerHistoryIndexRef.current -= 1;
+        }
+
+        const nextText = composerHistory[composerHistoryIndexRef.current] ?? composerText;
+        setComposerText(nextText);
+        setCommandPaletteOpen(nextText.trim().startsWith("/"));
+        return;
+      }
+
+      if (composerHistoryIndexRef.current === -1) return;
+
+      if (composerHistoryIndexRef.current < composerHistory.length - 1) {
+        composerHistoryIndexRef.current += 1;
+        const nextText = composerHistory[composerHistoryIndexRef.current] ?? composerText;
+        setComposerText(nextText);
+        setCommandPaletteOpen(nextText.trim().startsWith("/"));
+        return;
+      }
+
+      composerHistoryIndexRef.current = -1;
+      const nextText = composerHistoryDraftRef.current;
+      setComposerText(nextText);
+      setCommandPaletteOpen(nextText.trim().startsWith("/"));
+    },
+    [composerHistory, composerText]
+  );
 
   const commandSuggestions = useMemo(() => {
     const text = composerText.trim();
@@ -4720,6 +4973,9 @@ const MainApp: React.FC = () => {
       }
 
       if (sentCount > 0) {
+        composerHistoryIndexRef.current = -1;
+        composerHistoryDraftRef.current = "";
+        setComposerHistory((previous) => [...previous.filter((entry) => entry !== content), content].slice(-COMPOSER_HISTORY_LIMIT));
         setComposerText("");
         if (!setupMessageReady) {
           setSetupTestMessageSent(true);
@@ -4966,7 +5222,7 @@ const MainApp: React.FC = () => {
   };
 
   const jumpToNewest = () => {
-    resumeAutoScrollToLatest();
+    resumeAutoScrollToLatest(true);
     if (activeTabId && delayedReplayMessages.length > 0) {
       const latestTs = messageTimestamp(delayedReplayMessages[delayedReplayMessages.length - 1]);
       if (latestTs > 0) {
@@ -7044,7 +7300,10 @@ const MainApp: React.FC = () => {
                 const showUnreadMarker = firstUnreadTimestamp > 0 && ts >= firstUnreadTimestamp && (index === 0 || prevTs < firstUnreadTimestamp);
                 const source = sourceByPlatformChannel.get(`${message.platform}:${message.channel}`);
 	                const sourceEmoteMap = source ? channelEmoteMapBySourceId[source.id] : undefined;
-	                const resolveEmote = (token: string) => (effectivePerformanceMode ? undefined : sourceEmoteMap?.[token] ?? globalEmoteMap[token]);
+	                const resolveEmote = (token: string) =>
+                  effectivePerformanceMode
+                    ? undefined
+                    : sourceEmoteMap?.[token] ?? (message.platform === "kick" ? kickGlobalEmoteMap[token] : globalEmoteMap[token]);
 			                const messageChunks = buildMessageChunks(message, resolveEmote);
 			                const combinedChannels = readCombinedChannels(message);
 			                const messageRaw = asRecord(message.raw);
@@ -7069,6 +7328,7 @@ const MainApp: React.FC = () => {
 	                      </div>
 	                    ) : null}
                     <div
+                      data-platform={message.platform}
                       className={
                         highlighted
                           ? isDeletedMessage
@@ -7169,7 +7429,9 @@ const MainApp: React.FC = () => {
             </div>
             {!newestLocked ? (
               <button type="button" className="go-newest-button" onClick={jumpToNewest}>
-                {pendingNewestCount > 0 ? `Go to latest message (${pendingNewestCount})` : "Go to latest message"}
+                {pendingNewestCount > 0
+                  ? `▼ ${pendingNewestCount} new message${pendingNewestCount === 1 ? "" : "s"} - Click to resume`
+                  : "▼ Click to resume live feed"}
               </button>
             ) : null}
             <form
@@ -7191,18 +7453,39 @@ const MainApp: React.FC = () => {
                   ))}
                 </select>
               ) : null}
-              <input
-                className="composer-main__message"
-                value={composerText}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setComposerText(next);
-                  setCommandPaletteOpen(next.trim().startsWith("/"));
-                }}
-                placeholder={composerPlaceholder}
-                maxLength={500}
-                disabled={writableActiveTabSources.length === 0}
-              />
+              <div className="composer-main__message-wrap">
+                <input
+                  className="composer-main__message"
+                  value={composerText}
+                  onChange={(event) => {
+                    setComposerDraft(event.target.value);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowUp") {
+                      if (composerHistory.length === 0) return;
+                      event.preventDefault();
+                      navigateComposerHistory(-1);
+                      return;
+                    }
+                    if (event.key === "ArrowDown") {
+                      if (composerHistoryIndexRef.current === -1) return;
+                      event.preventDefault();
+                      navigateComposerHistory(1);
+                    }
+                  }}
+                  placeholder={composerPlaceholder}
+                  maxLength={COMPOSER_MESSAGE_LIMIT}
+                  disabled={writableActiveTabSources.length === 0}
+                />
+                <div className="composer-main__meta">
+                  <span
+                    className={`composer-main__counter${composerCounterTone === "normal" ? "" : ` composer-main__counter--${composerCounterTone}`}`}
+                    title={`Message length limit: ${COMPOSER_MESSAGE_LIMIT} characters`}
+                  >
+                    {composerCharacterCount} / {COMPOSER_MESSAGE_LIMIT}
+                  </span>
+                </div>
+              </div>
               {isAdvancedMode && canModerateActiveTab ? (
                 <select
                   className="composer-main__snippets"

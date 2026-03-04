@@ -14,7 +14,6 @@ import {
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import electronUpdater from "electron-updater";
 import tikTokLiveConnectorCjs from "tiktok-live-connector";
 import { AUTH, IPC_CHANNELS } from "../shared/constants.js";
@@ -34,6 +33,7 @@ import {
   migrateLegacySettingsTokens,
   storeAuthTokens
 } from "./services/secureStorage.js";
+import { openAuthInBrowser as openLoopbackAuthInBrowser } from "./services/loopbackOAuth.js";
 
 const { autoUpdater } = electronUpdater;
 type TikTokConnectorModule = typeof import("tiktok-live-connector");
@@ -67,7 +67,7 @@ const KICK_DEFAULT_REDIRECT_URI = "http://localhost:51730/kick/callback";
 const YOUTUBE_DEFAULT_REDIRECT_URI = "http://localhost:51730/youtube/callback";
 const TWITCH_MANAGED_CLIENT_ID = "syeui9mom7i5f9060j03tydgpdywbh";
 const KICK_MANAGED_CLIENT_ID = "01KGRFF03VYRJMB3W4369Y07CS";
-const KICK_MANAGED_CLIENT_SECRET = "29f43591eb0496352c66ea36f55c5c21e3fbc5053ba22568194e0c950c174794";
+const KICK_MANAGED_CLIENT_SECRET = "";
 const YOUTUBE_MANAGED_CLIENT_ID = "1008732662207-rufcsa7rafob02h29docduk7pboim0s8.apps.googleusercontent.com";
 const YOUTUBE_MANAGED_CLIENT_SECRET = "";
 const YOUTUBE_MANAGED_API_KEY = "";
@@ -86,11 +86,6 @@ const YOUTUBE_ALPHA_ENABLED = true;
 const TIKTOK_ALPHA_ENABLED = true;
 const DEFAULT_UPDATE_CHANNEL: UpdateChannel = "stable";
 const FORCE_APP_RESET_VERSION = "0.1.35";
-
-const normalizePathname = (pathname: string) => {
-  const normalized = pathname.replace(/\/+$/, "");
-  return normalized === "" ? "/" : normalized;
-};
 
 const randomToken = (bytes = 32) => crypto.randomBytes(bytes).toString("base64url");
 
@@ -117,19 +112,6 @@ const fetchJsonOrThrow = async <T>(response: Response, source: string): Promise<
 
 const AUTH_CALLBACK_TIMEOUT_MS = AUTH.OAUTH_CALLBACK_TIMEOUT_MS;
 
-const isLoopbackHost = (hostname: string) => {
-  const normalized = hostname.trim().toLowerCase();
-  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1" || normalized === "[::1]";
-};
-
-const sendAuthHtml = (response: ServerResponse<IncomingMessage>, statusCode: number, html: string) => {
-  response.writeHead(statusCode, {
-    "Content-Type": "text/html; charset=utf-8",
-    "Cache-Control": "no-store, max-age=0"
-  });
-  response.end(html);
-};
-
 function bringAppToFrontAfterOAuth() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) {
@@ -145,151 +127,11 @@ function bringAppToFrontAfterOAuth() {
   }
 }
 
-const authCompletePage = `
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>MultiChat Sign-In Complete</title>
-    <style>
-      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; background: #0f172a; color: #e2e8f0; display: grid; place-items: center; min-height: 100vh; }
-      .card { max-width: 540px; padding: 24px; border: 1px solid #334155; border-radius: 12px; background: #111827; }
-      h1 { margin: 0 0 8px; font-size: 20px; }
-      p { margin: 0; line-height: 1.5; color: #cbd5e1; }
-    </style>
-  </head>
-  <body>
-    <main class="card">
-      <h1>Returning to MultiChat</h1>
-      <p>This tab will close automatically. If it stays open, you can close it manually.</p>
-    </main>
-    <script>
-      (() => {
-        setTimeout(() => {
-          window.open("", "_self");
-          window.close();
-        }, 250);
-      })();
-    </script>
-  </body>
-</html>
-`;
-
-const authHashBridgePage = (pathname: string) => `
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Completing Sign-In...</title>
-    <style>
-      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif; background: #0f172a; color: #e2e8f0; display: grid; place-items: center; min-height: 100vh; }
-      .card { max-width: 540px; padding: 24px; border: 1px solid #334155; border-radius: 12px; background: #111827; }
-      p { margin: 0; line-height: 1.5; color: #cbd5e1; }
-    </style>
-  </head>
-  <body>
-    <main class="card">
-      <p id="status">Finishing sign-in...</p>
-    </main>
-    <script>
-      (() => {
-        const status = document.getElementById("status");
-        const hash = window.location.hash ? window.location.hash.slice(1) : "";
-        if (!hash) {
-          if (status) status.textContent = "Sign-in response was missing data. You can close this tab and try again.";
-          return;
-        }
-        const target = ${JSON.stringify(pathname)} + "?oauth_fragment=" + encodeURIComponent(hash);
-        window.location.replace(target);
-      })();
-    </script>
-  </body>
-</html>
-`;
-
-const openAuthInBrowser = async (authUrl: string, redirectUri: string, timeoutMs = AUTH_CALLBACK_TIMEOUT_MS): Promise<string> => {
-  const redirect = new URL(redirectUri);
-
-  if (redirect.protocol !== "http:") {
-    throw new Error("OAuth redirect URI must use http:// for desktop sign-in.");
-  }
-  if (!isLoopbackHost(redirect.hostname)) {
-    throw new Error("OAuth redirect URI must use localhost or loopback for desktop sign-in.");
-  }
-
-  const callbackPath = normalizePathname(redirect.pathname);
-  const callbackPort = Number.parseInt(redirect.port || "80", 10);
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-
-    const server = createServer((request, response) => {
-      const incoming = new URL(request.url ?? "/", redirect.origin);
-      const incomingPath = normalizePathname(incoming.pathname);
-      const oauthFragment = incoming.searchParams.get("oauth_fragment");
-      const hasDirectCallbackParams =
-        incoming.searchParams.has("code") ||
-        incoming.searchParams.has("error") ||
-        incoming.searchParams.has("state");
-      const isExpectedPath = incomingPath === callbackPath;
-      const hasOAuthPayload = Boolean(oauthFragment && oauthFragment.length > 0) || hasDirectCallbackParams;
-
-      if (!isExpectedPath && !hasOAuthPayload) {
-        sendAuthHtml(response, 404, "<h1>Not found</h1>");
-        return;
-      }
-
-      if (oauthFragment && oauthFragment.length > 0) {
-        sendAuthHtml(response, 200, authCompletePage);
-        finish(`${redirect.origin}${incoming.pathname}#${oauthFragment}`);
-        return;
-      }
-
-      if (hasDirectCallbackParams) {
-        sendAuthHtml(response, 200, authCompletePage);
-        finish(`${redirect.origin}${incoming.pathname}${incoming.search}`);
-        return;
-      }
-
-      sendAuthHtml(response, 200, authHashBridgePage(incoming.pathname));
-    });
-
-    const timeout = setTimeout(() => {
-      finish(undefined, new Error("Sign-in timed out. Please try again."));
-    }, timeoutMs);
-
-    const closeServer = () => {
-      clearTimeout(timeout);
-      server.removeAllListeners("error");
-      server.close();
-    };
-
-    const finish = (callbackUrl?: string, error?: Error) => {
-      if (settled) return;
-      settled = true;
-      closeServer();
-      bringAppToFrontAfterOAuth();
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve(callbackUrl ?? "");
-    };
-
-    server.on("error", (error) => {
-      const text = error instanceof Error ? error.message : String(error);
-      finish(undefined, new Error(`Unable to listen for OAuth callback: ${text}`));
-    });
-
-    server.listen(callbackPort, () => {
-      void shell.openExternal(authUrl).catch((error) => {
-        finish(undefined, new Error(`Failed to open default browser: ${String(error)}`));
-      });
-    });
+const openAuthInBrowser = (authUrl: string, redirectUri: string, timeoutMs = AUTH_CALLBACK_TIMEOUT_MS) =>
+  openLoopbackAuthInBrowser(authUrl, redirectUri, {
+    timeoutMs,
+    onComplete: bringAppToFrontAfterOAuth
   });
-};
 
 const attemptTikTokBrowserSignIn = () => {
   // Best effort only: TikTok LIVE auth for this app is cookie-based and must complete in the app auth session.
@@ -1410,24 +1252,27 @@ const refreshKickAccessToken = async (): Promise<string> => {
   const clientId = store.get("kickClientId")?.trim() ?? "";
   const clientSecret = store.get("kickClientSecret")?.trim() ?? "";
   const refreshToken = store.get("kickRefreshToken")?.trim() ?? "";
-  if (!clientId || !clientSecret || !refreshToken) {
+  if (!clientId || !refreshToken) {
     throw new Error(KICK_REAUTH_REQUIRED_MESSAGE);
   }
 
   let tokens: KickOAuthTokenResponse;
   try {
+    const tokenParams = new URLSearchParams({
+      client_id: clientId,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken
+    });
+    if (clientSecret) {
+      tokenParams.set("client_secret", clientSecret);
+    }
     const response = await fetch("https://id.kick.com/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json"
       },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: "refresh_token",
-        refresh_token: refreshToken
-      })
+      body: tokenParams
     });
     tokens = await fetchJsonOrThrow<KickOAuthTokenResponse>(response, "Kick token refresh");
   } catch {
@@ -3367,17 +3212,6 @@ app.whenReady().then(async () => {
       await clearAuthTokens("kick");
       return store.store;
     }
-    if (!clientSecret) {
-      store.set({
-        kickAccessToken: "",
-        kickRefreshToken: "",
-        kickUsername: "guest",
-        kickGuest: true
-      });
-      await clearAuthTokens("kick");
-      return store.store;
-    }
-
     const state = randomToken(24);
     const codeVerifier = randomToken(48);
     const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
@@ -3413,20 +3247,24 @@ app.whenReady().then(async () => {
       refresh_token?: string;
     };
 
+    const tokenParams = new URLSearchParams({
+      code,
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+      code_verifier: codeVerifier
+    });
+    if (clientSecret) {
+      tokenParams.set("client_secret", clientSecret);
+    }
+
     const tokenResponse = await fetch("https://id.kick.com/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json"
       },
-      body: new URLSearchParams({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: "authorization_code",
-        code_verifier: codeVerifier
-      })
+      body: tokenParams
     });
     const tokens = await fetchJsonOrThrow<KickTokenResponse>(tokenResponse, "Kick token exchange");
 

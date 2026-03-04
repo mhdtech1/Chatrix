@@ -3593,9 +3593,39 @@ h3 {
   min-width: 170px;
 }
 
-.composer--main .composer-main__message {
+.composer--main .composer-main__message-wrap {
   flex: 1 1 360px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.composer--main .composer-main__message {
+  width: 100%;
+  min-width: 0;
+}
+
+.composer--main .composer-main__meta {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 14px;
+}
+
+.composer--main .composer-main__counter {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.composer--main .composer-main__counter--warn {
+  color: #fbbf24;
+}
+
+.composer--main .composer-main__counter--danger {
+  color: #f87171;
 }
 
 .composer--main .composer-main__snippets {
@@ -3610,10 +3640,72 @@ h3 {
 
 @media (max-width: 980px) {
   .composer--main .composer-main__target,
+  .composer--main .composer-main__message-wrap,
   .composer--main .composer-main__message,
   .composer--main .composer-main__snippets,
   .composer--main .composer-main__send {
     flex: 1 1 100%;
     min-width: 0;
   }
+}
+
+
+@keyframes chat-line-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes highlight-pulse {
+  0% {
+    background: rgba(255, 142, 84, 0.34);
+  }
+  100% {
+    background: rgba(255, 142, 84, 0.14);
+  }
+}
+
+.chat-line {
+  --chat-line-accent: transparent;
+  box-shadow: inset 3px 0 0 var(--chat-line-accent);
+  animation: chat-line-enter 120ms ease-out both;
+  transition: background-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.chat-line[data-platform="twitch"] {
+  --chat-line-accent: var(--twitch-primary);
+}
+
+.chat-line[data-platform="kick"] {
+  --chat-line-accent: var(--kick-primary);
+}
+
+.chat-line[data-platform="youtube"] {
+  --chat-line-accent: var(--youtube-primary);
+}
+
+.chat-line[data-platform="tiktok"] {
+  --chat-line-accent: var(--tiktok-primary);
+}
+
+.chat-line.highlight,
+.chat-line--highlighted {
+  animation: chat-line-enter 120ms ease-out both, highlight-pulse 0.8s ease-out forwards;
+}
+
+.go-newest-button {
+  align-self: center;
+  min-width: min(100%, 360px);
+  border-color: color-mix(in srgb, var(--accent), white 6%);
+  background: color-mix(in srgb, var(--bg-panel), var(--accent) 18%);
+  color: var(--text-main);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }

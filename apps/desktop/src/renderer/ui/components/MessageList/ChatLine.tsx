@@ -164,7 +164,7 @@ export function ChatLine({
   const hasAnyBadges = (message.badges?.length ?? 0) > 0 || twitchBadgeEntries.length > 0;
 
   return (
-    <div className={`chat-line ${isHighlighted ? "chat-line--highlighted" : ""}`} role="listitem" onClick={() => onMessageClick?.(message)}>
+    <div className={`chat-line ${isHighlighted ? "chat-line--highlighted" : ""}`} data-platform={message.platform} role="listitem" onClick={() => onMessageClick?.(message)}>
       {showPlatformIcon ? (
         <div className="chat-line__platform">
           <PlatformIcon platform={message.platform} size="sm" showBackground />

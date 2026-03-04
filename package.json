@@ -21,5 +21,6 @@
     "test": "pnpm --filter @multichat/chat-core test && pnpm --filter @multichat/desktop test",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format"
-  }
+  },
+  "license": "MIT"
 }

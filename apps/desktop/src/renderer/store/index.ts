@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { ChatMessage } from "@multichat/chat-core";
 
 type SettingsState = {
@@ -15,16 +16,33 @@ type ChatState = {
   clearMessages: () => void;
 };
 
-export const useSettingsStore = create<SettingsState>((set) => ({
-  showTimestamps: true,
-  showBadges: true,
-  setShowTimestamps: (enabled) => set({ showTimestamps: enabled }),
-  setShowBadges: (enabled) => set({ showBadges: enabled })
-}));
+const RENDERER_SETTINGS_STORAGE_KEY = "multichat:renderer-settings";
+const CHAT_STORE_MAX_MESSAGES = 1000;
+
+const clampMessages = (messages: ChatMessage[]) =>
+  messages.length > CHAT_STORE_MAX_MESSAGES ? messages.slice(-CHAT_STORE_MAX_MESSAGES) : messages;
+
+export const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      showTimestamps: true,
+      showBadges: true,
+      setShowTimestamps: (enabled) => set({ showTimestamps: enabled }),
+      setShowBadges: (enabled) => set({ showBadges: enabled })
+    }),
+    {
+      name: RENDERER_SETTINGS_STORAGE_KEY,
+      partialize: (state) => ({
+        showTimestamps: state.showTimestamps,
+        showBadges: state.showBadges
+      })
+    }
+  )
+);
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
-  setMessages: (messages) => set({ messages }),
-  appendMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+  setMessages: (messages) => set({ messages: clampMessages(messages) }),
+  appendMessage: (message) => set((state) => ({ messages: clampMessages([...state.messages, message]) })),
   clearMessages: () => set({ messages: [] })
 }));
