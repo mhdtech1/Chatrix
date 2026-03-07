@@ -50,7 +50,7 @@ const authCompletePage = `
 </html>
 `;
 
-const authHashBridgePage = (pathname: string) => `
+const authHashBridgePage = (_pathname: string) => `
 <!doctype html>
 <html lang="en">
   <head>

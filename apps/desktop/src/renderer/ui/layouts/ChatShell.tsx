@@ -417,8 +417,6 @@ const defaultSettings: Settings = {
   setupWizardSendTestCompleted: false
 };
 
-const hasTikTokSession = (settings: Settings) =>
-  Boolean((settings.tiktokSessionId ?? "").trim() && (settings.tiktokTtTargetIdc ?? "").trim());
 const normalizeUserKey = (value: string) => value.trim().toLowerCase();
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const SCAM_PATTERN =
@@ -2257,7 +2255,6 @@ const MainApp: React.FC = () => {
   const effectivePerformanceMode = settings.performanceMode === true || adaptivePerformanceMode || backgroundMonitorActive;
   const mutedGroups = settings.mutedGroups ?? [];
   const tabGroups = settings.tabGroups ?? {};
-  const activeTabGroup = activeTabId ? tabGroups[activeTabId] ?? "" : "";
   const performanceModeStatusNote = backgroundMonitorActive
     ? "(background monitor active)"
     : adaptivePerformanceMode
@@ -3801,6 +3798,7 @@ const MainApp: React.FC = () => {
             }),
           onEvent: (handler) =>
             window.electronAPI.onTikTokEvent((event) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               handler(event as any);
             })
         },

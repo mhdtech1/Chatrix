@@ -91,7 +91,7 @@ const randomToken = (bytes = 32) => crypto.randomBytes(bytes).toString("base64ur
 
 const fetchJsonOrThrow = async <T>(response: Response, source: string): Promise<T> => {
   const text = await response.text();
-  let parsed: any = {};
+  let parsed: Record<string, unknown> = {};
   if (text) {
     try {
       parsed = JSON.parse(text);
@@ -2710,6 +2710,7 @@ const createMainWindow = () => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       backgroundThrottling: false,
       preload: path.join(__dirname, "../preload/preload.cjs")
     }
@@ -2771,6 +2772,7 @@ const createOverlayWindow = () => {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
       preload: path.join(__dirname, "../preload/preload.cjs")
     }
   });
