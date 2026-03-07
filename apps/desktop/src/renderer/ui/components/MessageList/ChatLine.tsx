@@ -13,7 +13,7 @@ type TwitchBadgeCatalog = Record<string, Record<string, TwitchBadgeAsset>>;
 const MESSAGE_LINK_REGEX = /(?:https?:\/\/|www\.)[^\s<]+/gi;
 
 const isSafeCssColor = (value: string): boolean =>
-  /^#(?:[0-9a-fA-F]{3,4}){1,2}$|^(?:rgb|hsl)a?\([^)]+\)$|^[a-zA-Z]{1,30}$/.test(value);
+  /^#(?:[0-9a-fA-F]{3,4}){1,2}$|^(?:rgb|hsl)a?\([\d\s,./%]+\)$|^[a-zA-Z]{1,30}$/.test(value);
 
 type ChatLineProps = {
   message: ChatMessage;

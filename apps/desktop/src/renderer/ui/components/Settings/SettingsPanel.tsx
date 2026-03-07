@@ -129,10 +129,12 @@ export function SettingsPanel({
         ].map((tab) => (
           <button
             key={tab.id}
+            id={`settings-tab-${tab.id}`}
             className={`settings-tab ${activeTab === tab.id ? "settings-tab--active" : ""}`}
             type="button"
             role="tab"
             aria-selected={activeTab === tab.id}
+            aria-controls={`settings-tabpanel-${tab.id}`}
             onClick={() => setActiveTab(tab.id as SettingsTab)}
           >
             <span className="settings-tab__icon" aria-hidden="true">{tab.icon}</span>
@@ -141,7 +143,7 @@ export function SettingsPanel({
         ))}
       </div>
 
-      <div className="settings-panel__content">
+      <div className="settings-panel__content" role="tabpanel" id={`settings-tabpanel-${activeTab}`} aria-labelledby={`settings-tab-${activeTab}`}>
         {activeTab === "accounts" ? renderAccountsTab() : null}
         {activeTab === "appearance" ? renderAppearanceTab() : null}
         {activeTab === "chat" ? (
