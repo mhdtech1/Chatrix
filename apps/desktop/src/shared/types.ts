@@ -157,30 +157,3 @@ export type TikTokRendererEvent = {
   error?: string;
 };
 
-
-export type OverlaySourceRef = {
-  platform: Platform;
-  channel: string;
-};
-
-export type OverlayMessage = {
-  id: string;
-  platform: Platform;
-  channel: string;
-  username?: string;
-  displayName?: string;
-  message: string;
-  color?: string;
-  channelAvatarUrl?: string;
-  timestamp?: string;
-};
-
-export type OverlayFeedEvent =
-  | {
-      type: "chat";
-      message: OverlayMessage;
-    }
-  | {
-      type: "active-sources";
-      sources: OverlaySourceRef[];
-    };

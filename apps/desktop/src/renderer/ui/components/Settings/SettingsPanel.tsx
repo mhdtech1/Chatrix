@@ -93,18 +93,18 @@ export function SettingsPanel({
       <div className="settings-group">
         <label className="settings-toggle">
           <span className="settings-toggle__label">Show timestamps</span>
-          <input type="checkbox" defaultChecked />
-          <span className="settings-toggle__switch" />
+          <input type="checkbox" defaultChecked aria-label="Show timestamps" />
+          <span className="settings-toggle__switch" aria-hidden="true" />
         </label>
         <label className="settings-toggle">
           <span className="settings-toggle__label">Show platform icons</span>
-          <input type="checkbox" defaultChecked />
-          <span className="settings-toggle__switch" />
+          <input type="checkbox" defaultChecked aria-label="Show platform icons" />
+          <span className="settings-toggle__switch" aria-hidden="true" />
         </label>
         <label className="settings-toggle">
           <span className="settings-toggle__label">Show badges</span>
-          <input type="checkbox" defaultChecked />
-          <span className="settings-toggle__switch" />
+          <input type="checkbox" defaultChecked aria-label="Show badges" />
+          <span className="settings-toggle__switch" aria-hidden="true" />
         </label>
       </div>
     </div>
@@ -119,7 +119,7 @@ export function SettingsPanel({
         </button>
       </div>
 
-      <div className="settings-panel__tabs">
+      <div className="settings-panel__tabs" role="tablist">
         {[
           { id: "accounts", label: "Accounts", icon: "👤" },
           { id: "appearance", label: "Appearance", icon: "🎨" },
@@ -129,17 +129,21 @@ export function SettingsPanel({
         ].map((tab) => (
           <button
             key={tab.id}
+            id={`settings-tab-${tab.id}`}
             className={`settings-tab ${activeTab === tab.id ? "settings-tab--active" : ""}`}
             type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`settings-tabpanel-${tab.id}`}
             onClick={() => setActiveTab(tab.id as SettingsTab)}
           >
-            <span className="settings-tab__icon">{tab.icon}</span>
+            <span className="settings-tab__icon" aria-hidden="true">{tab.icon}</span>
             <span className="settings-tab__label">{tab.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="settings-panel__content">
+      <div className="settings-panel__content" role="tabpanel" id={`settings-tabpanel-${activeTab}`} aria-labelledby={`settings-tab-${activeTab}`}>
         {activeTab === "accounts" ? renderAccountsTab() : null}
         {activeTab === "appearance" ? renderAppearanceTab() : null}
         {activeTab === "chat" ? (

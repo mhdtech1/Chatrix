@@ -6,10 +6,7 @@ import { VirtualizedMessageList } from "../components/MessageList";
 import { PlatformIcon } from "../components/common/PlatformIcon";
 import { RoleBadge as UiRoleBadge, type RoleType as UiRoleType } from "../components/common/RoleBadge";
 import { WelcomeScreen } from "../components/common/WelcomeScreen";
-import type { OverlayFeedEvent, OverlayMessage, OverlaySourceRef } from "../../../shared/types";
 
-const mode = window.location.hash.replace("#", "");
-const broadcast = new BroadcastChannel("multichat-chat");
 const hotkeys = {
   focusSearch: "Control+Shift+F"
 };
@@ -1816,7 +1813,6 @@ const fetchTwitchThirdPartyEmotes = async (
   return fetchTwitchThirdPartyEmotesByUserId(userId);
 };
 
-const toOverlaySourceKey = (platform: Platform, channel: string) => `${platform}:${channel.trim().toLowerCase()}`;
 
 const extractTwitchProfileImageUrl = (payload: unknown): string | null => {
   const record = asRecord(payload);
@@ -1867,27 +1863,6 @@ const fetchKickChannelAvatar = async (channel: string): Promise<string | null> =
   return null;
 };
 
-const resolveOverlayChannelAvatar = async (source: ChatSource, settings: Settings): Promise<string | null> => {
-  if (source.platform === "twitch") {
-    return fetchTwitchChannelAvatar(source.channel, settings.twitchClientId, settings.twitchToken);
-  }
-  if (source.platform === "kick") {
-    return fetchKickChannelAvatar(source.channel);
-  }
-  return null;
-};
-
-const toOverlayMessage = (message: ChatMessage, avatarBySourceKey: Record<string, string>): OverlayMessage => ({
-  id: message.id,
-  platform: message.platform,
-  channel: message.channel,
-  username: message.username,
-  displayName: message.displayName,
-  message: message.message,
-  color: message.color,
-  channelAvatarUrl: avatarBySourceKey[toOverlaySourceKey(message.platform as Platform, message.channel)],
-  timestamp: message.timestamp
-});
 
 const checkTwitchModeratorStatus = async (channel: string, username: string): Promise<boolean | null> => {
   const normalizedChannel = normalizeChannel(channel, "twitch");
@@ -2123,125 +2098,7 @@ const getKickRawUserId = (message: ChatMessage): number | null => {
 };
 
 export const App: React.FC = () => {
-  if (mode === "overlay") {
-    return <OverlayView />;
-  }
   return <MainApp />;
-};
-
-const OverlayView: React.FC = () => {
-  const [messages, setMessages] = useState<OverlayMessage[]>([]);
-  const [channelFilter, setChannelFilter] = useState<string>("");
-  const [locked, setLocked] = useState(false);
-  const [followActiveTab, setFollowActiveTab] = useState(true);
-  const [activeSourceKeys, setActiveSourceKeys] = useState<string[]>([]);
-  const messagesRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const sourceKey = (source: OverlaySourceRef) => `${source.platform}:${source.channel.trim().toLowerCase()}`;
-    const messageKey = (message: OverlayMessage) => `${message.platform}:${message.channel.trim().toLowerCase()}`;
-
-    const handler = (event: MessageEvent<OverlayFeedEvent>) => {
-      const payload = event.data;
-      if (!payload || typeof payload !== "object") return;
-      if (payload.type === "chat") {
-        setMessages((prev) => [...prev.slice(-300), payload.message]);
-        return;
-      }
-      if (payload.type === "active-sources") {
-        setActiveSourceKeys(payload.sources.map(sourceKey));
-      }
-    };
-
-    broadcast.addEventListener("message", handler as EventListener);
-    return () => broadcast.removeEventListener("message", handler as EventListener);
-  }, []);
-
-  useEffect(() => {
-    if (followActiveTab && channelFilter) {
-      setChannelFilter("");
-    }
-  }, [followActiveTab, channelFilter]);
-
-  const visible = messages.filter((message) => {
-    if (followActiveTab && activeSourceKeys.length > 0) {
-      const key = `${message.platform}:${message.channel.trim().toLowerCase()}`;
-      if (!activeSourceKeys.includes(key)) {
-        return false;
-      }
-    }
-    return !channelFilter || message.channel === channelFilter;
-  });
-  const channels = Array.from(new Set(messages.map((message) => message.channel)));
-
-  useEffect(() => {
-    const list = messagesRef.current;
-    if (!list) return;
-    list.scrollTo({ top: list.scrollHeight, behavior: "auto" });
-  }, [visible.length, channelFilter, followActiveTab, activeSourceKeys]);
-
-  useEffect(() => {
-    void window.electronAPI.setOverlayLocked(locked).catch(() => {
-      // no-op
-    });
-  }, [locked]);
-
-  return (
-    <div className={`overlay${locked ? " locked" : ""}`}>
-      <header className="overlay-header">
-        <h1>Overlay</h1>
-        <div className="overlay-controls">
-          <label className="overlay-controls__check">
-            <input
-              type="checkbox"
-              checked={followActiveTab}
-              onChange={(event) => setFollowActiveTab(event.target.checked)}
-            />
-            Follow active tab
-          </label>
-          <label>
-            Channel
-            <select
-              value={channelFilter}
-              onChange={(event) => setChannelFilter(event.target.value)}
-              disabled={followActiveTab}
-            >
-              <option value="">All</option>
-              {channels.map((channel) => (
-                <option key={channel} value={channel}>
-                  {channel}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={() => setLocked((previous) => !previous)}>
-            {locked ? "Unlock" : "Lock"}
-          </button>
-          <button type="button" onClick={() => window.electronAPI.closeOverlay()} disabled={locked}>
-            Exit
-          </button>
-        </div>
-      </header>
-      <div className="overlay-messages" ref={messagesRef}>
-        {visible.map((message) => (
-          <div key={message.id} className={`overlay-message overlay-message--${message.platform}`}>
-            <span className="overlay-message__badge">
-              {message.channelAvatarUrl ? (
-                <img src={message.channelAvatarUrl} alt="" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="overlay-message__badge-fallback">{message.platform.slice(0, 1).toUpperCase()}</span>
-              )}
-            </span>
-            <span className="overlay-message__name" style={message.color ? { color: message.color } : undefined}>
-              {message.displayName || message.username || "user"}
-            </span>
-            <span className="overlay-message__separator">:</span>
-            <span className="overlay-message__text">{message.message}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 };
 
 
@@ -2304,7 +2161,6 @@ const MainApp: React.FC = () => {
   const [moderatorBySource, setModeratorBySource] = useState<Record<string, boolean>>({});
   const [globalEmoteMap, setGlobalEmoteMap] = useState<EmoteMap>({});
   const [kickGlobalEmoteMap, setKickGlobalEmoteMap] = useState<EmoteMap>({});
-  const [overlayChannelAvatarByKey, setOverlayChannelAvatarByKey] = useState<Record<string, string>>({});
   const [channelEmoteMapBySourceId, setChannelEmoteMapBySourceId] = useState<Record<string, EmoteMap>>({});
   const [twitchGlobalBadgeCatalog, setTwitchGlobalBadgeCatalog] = useState<TwitchBadgeCatalog>({});
   const [twitchChannelBadgeCatalogByRoomId, setTwitchChannelBadgeCatalogByRoomId] = useState<Record<string, TwitchBadgeCatalog>>({});
@@ -2350,8 +2206,6 @@ const MainApp: React.FC = () => {
   const composerHistoryIndexRef = useRef(-1);
   const composerHistoryDraftRef = useRef("");
   const recentHistoryBySourceKeyRef = useRef<Record<string, ChatMessage[]>>({});
-  const overlayChannelAvatarByKeyRef = useRef<Record<string, string>>({});
-  const overlayAvatarAttemptedRef = useRef<Set<string>>(new Set());
   const recentHistorySaveTimerRef = useRef<number | null>(null);
   const twitchRemoteHistoryAttemptedRef = useRef<Set<string>>(new Set());
   const backgroundMonitorActiveRef = useRef(false);
@@ -2612,19 +2466,6 @@ const MainApp: React.FC = () => {
     setAuthMessage(links.length === 1 ? "Channel link copied." : `Copied ${links.length} channel links.`);
   };
 
-  const syncWithObs = async () => {
-    try {
-      const url = await window.electronAPI.getObsOverlayUrl();
-      try {
-        await navigator.clipboard.writeText(url);
-        setAuthMessage(`OBS Browser Source URL copied: ${url}`);
-      } catch {
-        setAuthMessage(`OBS Browser Source URL: ${url}`);
-      }
-    } catch (error) {
-      setAuthMessage(error instanceof Error ? error.message : String(error));
-    }
-  };
 
   useEffect(() => {
     let active = true;
@@ -3142,14 +2983,6 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     sourceByIdRef.current = sourceById;
   }, [sourceById]);
-  useEffect(() => {
-    overlayChannelAvatarByKeyRef.current = overlayChannelAvatarByKey;
-  }, [overlayChannelAvatarByKey]);
-
-  const emitOverlayFeedEvent = useCallback((payload: OverlayFeedEvent) => {
-    broadcast.postMessage(payload);
-    window.electronAPI.pushObsOverlayEvent(payload);
-  }, []);
 
   const sourceByPlatformChannel = useMemo(
     () => new Map(sources.map((source) => [`${source.platform}:${source.channel}`, source])),
@@ -3165,50 +2998,6 @@ const MainApp: React.FC = () => {
   const activeTabIsMerged = activeTabSources.length > 1;
   const activeSingleSource = activeTabSources.length === 1 ? activeTabSources[0] : null;
 
-  useEffect(() => {
-    emitOverlayFeedEvent({
-      type: "active-sources",
-      sources: activeTabSources.map((source) => ({
-        platform: source.platform,
-        channel: source.channel
-      }))
-    });
-  }, [activeTabSources, emitOverlayFeedEvent]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const pending = sources.filter((source) => {
-      const key = toOverlaySourceKey(source.platform, source.channel);
-      if (overlayChannelAvatarByKeyRef.current[key]) return false;
-      if (overlayAvatarAttemptedRef.current.has(key)) return false;
-      overlayAvatarAttemptedRef.current.add(key);
-      return true;
-    });
-    if (pending.length === 0) return;
-
-    void Promise.all(
-      pending.map(async (source) => {
-        const key = toOverlaySourceKey(source.platform, source.channel);
-        const avatar = await resolveOverlayChannelAvatar(source, settings);
-        return avatar ? { key, avatar } : null;
-      })
-    ).then((entries) => {
-      if (cancelled) return;
-      const resolved = entries.filter((entry): entry is { key: string; avatar: string } => Boolean(entry));
-      if (resolved.length === 0) return;
-      setOverlayChannelAvatarByKey((previous) => {
-        const next = { ...previous };
-        for (const entry of resolved) {
-          next[entry.key] = entry.avatar;
-        }
-        return next;
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [settings, sources]);
   const writableActiveTabSources = useMemo(
     () =>
       activeTabSources.filter((source) => {
@@ -4373,8 +4162,7 @@ const MainApp: React.FC = () => {
         }
       }
 
-      emitOverlayFeedEvent({ type: "chat", message: toOverlayMessage(message, overlayChannelAvatarByKeyRef.current) });
-    });
+      });
 
     adaptersRef.current.set(source.id, adapter);
     adapterConnectionKeysRef.current[source.id] = nextConnectionKey;
@@ -5087,7 +4875,6 @@ const MainApp: React.FC = () => {
         const updated = [...(prev[source.id] ?? []), systemMessage].slice(-800);
         return { ...prev, [source.id]: updated };
       });
-      emitOverlayFeedEvent({ type: "chat", message: toOverlayMessage(systemMessage, overlayChannelAvatarByKeyRef.current) });
     };
 
     try {
@@ -5444,7 +5231,6 @@ const MainApp: React.FC = () => {
         ...previous,
         [source.id]: [...(previous[source.id] ?? []), auditMessage].slice(-800)
       }));
-      emitOverlayFeedEvent({ type: "chat", message: toOverlayMessage(auditMessage, overlayChannelAvatarByKeyRef.current) });
     }
 
     setModerationHistory((previous) => [
@@ -6484,12 +6270,6 @@ const MainApp: React.FC = () => {
               </div>
               <div className="menu-group">
                 <strong>View</strong>
-                <button type="button" onClick={() => window.electronAPI.openOverlay()}>
-                  Open Overlay
-                </button>
-                <button type="button" onClick={() => void syncWithObs()}>
-                  Sync with OBS
-                </button>
                 <button type="button" onClick={() => setQuickTourOpen(true)}>
                   Open Quick Tour
                 </button>
@@ -7450,12 +7230,6 @@ const MainApp: React.FC = () => {
                           ×
                         </button>
                       </div>
-	                    <button type="button" className="quick-action-button" onClick={() => window.electronAPI.openOverlay()}>
-	                      Open overlay
-	                    </button>
-                    <button type="button" className="quick-action-button" onClick={() => void syncWithObs()}>
-                      Sync with OBS
-                    </button>
                     <button type="button" className="quick-action-button" onClick={() => void copyActiveTabLinks()}>
                       Copy channel link
                     </button>
