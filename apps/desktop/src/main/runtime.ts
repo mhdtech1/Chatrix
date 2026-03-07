@@ -24,8 +24,7 @@ import type {
   ModerationRequest,
   TikTokRendererEvent,
   UpdateChannel,
-  UpdateStatus,
-  OverlayFeedEvent
+  UpdateStatus
 } from "../shared/types.js";
 import { JsonSettingsStore } from "./services/settingsStore.js";
 import {
@@ -35,7 +34,6 @@ import {
   storeAuthTokens
 } from "./services/secureStorage.js";
 import { openAuthInBrowser as openLoopbackAuthInBrowser } from "./services/loopbackOAuth.js";
-import { ObsOverlayServer } from "./services/obsOverlayServer.js";
 
 const { autoUpdater } = electronUpdater;
 type TikTokConnectorModule = typeof import("tiktok-live-connector");
@@ -2249,9 +2247,6 @@ const writeLog = (message: string) => {
 };
 
 let mainWindow: BrowserWindow | null = null;
-let overlayWindow: BrowserWindow | null = null;
-let overlayLocked = false;
-let obsOverlayServer: ObsOverlayServer | null = null;
 let store!: JsonSettingsStore;
 let updaterInitialized = false;
 const tiktokConnections = new Map<string, TikTokConnectionRecord>();
@@ -2440,11 +2435,10 @@ const showHelpGuide = async () => {
       "6. Scroll lock: if you scroll up, live autoscroll pauses. Use 'Go to newest message' to resume.",
       "7. Right-click messages for moderation actions (shown only when you are mod/broadcaster on single-source tabs).",
       "8. Right-click a Twitch/Kick user and choose 'View User Logs' to see session-only history (not saved to disk).",
-      "9. Overlay mode can be locked/unlocked for safe placement while streaming.",
-      "10. Use Help > Check for Updates to manually verify updates anytime.",
-      "11. Open Menu > Auth Manager to validate Twitch/Kick send permissions and active-tab mod capability.",
-      "12. Open Menu > Connection Health for per-platform status, reconnect reasons, token expiry, and last error.",
-      "13. Open Menu > Mention Inbox to jump directly to pings across open chats."
+      "9. Use Help > Check for Updates to manually verify updates anytime.",
+      "10. Open Menu > Auth Manager to validate Twitch/Kick send permissions and active-tab mod capability.",
+      "11. Open Menu > Connection Health for per-platform status, reconnect reasons, token expiry, and last error.",
+      "12. Open Menu > Mention Inbox to jump directly to pings across open chats."
     ].join("\n")
   };
 
@@ -2742,64 +2736,7 @@ const createMainWindow = () => {
 
   mainWindow.on("closed", () => {
     mainWindow = null;
-    overlayWindow?.close();
     void disconnectAllTikTokConnections();
-  });
-};
-
-const applyOverlayLockState = (locked: boolean) => {
-  overlayLocked = locked;
-  if (!overlayWindow || overlayWindow.isDestroyed()) {
-    return { locked: overlayLocked };
-  }
-  overlayWindow.setMovable(!locked);
-  overlayWindow.setResizable(!locked);
-  return { locked: overlayLocked };
-};
-
-const getObsOverlayServer = () => {
-  if (!obsOverlayServer) {
-    obsOverlayServer = new ObsOverlayServer();
-  }
-  return obsOverlayServer;
-};
-
-const createOverlayWindow = () => {
-  if (overlayWindow) {
-    overlayWindow.focus();
-    return;
-  }
-  overlayWindow = new BrowserWindow({
-    width: 1100,
-    height: 700,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: true,
-    movable: true,
-    hasShadow: false,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      preload: path.join(__dirname, "../preload/preload.cjs")
-    }
-  });
-
-  overlayWindow.setAlwaysOnTop(true, "screen-saver");
-  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  overlayWindow.setIgnoreMouseEvents(false);
-  applyOverlayLockState(false);
-
-  const devServerUrl = process.env.VITE_DEV_SERVER_URL || "http://localhost:5173";
-  const overlayUrl = app.isPackaged
-    ? `file://${path.join(__dirname, "../renderer/index.html")}#overlay`
-    : `${devServerUrl}#overlay`;
-  overlayWindow.loadURL(overlayUrl);
-  overlayWindow.on("closed", () => {
-    overlayWindow = null;
-    overlayLocked = false;
   });
 };
 
@@ -3788,21 +3725,6 @@ app.whenReady().then(async () => {
   ipcMain.handle(IPC_CHANNELS.LOG_TOGGLE, (_event, enabled: boolean) => {
     store.set("verboseLogs", enabled);
   });
-  ipcMain.handle(IPC_CHANNELS.OVERLAY_OPEN, () => createOverlayWindow());
-  ipcMain.handle(IPC_CHANNELS.OVERLAY_CLOSE, () => {
-    overlayWindow?.close();
-  });
-  ipcMain.handle(IPC_CHANNELS.OVERLAY_SET_LOCKED, (_event, locked: boolean) => {
-    return applyOverlayLockState(Boolean(locked));
-  });
-  ipcMain.handle(IPC_CHANNELS.OBS_OVERLAY_GET_URL, async () => {
-    const server = getObsOverlayServer();
-    return server.start();
-  });
-  ipcMain.on(IPC_CHANNELS.OBS_OVERLAY_PUSH_EVENT, (_event, payload: OverlayFeedEvent) => {
-    const server = getObsOverlayServer();
-    server.ingest(payload);
-  });
   ipcMain.handle(IPC_CHANNELS.UPDATES_CHECK, async () => {
     return requestUpdateCheck();
   });
@@ -3853,7 +3775,6 @@ app.on("before-quit", () => {
   appIsQuitting = true;
   clearPendingAutoInstallTimer();
   void disconnectAllTikTokConnections();
-  void obsOverlayServer?.stop();
 });
 
 app.on("activate", () => {
