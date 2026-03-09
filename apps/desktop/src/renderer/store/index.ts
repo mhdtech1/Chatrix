@@ -49,3 +49,6 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({ messages: clampMessages([...state.messages, message]) })),
   clearMessages: () => set({ messages: [] }),
 }));
+
+export { useAuthStore } from "./authStore";
+export { useAppSettingsStore } from "./appSettingsStore";

@@ -22,7 +22,6 @@ import {
 } from "@multichat/chat-core";
 import type {
   AppSettings,
-  AuthHealthSnapshot,
   ChatSource,
   ChatTab,
   LocalTabPoll,
@@ -31,6 +30,7 @@ import type {
   UpdateStatus,
   WorkspacePreset,
 } from "../../../shared/types";
+import { useAppSettingsStore, useAuthStore } from "../../store";
 import { VirtualizedMessageList } from "../components/MessageList";
 import { PlatformIcon } from "../components/common/PlatformIcon";
 import {
@@ -2369,10 +2369,49 @@ const ChatShell: React.FC = () => {
 export default ChatShell;
 
 const MainApp: React.FC = () => {
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
-  const [authBusy, setAuthBusy] = useState<Platform | null>(null);
-  const [authMessage, setAuthMessage] = useState("");
+  const storedSettings = useAppSettingsStore(
+    (state) => state.settings,
+  ) as Settings;
+  const settings = useMemo(
+    () => ({ ...defaultSettings, ...storedSettings }),
+    [storedSettings],
+  );
+  const setStoreSettings = useAppSettingsStore((state) => state.setSettings);
+  const loading = useAppSettingsStore((state) => state.loading);
+  const setStoreLoading = useAppSettingsStore((state) => state.setLoading);
+  const setSettings = useCallback(
+    (updater: React.SetStateAction<Settings>) => {
+      setStoreSettings((previous) => {
+        const typedPrevious = { ...defaultSettings, ...(previous as Settings) };
+        return typeof updater === "function"
+          ? (updater as (previousState: Settings) => Settings)(typedPrevious)
+          : updater;
+      });
+    },
+    [setStoreSettings],
+  );
+  const setLoading = useCallback(
+    (next: React.SetStateAction<boolean>) => {
+      if (typeof next === "function") {
+        setStoreLoading(
+          (next as (previousState: boolean) => boolean)(
+            useAppSettingsStore.getState().loading,
+          ),
+        );
+        return;
+      }
+      setStoreLoading(next);
+    },
+    [setStoreLoading],
+  );
+  const authBusy = useAuthStore((state) => state.authBusy);
+  const setAuthBusy = useAuthStore((state) => state.setAuthBusy);
+  const authMessage = useAuthStore((state) => state.authMessage);
+  const setAuthMessage = useAuthStore((state) => state.setAuthMessage);
+  const authHealth = useAuthStore((state) => state.authHealth);
+  const setAuthHealth = useAuthStore((state) => state.setAuthHealth);
+  const authHealthBusy = useAuthStore((state) => state.authHealthBusy);
+  const setAuthHealthBusy = useAuthStore((state) => state.setAuthHealthBusy);
   const [readOnlyGuideMode, setReadOnlyGuideMode] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({
     state: "idle",
@@ -2380,8 +2419,6 @@ const MainApp: React.FC = () => {
     channel: settings.updateChannel === "beta" ? "beta" : "stable",
     currentVersion: "unknown",
   });
-  const [authHealth, setAuthHealth] = useState<AuthHealthSnapshot | null>(null);
-  const [authHealthBusy, setAuthHealthBusy] = useState(false);
   const [mentionInbox, setMentionInbox] = useState<MentionInboxEntry[]>([]);
   const [connectionHealthBySource, setConnectionHealthBySource] = useState<
     Record<string, ConnectionHealthState>
