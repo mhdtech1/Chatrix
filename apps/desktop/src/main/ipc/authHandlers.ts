@@ -259,19 +259,36 @@ export function createAuthSignInHandlers(
       if (clientSecret) {
         tokenParams.set("client_secret", clientSecret);
       }
+      const exchangeKickTokens = async (params: URLSearchParams) => {
+        const tokenResponse = await fetch("https://id.kick.com/oauth/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+          },
+          body: params,
+        });
+        return fetchJsonOrThrow<KickTokenResponse>(
+          tokenResponse,
+          "Kick token exchange",
+        );
+      };
 
-      const tokenResponse = await fetch("https://id.kick.com/oauth/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
-        body: tokenParams,
-      });
-      const tokens = await fetchJsonOrThrow<KickTokenResponse>(
-        tokenResponse,
-        "Kick token exchange",
-      );
+      let tokens: KickTokenResponse;
+      try {
+        tokens = await exchangeKickTokens(tokenParams);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        const canRetryWithoutSecret =
+          Boolean(clientSecret) &&
+          /client|invalid_client|unauthorized_client/i.test(detail);
+        if (!canRetryWithoutSecret) {
+          throw error;
+        }
+        const fallbackParams = new URLSearchParams(tokenParams);
+        fallbackParams.delete("client_secret");
+        tokens = await exchangeKickTokens(fallbackParams);
+      }
 
       if (!tokens.access_token) {
         throw new Error("Kick token exchange did not return an access token.");

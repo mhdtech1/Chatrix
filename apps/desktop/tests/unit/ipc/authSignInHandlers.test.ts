@@ -79,6 +79,103 @@ describe("createAuthSignInHandlers", () => {
       ),
     ).rejects.toThrow("youtube oauth missing");
   });
+
+  it("retries kick token exchange without client_secret after invalid client error", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: "invalid_client" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ access_token: "kick-access", refresh_token: "kick-refresh" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: [{ username: "kick-user" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      const store = createMockSettingsStore({
+        kickClientId: "kick-client",
+        kickClientSecret: "bad-secret",
+        kickRedirectUri: "http://localhost/kick/callback",
+      });
+      const storeAuthTokens = vi.fn().mockResolvedValue(undefined);
+      const handlers = createAuthSignInHandlers({
+        store: store as never,
+        randomToken: vi
+          .fn()
+          .mockReturnValueOnce("kick-state")
+          .mockReturnValueOnce("kick-verifier"),
+        openAuthInBrowser: vi
+          .fn()
+          .mockResolvedValue(
+            "http://localhost/kick/callback?code=kick-code&state=kick-state",
+          ),
+        fetchJsonOrThrow: async <T,>(response: Response, source: string) => {
+          const text = await response.text();
+          const parsed = text ? JSON.parse(text) : {};
+          if (!response.ok) {
+            const message =
+              typeof parsed.error === "string"
+                ? parsed.error
+                : `${source} failed (${response.status})`;
+            throw new Error(message);
+          }
+          return parsed as T;
+        },
+        clearAuthTokens: vi.fn().mockResolvedValue(undefined),
+        storeAuthTokens,
+        parseKickUserName: vi.fn().mockReturnValue("kick-user"),
+        twitchDefaultRedirectUri: "http://localhost/twitch/callback",
+        twitchScopes: ["chat:read"],
+        twitchScopeVersion: 2,
+        kickDefaultRedirectUri: "http://localhost/kick/callback",
+        kickScopes: ["user:read"],
+        kickScopeVersion: 3,
+        youtubeScopes: ["scope"],
+        youtubeMissingOauthMessage: "youtube oauth missing",
+        assertYouTubeAlphaEnabled: vi.fn(),
+        youtubeConfig: vi.fn().mockReturnValue({
+          clientId: "",
+          clientSecret: "",
+          redirectUri: "http://localhost/youtube/callback",
+        }),
+        saveYouTubeTokens: vi.fn().mockResolvedValue(undefined),
+        youtubeFetchWithAuth: vi.fn(),
+      });
+
+      await handlers[IPC_CHANNELS.AUTH_KICK_SIGN_IN](
+        {} as never,
+        undefined as never,
+      );
+
+      const firstBody = fetchMock.mock.calls[0]?.[1]?.body as URLSearchParams;
+      const secondBody = fetchMock.mock.calls[1]?.[1]?.body as URLSearchParams;
+      expect(firstBody.get("client_secret")).toBe("bad-secret");
+      expect(secondBody.get("client_secret")).toBeNull();
+      expect(storeAuthTokens).toHaveBeenCalledWith("kick", {
+        accessToken: "kick-access",
+        refreshToken: "kick-refresh",
+      });
+      expect(store.store.kickUsername).toBe("kick-user");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe("createAuthTikTokHandlers", () => {
