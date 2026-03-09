@@ -52,3 +52,5 @@ export const useChatStore = create<ChatState>((set) => ({
 
 export { useAuthStore } from "./authStore";
 export { useAppSettingsStore } from "./appSettingsStore";
+export { useConnectionStore } from "./connectionStore";
+export { useTabStore } from "./tabStore";

@@ -30,7 +30,12 @@ import type {
   UpdateStatus,
   WorkspacePreset,
 } from "../../../shared/types";
-import { useAppSettingsStore, useAuthStore } from "../../store";
+import {
+  useAppSettingsStore,
+  useAuthStore,
+  useConnectionStore,
+  useTabStore,
+} from "../../store";
 import { VirtualizedMessageList } from "../components/MessageList";
 import { PlatformIcon } from "../components/common/PlatformIcon";
 import {
@@ -44,6 +49,12 @@ const hotkeys = {
 };
 
 const SEND_TARGET_TAB_ALL = "__all_in_tab__";
+const SOURCE_MESSAGE_BUFFER_CAP = 500;
+
+const capMessageBuffer = <T,>(messages: T[]): T[] =>
+  messages.length > SOURCE_MESSAGE_BUFFER_CAP
+    ? messages.slice(-SOURCE_MESSAGE_BUFFER_CAP)
+    : messages;
 
 type Settings = AppSettings & {
   uiMode?: "simple" | "advanced";
@@ -2420,9 +2431,12 @@ const MainApp: React.FC = () => {
     currentVersion: "unknown",
   });
   const [mentionInbox, setMentionInbox] = useState<MentionInboxEntry[]>([]);
-  const [connectionHealthBySource, setConnectionHealthBySource] = useState<
-    Record<string, ConnectionHealthState>
-  >({});
+  const connectionHealthBySource = useConnectionStore(
+    (state) => state.connectionHealthBySource,
+  );
+  const setConnectionHealthBySource = useConnectionStore(
+    (state) => state.setConnectionHealthBySource,
+  );
 
   const [platformInput, setPlatformInput] = useState<Platform>("twitch");
   const [channelInput, setChannelInput] = useState("");
@@ -2462,18 +2476,23 @@ const MainApp: React.FC = () => {
     uniqueChatters: number;
   } | null>(null);
 
-  const [sources, setSources] = useState<ChatSource[]>([]);
-  const [tabs, setTabs] = useState<ChatTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState("");
+  const sources = useTabStore((state) => state.sources);
+  const setSources = useTabStore((state) => state.setSources);
+  const tabs = useTabStore((state) => state.tabs);
+  const setTabs = useTabStore((state) => state.setTabs);
+  const activeTabId = useTabStore((state) => state.activeTabId);
+  const setActiveTabId = useTabStore((state) => state.setActiveTabId);
   const [messagesBySource, setMessagesBySource] = useState<
     Record<string, ChatMessage[]>
   >({});
-  const [statusBySource, setStatusBySource] = useState<
-    Record<string, ChatAdapterStatus>
-  >({});
-  const [moderatorBySource, setModeratorBySource] = useState<
-    Record<string, boolean>
-  >({});
+  const statusBySource = useConnectionStore((state) => state.statusBySource);
+  const setStatusBySource = useConnectionStore((state) => state.setStatusBySource);
+  const moderatorBySource = useConnectionStore(
+    (state) => state.moderatorBySource,
+  );
+  const setModeratorBySource = useConnectionStore(
+    (state) => state.setModeratorBySource,
+  );
   const [globalEmoteMap, setGlobalEmoteMap] = useState<EmoteMap>({});
   const [kickGlobalEmoteMap, setKickGlobalEmoteMap] = useState<EmoteMap>({});
   const [channelEmoteMapBySourceId, setChannelEmoteMapBySourceId] = useState<
@@ -2826,7 +2845,7 @@ const MainApp: React.FC = () => {
           }
           return {
             ...previous,
-            [source.id]: merged,
+            [source.id]: capMessageBuffer(merged),
           };
         });
 
@@ -2987,6 +3006,9 @@ const MainApp: React.FC = () => {
               platform: source.platform,
               channel: source.channel,
             }),
+          );
+          restoredMessagesBySource[source.id] = capMessageBuffer(
+            restoredMessagesBySource[source.id],
           );
         }
         if (Object.keys(restoredMessagesBySource).length > 0) {
@@ -4768,11 +4790,14 @@ const MainApp: React.FC = () => {
       }
 
       setMessagesBySource((prev) => {
-        const maxHistory = backgroundMonitorActiveRef.current
-          ? 180
-          : currentSettings.performanceMode
-            ? 300
-            : 800;
+        const maxHistory = Math.min(
+          SOURCE_MESSAGE_BUFFER_CAP,
+          backgroundMonitorActiveRef.current
+            ? 180
+            : currentSettings.performanceMode
+              ? 300
+              : 800,
+        );
         const existing = prev[source.id] ?? [];
         let updated = existing;
         let skipAppend = false;
@@ -5080,7 +5105,10 @@ const MainApp: React.FC = () => {
           timestamp: new Date().toISOString(),
           color: "#f08a65",
         };
-        const updated = [...(prev[source.id] ?? []), systemMessage].slice(-800);
+        const updated = capMessageBuffer([
+          ...(prev[source.id] ?? []),
+          systemMessage,
+        ]);
         return { ...prev, [source.id]: updated };
       });
       void window.electronAPI.writeLog(
@@ -5203,11 +5231,13 @@ const MainApp: React.FC = () => {
           if (existingMessages.length > 0) return previous;
           return {
             ...previous,
-            [source.id]: sourceHistory.map((entry) => ({
-              ...entry,
-              platform: source.platform,
-              channel: source.channel,
-            })),
+            [source.id]: capMessageBuffer(
+              sourceHistory.map((entry) => ({
+                ...entry,
+                platform: source.platform,
+                channel: source.channel,
+              })),
+            ),
           };
         });
       }
@@ -5791,7 +5821,10 @@ const MainApp: React.FC = () => {
         color: ok ? "#70d6a8" : "#f08a65",
       };
       setMessagesBySource((prev) => {
-        const updated = [...(prev[source.id] ?? []), systemMessage].slice(-800);
+        const updated = capMessageBuffer([
+          ...(prev[source.id] ?? []),
+          systemMessage,
+        ]);
         return { ...prev, [source.id]: updated };
       });
     };
@@ -6209,7 +6242,10 @@ const MainApp: React.FC = () => {
       };
       setMessagesBySource((previous) => ({
         ...previous,
-        [source.id]: [...(previous[source.id] ?? []), auditMessage].slice(-800),
+        [source.id]: capMessageBuffer([
+          ...(previous[source.id] ?? []),
+          auditMessage,
+        ]),
       }));
     }
 

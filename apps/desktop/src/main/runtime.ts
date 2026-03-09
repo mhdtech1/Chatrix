@@ -38,11 +38,14 @@ import { fetchJsonOrThrow } from "./utils/http.js";
 import { registerIpcHandlers } from "./ipc/handlers.js";
 import {
   createAuthHealthHandlers,
+  createAuthSignInHandlers,
   createAuthSessionHandlers,
+  createAuthTikTokHandlers,
 } from "./ipc/authHandlers.js";
 import { createChatHandlers } from "./ipc/chatHandlers.js";
 import { createLogHandlers } from "./ipc/logHandlers.js";
 import { createSettingsHandlers } from "./ipc/settingsHandlers.js";
+import { createTikTokHandlers } from "./ipc/tiktokHandlers.js";
 import { createUpdateHandlers } from "./ipc/updateHandlers.js";
 
 const { autoUpdater } = electronUpdater;
@@ -2712,6 +2715,210 @@ const disconnectAllTikTokConnections = async () => {
   );
 };
 
+const connectTikTokChannel = async (channel: string) => {
+  assertTikTokAlphaEnabled();
+  const normalizedChannel = normalizeTikTokChannel(channel);
+  if (!normalizedChannel) {
+    throw new Error("TikTok channel is required.");
+  }
+
+  const sessionId = store.get("tiktokSessionId")?.trim() ?? "";
+  const ttTargetIdc = store.get("tiktokTtTargetIdc")?.trim() ?? "";
+  const activeSignApiKey = TIKTOK_SIGN_API_KEY;
+  const hasAuthenticatedSession = Boolean(sessionId && ttTargetIdc);
+
+  const connectionOptions: Record<string, unknown> = {
+    processInitialData: false,
+    fetchRoomInfoOnConnect: true,
+    enableExtendedGiftInfo: false,
+    enableRequestPolling: true,
+  };
+  if (activeSignApiKey) {
+    connectionOptions.signApiKey = activeSignApiKey;
+  }
+  if (hasAuthenticatedSession) {
+    connectionOptions.sessionId = sessionId;
+    connectionOptions.ttTargetIdc = ttTargetIdc;
+    connectionOptions.authenticateWs = false;
+  }
+
+  const connectionId = randomToken(18);
+  const connection = new TikTokLiveConnection(
+    normalizedChannel,
+    connectionOptions as ConstructorParameters<typeof TikTokLiveConnection>[1],
+  ) as unknown as TikTokConnection;
+  const record: TikTokConnectionRecord = {
+    connectionId,
+    channel: normalizedChannel,
+    connection,
+  };
+
+  tiktokConnections.set(connectionId, record);
+
+  let connectedEventSent = false;
+  const emitConnected = () => {
+    if (connectedEventSent) return;
+    connectedEventSent = true;
+    emitTikTokEvent({
+      connectionId,
+      type: "connected",
+      roomId: record.roomId,
+    });
+  };
+
+  connection.on(WebcastEvent.CHAT, (payload: unknown) => {
+    const message = normalizeTikTokChatMessage(normalizedChannel, payload);
+    if (!message) return;
+    emitTikTokEvent({
+      connectionId,
+      type: "chat",
+      roomId: record.roomId,
+      message,
+    });
+  });
+
+  const followEventName = (WebcastEvent as Record<string, string | undefined>)
+    .FOLLOW;
+  if (followEventName) {
+    connection.on(followEventName, (payload: unknown) => {
+      const message = normalizeTikTokFollowMessage(normalizedChannel, payload);
+      if (!message) return;
+      emitTikTokEvent({
+        connectionId,
+        type: "chat",
+        roomId: record.roomId,
+        message,
+      });
+    });
+  }
+
+  connection.on(ControlEvent.CONNECTED, (state: unknown) => {
+    const roomId = asString(asUnknownRecord(state)?.roomId).trim();
+    if (roomId) {
+      record.roomId = roomId;
+    }
+    emitConnected();
+  });
+
+  connection.on(ControlEvent.DISCONNECTED, (payload: unknown) => {
+    const reason = asString(asUnknownRecord(payload)?.reason).trim();
+    if (tiktokConnections.has(connectionId)) {
+      tiktokConnections.delete(connectionId);
+      connection.removeAllListeners?.();
+    }
+    emitTikTokEvent({
+      connectionId,
+      type: "disconnected",
+      roomId: record.roomId,
+      error: reason || undefined,
+    });
+  });
+
+  connection.on(ControlEvent.ERROR, (error: unknown) => {
+    const text = error instanceof Error ? error.message : String(error);
+    emitTikTokEvent({
+      connectionId,
+      type: "error",
+      roomId: record.roomId,
+      error: text,
+    });
+  });
+
+  try {
+    const state = (await connection.connect()) as Record<string, unknown> | null;
+    const roomId = asString(asUnknownRecord(state)?.roomId).trim();
+    if (roomId) {
+      record.roomId = roomId;
+    }
+    emitConnected();
+    return {
+      connectionId,
+      roomId: record.roomId,
+    };
+  } catch (error) {
+    tiktokConnections.delete(connectionId);
+    connection.removeAllListeners?.();
+    const text = error instanceof Error ? error.message : String(error);
+    emitTikTokEvent({
+      connectionId,
+      type: "error",
+      error: text,
+    });
+    if (isLikelyTikTokOfflineError(text)) {
+      throw new Error(`TikTok channel @${normalizedChannel} is offline right now.`);
+    }
+    throw new Error(`TikTok connect failed: ${text}`);
+  }
+};
+
+const sendTikTokMessage = async (payload: {
+  connectionId?: string;
+  message?: string;
+}) => {
+  assertTikTokAlphaEnabled();
+  const connectionId = payload?.connectionId?.trim();
+  const message = payload?.message?.trim();
+  const sessionId = store.get("tiktokSessionId")?.trim() ?? "";
+  const ttTargetIdc = store.get("tiktokTtTargetIdc")?.trim() ?? "";
+  const activeSignApiKey = TIKTOK_SIGN_API_KEY;
+  if (!connectionId) {
+    throw new Error("TikTok connection id is required.");
+  }
+  if (!message) {
+    throw new Error("Message cannot be empty.");
+  }
+  if (!sessionId || !ttTargetIdc) {
+    throw new Error(TIKTOK_SIGN_IN_REQUIRED_MESSAGE);
+  }
+  if (!activeSignApiKey) {
+    throw new Error(TIKTOK_SIGN_KEY_REQUIRED_MESSAGE);
+  }
+  const record = tiktokConnections.get(connectionId);
+  if (!record) {
+    throw new Error("TikTok connection is not ready.");
+  }
+  if (typeof record.connection.sendMessage !== "function") {
+    throw new Error("TikTok sending is not enabled for this alpha build.");
+  }
+  try {
+    await record.connection.sendMessage(message);
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    throw new Error(`TikTok send failed: ${text}`);
+  }
+};
+
+const signInTikTok = async () => {
+  assertTikTokAlphaEnabled();
+  const authSession = session.fromPartition(TIKTOK_AUTH_PARTITION);
+  attemptTikTokBrowserSignIn();
+  const credentials = await openTikTokSignInWindow();
+  store.set({
+    tiktokSessionId: credentials.sessionId,
+    tiktokTtTargetIdc: credentials.ttTargetIdc,
+    tiktokUsername: store.get("tiktokUsername")?.trim() || "signed-in",
+  });
+  const resolved = await readTikTokAuthFromSession(authSession);
+  if (!resolved) {
+    throw new Error(
+      "TikTok sign-in completed, but session cookies were not persisted.",
+    );
+  }
+  return store.store;
+};
+
+const signOutTikTok = async () => {
+  const authSession = session.fromPartition(TIKTOK_AUTH_PARTITION);
+  await clearTikTokAuthSession(authSession);
+  store.set({
+    tiktokSessionId: "",
+    tiktokTtTargetIdc: "",
+    tiktokUsername: "",
+  });
+  await disconnectAllTikTokConnections();
+  return store.store;
+};
+
 const updateStatusToRenderer = () => {
   if (mainWindow) {
     mainWindow.webContents.send(
@@ -3426,307 +3633,30 @@ app.whenReady().then(async () => {
       clearAuthTokens,
     }),
   );
-  ipcMain.handle(IPC_CHANNELS.AUTH_TWITCH_SIGN_IN, async () => {
-    const clientId = store.get("twitchClientId")?.trim();
-    const redirectUri =
-      store.get("twitchRedirectUri")?.trim() || TWITCH_DEFAULT_REDIRECT_URI;
-
-    if (!clientId) {
-      const guestName = `justinfan${Math.floor(Math.random() * 100000)}`;
-      store.set({
-        twitchToken: "",
-        twitchUsername: guestName,
-        twitchGuest: true,
-      });
-      await clearAuthTokens("twitch");
-      return store.store;
-    }
-
-    const state = randomToken(24);
-    const authUrl = new URL("https://id.twitch.tv/oauth2/authorize");
-    authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("response_type", "token");
-    authUrl.searchParams.set("scope", TWITCH_SCOPES.join(" "));
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("force_verify", "true");
-
-    const callbackUrl = await openAuthInBrowser(
-      authUrl.toString(),
-      redirectUri,
-    );
-    const hash = callbackUrl.includes("#")
-      ? callbackUrl.slice(callbackUrl.indexOf("#") + 1)
-      : "";
-    const params = new URLSearchParams(hash);
-
-    const error = params.get("error");
-    if (error) {
-      const description =
-        params.get("error_description") ?? "Twitch sign-in failed.";
-      throw new Error(description);
-    }
-
-    if (params.get("state") !== state) {
-      throw new Error("Twitch sign-in was rejected (state mismatch).");
-    }
-
-    const accessToken = params.get("access_token");
-    if (!accessToken) {
-      throw new Error("Twitch did not return an access token.");
-    }
-
-    type TwitchValidateResponse = {
-      login?: string;
-    };
-
-    const validateResponse = await fetch(
-      "https://id.twitch.tv/oauth2/validate",
-      {
-        headers: {
-          Authorization: `OAuth ${accessToken}`,
-        },
-      },
-    );
-    const validated = await fetchJsonOrThrow<TwitchValidateResponse>(
-      validateResponse,
-      "Twitch token validation",
-    );
-
-    if (!validated.login) {
-      throw new Error("Twitch token validation did not include a username.");
-    }
-
-    store.set({
-      twitchToken: accessToken,
-      twitchUsername: validated.login,
-      twitchGuest: false,
+  registerIpcHandlers(
+    ipcMain,
+    createAuthSignInHandlers({
+      store,
+      randomToken,
+      openAuthInBrowser,
+      fetchJsonOrThrow,
+      clearAuthTokens,
+      storeAuthTokens,
+      parseKickUserName,
+      twitchDefaultRedirectUri: TWITCH_DEFAULT_REDIRECT_URI,
+      twitchScopes: TWITCH_SCOPES,
       twitchScopeVersion: TWITCH_SCOPE_VERSION,
-      twitchRedirectUri: redirectUri,
-    });
-    await storeAuthTokens("twitch", { accessToken });
-
-    return store.store;
-  });
-  ipcMain.handle(IPC_CHANNELS.AUTH_KICK_SIGN_IN, async () => {
-    const clientId = store.get("kickClientId")?.trim();
-    const clientSecret = store.get("kickClientSecret")?.trim();
-    const redirectUri =
-      store.get("kickRedirectUri")?.trim() || KICK_DEFAULT_REDIRECT_URI;
-
-    if (!clientId) {
-      store.set({
-        kickAccessToken: "",
-        kickRefreshToken: "",
-        kickUsername: "guest",
-        kickGuest: true,
-      });
-      await clearAuthTokens("kick");
-      return store.store;
-    }
-    const state = randomToken(24);
-    const codeVerifier = randomToken(48);
-    const codeChallenge = crypto
-      .createHash("sha256")
-      .update(codeVerifier)
-      .digest("base64url");
-
-    const authUrl = new URL("https://id.kick.com/oauth/authorize");
-    authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("scope", KICK_SCOPES.join(" "));
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("code_challenge", codeChallenge);
-    authUrl.searchParams.set("code_challenge_method", "S256");
-
-    const callbackUrl = await openAuthInBrowser(
-      authUrl.toString(),
-      redirectUri,
-    );
-    const callback = new URL(callbackUrl);
-    const error = callback.searchParams.get("error");
-    if (error) {
-      const description =
-        callback.searchParams.get("error_description") ??
-        "Kick sign-in failed.";
-      throw new Error(description);
-    }
-
-    if (callback.searchParams.get("state") !== state) {
-      throw new Error("Kick sign-in was rejected (state mismatch).");
-    }
-
-    const code = callback.searchParams.get("code");
-    if (!code) {
-      throw new Error("Kick did not return an authorization code.");
-    }
-
-    type KickTokenResponse = {
-      access_token?: string;
-      refresh_token?: string;
-    };
-
-    const tokenParams = new URLSearchParams({
-      code,
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code",
-      code_verifier: codeVerifier,
-    });
-    if (clientSecret) {
-      tokenParams.set("client_secret", clientSecret);
-    }
-
-    const tokenResponse = await fetch("https://id.kick.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: tokenParams,
-    });
-    const tokens = await fetchJsonOrThrow<KickTokenResponse>(
-      tokenResponse,
-      "Kick token exchange",
-    );
-
-    if (!tokens.access_token) {
-      throw new Error("Kick token exchange did not return an access token.");
-    }
-
-    const userResponse = await fetch("https://api.kick.com/public/v1/users", {
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
-        Accept: "application/json",
-      },
-    });
-    const userPayload = await fetchJsonOrThrow<unknown>(
-      userResponse,
-      "Kick user profile",
-    );
-    const username = parseKickUserName(userPayload);
-
-    store.set({
-      kickAccessToken: tokens.access_token,
-      kickRefreshToken: tokens.refresh_token ?? "",
-      kickUsername: username ?? "",
-      kickGuest: false,
+      kickDefaultRedirectUri: KICK_DEFAULT_REDIRECT_URI,
+      kickScopes: KICK_SCOPES,
       kickScopeVersion: KICK_SCOPE_VERSION,
-      kickRedirectUri: redirectUri,
-    });
-    await storeAuthTokens("kick", {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token ?? "",
-    });
-
-    return store.store;
-  });
-  ipcMain.handle(IPC_CHANNELS.AUTH_YOUTUBE_SIGN_IN, async () => {
-    assertYouTubeAlphaEnabled();
-    const { clientId, clientSecret, redirectUri } = youtubeConfig();
-    if (!clientId) {
-      throw new Error(YOUTUBE_MISSING_OAUTH_MESSAGE);
-    }
-
-    const state = randomToken(24);
-    const codeVerifier = randomToken(48);
-    const codeChallenge = crypto
-      .createHash("sha256")
-      .update(codeVerifier)
-      .digest("base64url");
-    const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-    authUrl.searchParams.set("client_id", clientId);
-    authUrl.searchParams.set("redirect_uri", redirectUri);
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("scope", YOUTUBE_SCOPES.join(" "));
-    authUrl.searchParams.set("state", state);
-    authUrl.searchParams.set("access_type", "offline");
-    authUrl.searchParams.set("include_granted_scopes", "true");
-    authUrl.searchParams.set("prompt", "consent");
-    authUrl.searchParams.set("code_challenge_method", "S256");
-    authUrl.searchParams.set("code_challenge", codeChallenge);
-
-    const callbackUrl = await openAuthInBrowser(
-      authUrl.toString(),
-      redirectUri,
-    );
-    const callback = new URL(callbackUrl);
-
-    const error = callback.searchParams.get("error");
-    if (error) {
-      const description =
-        callback.searchParams.get("error_description") ??
-        "YouTube sign-in failed.";
-      throw new Error(description);
-    }
-    if (callback.searchParams.get("state") !== state) {
-      throw new Error("YouTube sign-in was rejected (state mismatch).");
-    }
-
-    const code = callback.searchParams.get("code");
-    if (!code) {
-      throw new Error("YouTube did not return an authorization code.");
-    }
-
-    const tokenParams = new URLSearchParams({
-      code,
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code",
-      code_verifier: codeVerifier,
-    });
-    if (clientSecret) {
-      tokenParams.set("client_secret", clientSecret);
-    }
-
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: tokenParams,
-    });
-    const tokens = await fetchJsonOrThrow<YouTubeTokenResponse>(
-      tokenResponse,
-      "YouTube token exchange",
-    );
-    if (!tokens.access_token) {
-      throw new Error("YouTube token exchange did not return an access token.");
-    }
-
-    await saveYouTubeTokens({
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresIn: tokens.expires_in,
-    });
-
-    let username = store.get("youtubeUsername")?.trim() ?? "";
-    try {
-      const channelResponse = await youtubeFetchWithAuth(
-        "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true&maxResults=1",
-      );
-      const channelPayload = await fetchJsonOrThrow<YouTubeChannelsResponse>(
-        channelResponse,
-        "YouTube profile",
-      );
-      const first = Array.isArray(channelPayload.items)
-        ? channelPayload.items[0]
-        : undefined;
-      username = first?.snippet?.title?.trim() ?? username;
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      console.warn(`[youtube] profile lookup skipped after sign-in: ${detail}`);
-    }
-
-    store.set({
-      youtubeUsername: username,
-      youtubeRedirectUri: redirectUri,
-    });
-
-    return store.store;
-  });
+      youtubeScopes: YOUTUBE_SCOPES,
+      youtubeMissingOauthMessage: YOUTUBE_MISSING_OAUTH_MESSAGE,
+      assertYouTubeAlphaEnabled,
+      youtubeConfig,
+      saveYouTubeTokens,
+      youtubeFetchWithAuth,
+    }),
+  );
   registerIpcHandlers(
     ipcMain,
     createAuthSessionHandlers({
@@ -3740,35 +3670,13 @@ app.whenReady().then(async () => {
       },
     }),
   );
-  ipcMain.handle(IPC_CHANNELS.AUTH_TIKTOK_SIGN_IN, async () => {
-    assertTikTokAlphaEnabled();
-    const authSession = session.fromPartition(TIKTOK_AUTH_PARTITION);
-    attemptTikTokBrowserSignIn();
-    const credentials = await openTikTokSignInWindow();
-    store.set({
-      tiktokSessionId: credentials.sessionId,
-      tiktokTtTargetIdc: credentials.ttTargetIdc,
-      tiktokUsername: store.get("tiktokUsername")?.trim() || "signed-in",
-    });
-    const resolved = await readTikTokAuthFromSession(authSession);
-    if (!resolved) {
-      throw new Error(
-        "TikTok sign-in completed, but session cookies were not persisted.",
-      );
-    }
-    return store.store;
-  });
-  ipcMain.handle(IPC_CHANNELS.AUTH_TIKTOK_SIGN_OUT, async () => {
-    const authSession = session.fromPartition(TIKTOK_AUTH_PARTITION);
-    await clearTikTokAuthSession(authSession);
-    store.set({
-      tiktokSessionId: "",
-      tiktokTtTargetIdc: "",
-      tiktokUsername: "",
-    });
-    await disconnectAllTikTokConnections();
-    return store.store;
-  });
+  registerIpcHandlers(
+    ipcMain,
+    createAuthTikTokHandlers({
+      signIn: signInTikTok,
+      signOut: signOutTikTok,
+    }),
+  );
   registerIpcHandlers(
     ipcMain,
     createAuthHealthHandlers({
@@ -3794,198 +3702,17 @@ app.whenReady().then(async () => {
       fetchJsonOrThrow,
     }),
   );
-  ipcMain.handle(
-    IPC_CHANNELS.TIKTOK_CONNECT,
-    async (_event, channel: string) => {
-      assertTikTokAlphaEnabled();
-      const normalizedChannel = normalizeTikTokChannel(channel);
-      if (!normalizedChannel) {
-        throw new Error("TikTok channel is required.");
-      }
-
-      const sessionId = store.get("tiktokSessionId")?.trim() ?? "";
-      const ttTargetIdc = store.get("tiktokTtTargetIdc")?.trim() ?? "";
-      const activeSignApiKey = TIKTOK_SIGN_API_KEY;
-      const hasAuthenticatedSession = Boolean(sessionId && ttTargetIdc);
-
-      const connectionOptions: Record<string, unknown> = {
-        processInitialData: false,
-        fetchRoomInfoOnConnect: true,
-        enableExtendedGiftInfo: false,
-        enableRequestPolling: true,
-      };
-      if (activeSignApiKey) {
-        connectionOptions.signApiKey = activeSignApiKey;
-      }
-      if (hasAuthenticatedSession) {
-        connectionOptions.sessionId = sessionId;
-        connectionOptions.ttTargetIdc = ttTargetIdc;
-        connectionOptions.authenticateWs = false;
-      }
-
-      const connectionId = randomToken(18);
-      const connection = new TikTokLiveConnection(
-        normalizedChannel,
-        connectionOptions as ConstructorParameters<
-          typeof TikTokLiveConnection
-        >[1],
-      ) as unknown as TikTokConnection;
-      const record: TikTokConnectionRecord = {
-        connectionId,
-        channel: normalizedChannel,
-        connection,
-      };
-
-      tiktokConnections.set(connectionId, record);
-
-      let connectedEventSent = false;
-      const emitConnected = () => {
-        if (connectedEventSent) return;
-        connectedEventSent = true;
-        emitTikTokEvent({
-          connectionId,
-          type: "connected",
-          roomId: record.roomId,
-        });
-      };
-
-      connection.on(WebcastEvent.CHAT, (payload: unknown) => {
-        const message = normalizeTikTokChatMessage(normalizedChannel, payload);
-        if (!message) return;
-        emitTikTokEvent({
-          connectionId,
-          type: "chat",
-          roomId: record.roomId,
-          message,
-        });
-      });
-
-      const followEventName = (
-        WebcastEvent as Record<string, string | undefined>
-      ).FOLLOW;
-      if (followEventName) {
-        connection.on(followEventName, (payload: unknown) => {
-          const message = normalizeTikTokFollowMessage(
-            normalizedChannel,
-            payload,
-          );
-          if (!message) return;
-          emitTikTokEvent({
-            connectionId,
-            type: "chat",
-            roomId: record.roomId,
-            message,
-          });
-        });
-      }
-
-      connection.on(ControlEvent.CONNECTED, (state: unknown) => {
-        const roomId = asString(asUnknownRecord(state)?.roomId).trim();
-        if (roomId) {
-          record.roomId = roomId;
-        }
-        emitConnected();
-      });
-
-      connection.on(ControlEvent.DISCONNECTED, (payload: unknown) => {
-        const reason = asString(asUnknownRecord(payload)?.reason).trim();
-        if (tiktokConnections.has(connectionId)) {
-          tiktokConnections.delete(connectionId);
-          connection.removeAllListeners?.();
-        }
-        emitTikTokEvent({
-          connectionId,
-          type: "disconnected",
-          roomId: record.roomId,
-          error: reason || undefined,
-        });
-      });
-
-      connection.on(ControlEvent.ERROR, (error: unknown) => {
-        const text = error instanceof Error ? error.message : String(error);
-        emitTikTokEvent({
-          connectionId,
-          type: "error",
-          roomId: record.roomId,
-          error: text,
-        });
-      });
-
-      try {
-        const state = (await connection.connect()) as Record<
-          string,
-          unknown
-        > | null;
-        const roomId = asString(asUnknownRecord(state)?.roomId).trim();
-        if (roomId) {
-          record.roomId = roomId;
-        }
-        emitConnected();
-        return {
-          connectionId,
-          roomId: record.roomId,
-        };
-      } catch (error) {
-        tiktokConnections.delete(connectionId);
-        connection.removeAllListeners?.();
-        const text = error instanceof Error ? error.message : String(error);
-        emitTikTokEvent({
-          connectionId,
-          type: "error",
-          error: text,
-        });
-        if (isLikelyTikTokOfflineError(text)) {
-          throw new Error(
-            `TikTok channel @${normalizedChannel} is offline right now.`,
-          );
-        }
-        throw new Error(`TikTok connect failed: ${text}`);
-      }
-    },
-  );
-  ipcMain.handle(
-    IPC_CHANNELS.TIKTOK_DISCONNECT,
-    async (_event, connectionId: string) => {
-      const id = connectionId.trim();
-      if (!id) return;
-      await disconnectTikTokConnection(id);
-    },
-  );
-  ipcMain.handle(
-    IPC_CHANNELS.TIKTOK_SEND_MESSAGE,
-    async (_event, payload: { connectionId?: string; message?: string }) => {
-      assertTikTokAlphaEnabled();
-      const connectionId = payload?.connectionId?.trim();
-      const message = payload?.message?.trim();
-      const sessionId = store.get("tiktokSessionId")?.trim() ?? "";
-      const ttTargetIdc = store.get("tiktokTtTargetIdc")?.trim() ?? "";
-      const activeSignApiKey = TIKTOK_SIGN_API_KEY;
-      if (!connectionId) {
-        throw new Error("TikTok connection id is required.");
-      }
-      if (!message) {
-        throw new Error("Message cannot be empty.");
-      }
-      if (!sessionId || !ttTargetIdc) {
-        throw new Error(TIKTOK_SIGN_IN_REQUIRED_MESSAGE);
-      }
-      if (!activeSignApiKey) {
-        throw new Error(TIKTOK_SIGN_KEY_REQUIRED_MESSAGE);
-      }
-      const record = tiktokConnections.get(connectionId);
-      if (!record) {
-        throw new Error("TikTok connection is not ready.");
-      }
-      if (typeof record.connection.sendMessage !== "function") {
-        throw new Error("TikTok sending is not enabled for this alpha build.");
-      }
-      try {
-        await record.connection.sendMessage(message);
-      } catch (error) {
-        const text = error instanceof Error ? error.message : String(error);
-        throw new Error(`TikTok send failed: ${text}`);
-      }
-    },
+  registerIpcHandlers(
+    ipcMain,
+    createTikTokHandlers({
+      connect: connectTikTokChannel,
+      disconnect: async (connectionId) => {
+        const id = connectionId.trim();
+        if (!id) return;
+        await disconnectTikTokConnection(id);
+      },
+      sendMessage: sendTikTokMessage,
+    }),
   );
   registerIpcHandlers(
     ipcMain,
