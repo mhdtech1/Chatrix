@@ -83,6 +83,18 @@ type YouTubeChannelsResponse = {
   }>;
 };
 
+const isLoopbackRedirectUri = (value: string): boolean => {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false;
+    }
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
+
 export function createAuthHealthHandlers(
   options: CreateAuthHealthHandlersOptions,
 ): IpcHandlerRegistry {
@@ -198,8 +210,13 @@ export function createAuthSignInHandlers(
     [IPC_CHANNELS.AUTH_KICK_SIGN_IN]: async () => {
       const clientId = store.get("kickClientId")?.trim();
       const clientSecret = store.get("kickClientSecret")?.trim();
-      const redirectUri =
-        store.get("kickRedirectUri")?.trim() || kickDefaultRedirectUri;
+      const configuredRedirectUri = store.get("kickRedirectUri")?.trim() ?? "";
+      const redirectUri = isLoopbackRedirectUri(configuredRedirectUri)
+        ? configuredRedirectUri
+        : kickDefaultRedirectUri;
+      if (redirectUri !== configuredRedirectUri) {
+        store.set({ kickRedirectUri: redirectUri });
+      }
 
       if (!clientId) {
         store.set({
@@ -227,10 +244,18 @@ export function createAuthSignInHandlers(
       authUrl.searchParams.set("code_challenge", codeChallenge);
       authUrl.searchParams.set("code_challenge_method", "S256");
 
-      const callbackUrl = await openAuthInBrowser(
-        authUrl.toString(),
-        redirectUri,
-      );
+      let callbackUrl: string;
+      try {
+        callbackUrl = await openAuthInBrowser(authUrl.toString(), redirectUri);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        if (/timed out/i.test(detail)) {
+          throw new Error(
+            `Kick sign-in timed out waiting for ${redirectUri}. Ensure this exact redirect URI is configured in your Kick app.`,
+          );
+        }
+        throw error;
+      }
       const callback = new URL(callbackUrl);
       const error = callback.searchParams.get("error");
       if (error) {

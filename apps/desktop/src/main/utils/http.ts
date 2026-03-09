@@ -16,6 +16,7 @@ export async function fetchJsonOrThrow<T>(
   if (!response.ok) {
     const payload = parsed as Record<string, unknown>;
     const nested = payload.error as Record<string, unknown> | undefined;
+    const rawText = text.trim();
     const payloadError = payload.error;
     const explicitError =
       typeof payloadError === "string"
@@ -43,6 +44,7 @@ export async function fetchJsonOrThrow<T>(
         payload.error_description) ||
       explicitError ||
       topLevelError ||
+      (rawText ? rawText.slice(0, 300) : "") ||
       `${source} request failed (${response.status}).`;
     throw new Error(message);
   }

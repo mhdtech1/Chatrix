@@ -176,6 +176,55 @@ describe("createAuthSignInHandlers", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("uses loopback kick redirect and surfaces timeout guidance", async () => {
+    const store = createMockSettingsStore({
+      kickClientId: "kick-client",
+      kickRedirectUri: "https://example.com/old-callback",
+    });
+    const handlers = createAuthSignInHandlers({
+      store: store as never,
+      randomToken: vi
+        .fn()
+        .mockReturnValueOnce("kick-state")
+        .mockReturnValueOnce("kick-verifier"),
+      openAuthInBrowser: vi
+        .fn()
+        .mockRejectedValue(new Error("Sign-in timed out. Please try again.")),
+      fetchJsonOrThrow: vi.fn(),
+      clearAuthTokens: vi.fn().mockResolvedValue(undefined),
+      storeAuthTokens: vi.fn().mockResolvedValue(undefined),
+      parseKickUserName: vi.fn(),
+      twitchDefaultRedirectUri: "http://localhost/twitch/callback",
+      twitchScopes: ["chat:read"],
+      twitchScopeVersion: 2,
+      kickDefaultRedirectUri: "http://localhost:51730/kick/callback",
+      kickScopes: ["user:read"],
+      kickScopeVersion: 3,
+      youtubeScopes: ["scope"],
+      youtubeMissingOauthMessage: "youtube oauth missing",
+      assertYouTubeAlphaEnabled: vi.fn(),
+      youtubeConfig: vi.fn().mockReturnValue({
+        clientId: "",
+        clientSecret: "",
+        redirectUri: "http://localhost/youtube/callback",
+      }),
+      saveYouTubeTokens: vi.fn().mockResolvedValue(undefined),
+      youtubeFetchWithAuth: vi.fn(),
+    });
+
+    await expect(
+      handlers[IPC_CHANNELS.AUTH_KICK_SIGN_IN](
+        {} as never,
+        undefined as never,
+      ),
+    ).rejects.toThrow(
+      "Kick sign-in timed out waiting for http://localhost:51730/kick/callback.",
+    );
+    expect(store.store.kickRedirectUri).toBe(
+      "http://localhost:51730/kick/callback",
+    );
+  });
 });
 
 describe("createAuthTikTokHandlers", () => {
