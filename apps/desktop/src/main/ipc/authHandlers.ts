@@ -83,18 +83,6 @@ type YouTubeChannelsResponse = {
   }>;
 };
 
-const isLoopbackRedirectUri = (value: string): boolean => {
-  try {
-    const parsed = new URL(value);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      return false;
-    }
-    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-};
-
 export function createAuthHealthHandlers(
   options: CreateAuthHealthHandlersOptions,
 ): IpcHandlerRegistry {
@@ -210,13 +198,8 @@ export function createAuthSignInHandlers(
     [IPC_CHANNELS.AUTH_KICK_SIGN_IN]: async () => {
       const clientId = store.get("kickClientId")?.trim();
       const clientSecret = store.get("kickClientSecret")?.trim();
-      const configuredRedirectUri = store.get("kickRedirectUri")?.trim() ?? "";
-      const redirectUri = isLoopbackRedirectUri(configuredRedirectUri)
-        ? configuredRedirectUri
-        : kickDefaultRedirectUri;
-      if (redirectUri !== configuredRedirectUri) {
-        store.set({ kickRedirectUri: redirectUri });
-      }
+      const redirectUri =
+        store.get("kickRedirectUri")?.trim() || kickDefaultRedirectUri;
 
       if (!clientId) {
         store.set({
@@ -244,18 +227,10 @@ export function createAuthSignInHandlers(
       authUrl.searchParams.set("code_challenge", codeChallenge);
       authUrl.searchParams.set("code_challenge_method", "S256");
 
-      let callbackUrl: string;
-      try {
-        callbackUrl = await openAuthInBrowser(authUrl.toString(), redirectUri);
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        if (/timed out/i.test(detail)) {
-          throw new Error(
-            `Kick sign-in timed out waiting for ${redirectUri}. Ensure this exact redirect URI is configured in your Kick app.`,
-          );
-        }
-        throw error;
-      }
+      const callbackUrl = await openAuthInBrowser(
+        authUrl.toString(),
+        redirectUri,
+      );
       const callback = new URL(callbackUrl);
       const error = callback.searchParams.get("error");
       if (error) {
@@ -284,36 +259,18 @@ export function createAuthSignInHandlers(
       if (clientSecret) {
         tokenParams.set("client_secret", clientSecret);
       }
-      const exchangeKickTokens = async (params: URLSearchParams) => {
-        const tokenResponse = await fetch("https://id.kick.com/oauth/token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Accept: "application/json",
-          },
-          body: params,
-        });
-        return fetchJsonOrThrow<KickTokenResponse>(
-          tokenResponse,
-          "Kick token exchange",
-        );
-      };
-
-      let tokens: KickTokenResponse;
-      try {
-        tokens = await exchangeKickTokens(tokenParams);
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        const canRetryWithoutSecret =
-          Boolean(clientSecret) &&
-          /client|invalid_client|unauthorized_client/i.test(detail);
-        if (!canRetryWithoutSecret) {
-          throw error;
-        }
-        const fallbackParams = new URLSearchParams(tokenParams);
-        fallbackParams.delete("client_secret");
-        tokens = await exchangeKickTokens(fallbackParams);
-      }
+      const tokenResponse = await fetch("https://id.kick.com/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: tokenParams,
+      });
+      const tokens = await fetchJsonOrThrow<KickTokenResponse>(
+        tokenResponse,
+        "Kick token exchange",
+      );
 
       if (!tokens.access_token) {
         throw new Error("Kick token exchange did not return an access token.");
