@@ -207,7 +207,7 @@ export function createAuthSignInHandlers(
           process.env.KICK_REDIRECT_URI ?? store.get("kickRedirectUri")
         )?.trim() || kickDefaultRedirectUri;
 
-      if (!clientId) {
+      if (!clientId || !clientSecret) {
         store.set({
           kickAccessToken: "",
           kickRefreshToken: "",
