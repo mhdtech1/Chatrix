@@ -141,10 +141,7 @@ const describeHttpErrorPayload = (text: string): string => {
   }
 };
 
-const normalizeKickRedirectUri = (
-  value: unknown,
-  fallback: string,
-): string => {
+const normalizeKickRedirectUri = (value: unknown, fallback: string): string => {
   const raw = typeof value === "string" ? value.trim() : "";
   const resolved = raw || fallback;
 
