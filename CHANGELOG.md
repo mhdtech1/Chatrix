@@ -2,6 +2,17 @@
 
 All notable changes to Chatrix are documented here.
 
+## [1.0.6] – 2026-03-22
+
+### Changed
+
+- **Workspace lockfile** – Refreshed the pnpm lockfile so the Kick broker workspace installs cleanly in CI and on Render with `--frozen-lockfile`.
+- **Desktop formatting** – Applied the missing Prettier fix in the desktop auth handlers so CI and release validation pass cleanly.
+
+### Fixed
+
+- **Legacy app cleanup** – Packaged Chatrix installs now remove leftover `MultiChat.app` bundles from both standard macOS Applications folders, covering machines that ended up with both apps after the 1.0.4 rename update.
+
 ## [1.0.5] – 2026-03-22
 
 ### Added

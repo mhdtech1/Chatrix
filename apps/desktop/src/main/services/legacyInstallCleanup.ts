@@ -33,29 +33,34 @@ export const resolveLegacyInstallCleanupTargets = ({
     const currentBundlePath = resolveMacBundlePath(currentExe);
     if (!currentBundlePath) return [];
 
-    const installDir = path.posix.dirname(currentBundlePath);
-    const allowedInstallDirs = new Set(
-      ["/Applications", homeDir ? path.join(homeDir, "Applications") : ""]
-        .filter(Boolean)
-        .map((value) => path.posix.resolve(value)),
-    );
-    if (!allowedInstallDirs.has(path.posix.resolve(installDir))) {
+    const allowedInstallDirs = [
+      "/Applications",
+      homeDir ? path.posix.join(homeDir, "Applications") : "",
+    ]
+      .filter(Boolean)
+      .map((value) => path.posix.resolve(value));
+    const installDir = path.posix.resolve(path.posix.dirname(currentBundlePath));
+    if (!allowedInstallDirs.includes(installDir)) {
       return [];
     }
 
-    const legacyBundlePath = path.posix.resolve(
-      path.posix.join(installDir, `${LEGACY_APP_NAME}.app`),
-    );
-    if (legacyBundlePath === path.posix.resolve(currentBundlePath)) {
-      return [];
-    }
-
-    return [
-      {
-        path: legacyBundlePath,
+    const targets = allowedInstallDirs
+      .map((candidateDir) =>
+        path.posix.resolve(
+          path.posix.join(candidateDir, `${LEGACY_APP_NAME}.app`),
+        ),
+      )
+      .filter(
+        (candidatePath, index, allPaths) =>
+          candidatePath !== path.posix.resolve(currentBundlePath) &&
+          allPaths.indexOf(candidatePath) === index,
+      )
+      .map((candidatePath) => ({
+        path: candidatePath,
         label: `${LEGACY_APP_NAME}.app`,
-      },
-    ];
+      }));
+
+    return targets;
   }
 
   if (platform === "win32") {

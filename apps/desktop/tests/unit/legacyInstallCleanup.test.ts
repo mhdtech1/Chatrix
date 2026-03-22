@@ -15,6 +15,30 @@ describe("resolveLegacyInstallCleanupTargets", () => {
         path: "/Applications/MultiChat.app",
         label: "MultiChat.app",
       },
+      {
+        path: "/Users/mazen/Applications/MultiChat.app",
+        label: "MultiChat.app",
+      },
+    ]);
+  });
+
+  it("targets legacy MultiChat.app in /Applications when Chatrix runs from user Applications", () => {
+    const targets = resolveLegacyInstallCleanupTargets({
+      platform: "darwin",
+      currentExePath:
+        "/Users/mazen/Applications/Chatrix.app/Contents/MacOS/Chatrix",
+      homeDir: "/Users/mazen",
+    });
+
+    expect(targets).toEqual([
+      {
+        path: "/Applications/MultiChat.app",
+        label: "MultiChat.app",
+      },
+      {
+        path: "/Users/mazen/Applications/MultiChat.app",
+        label: "MultiChat.app",
+      },
     ]);
   });
 
