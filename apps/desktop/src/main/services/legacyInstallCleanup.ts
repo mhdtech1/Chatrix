@@ -39,7 +39,9 @@ export const resolveLegacyInstallCleanupTargets = ({
     ]
       .filter(Boolean)
       .map((value) => path.posix.resolve(value));
-    const installDir = path.posix.resolve(path.posix.dirname(currentBundlePath));
+    const installDir = path.posix.resolve(
+      path.posix.dirname(currentBundlePath),
+    );
     if (!allowedInstallDirs.includes(installDir)) {
       return [];
     }
