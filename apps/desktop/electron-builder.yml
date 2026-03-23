@@ -103,4 +103,4 @@ nsis:
 publish:
   provider: github
   owner: mhdtech1
-  repo: MultiChat
+  repo: Chatrix

@@ -2,33 +2,62 @@
 
 import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import yaml from "js-yaml";
 
-const APP_IDENTIFIER = "com.chatrix.desktop";
+const APP_IDENTIFIER = "com.multichat.desktop";
+const APP_NAME = "Chatrix";
+const buildArch = (process.env.MAC_BUILD_ARCH ?? "").trim().toLowerCase();
+const artifactSuffixValue = (process.env.MAC_ARTIFACT_SUFFIX ?? "")
+  .trim()
+  .toLowerCase();
+const artifactSuffix = artifactSuffixValue ? `-${artifactSuffixValue}` : "";
 const desktopDir = process.cwd();
 const desktopPkgPath = path.join(desktopDir, "package.json");
 const builderConfigPath = path.join(desktopDir, "electron-builder.yml");
 const distDir = path.join(desktopDir, "dist");
-const appPath = path.join(distDir, "mac-arm64", "Chatrix.app");
-const zipPath = path.join(distDir, "Chatrix-mac.zip");
-const dmgPath = path.join(distDir, "Chatrix-mac.dmg");
-const zipBlockmapPath = path.join(distDir, "Chatrix-mac.zip.blockmap");
-const dmgBlockmapPath = path.join(distDir, "Chatrix-mac.dmg.blockmap");
-const ymlPath = path.join(distDir, "latest-mac.yml");
-const stableYmlPath = path.join(distDir, "stable-mac.yml");
+const appPathCandidates = [
+  buildArch ? path.join(distDir, `mac-${buildArch}`, `${APP_NAME}.app`) : "",
+  buildArch === "x64" ? path.join(distDir, "mac", `${APP_NAME}.app`) : "",
+  path.join(distDir, "mac-arm64", `${APP_NAME}.app`),
+  path.join(distDir, "mac-x64", `${APP_NAME}.app`),
+  path.join(distDir, "mac", `${APP_NAME}.app`),
+].filter(Boolean);
+const appPath = appPathCandidates.find((candidate) => existsSync(candidate));
+const zipFileName = `${APP_NAME}-mac${artifactSuffix}.zip`;
+const dmgFileName = `${APP_NAME}-mac${artifactSuffix}.dmg`;
+const zipPath = path.join(distDir, zipFileName);
+const dmgPath = path.join(distDir, dmgFileName);
+const zipBlockmapPath = path.join(distDir, `${zipFileName}.blockmap`);
+const dmgBlockmapPath = path.join(distDir, `${dmgFileName}.blockmap`);
+const ymlSuffix = artifactSuffixValue ? `-${artifactSuffixValue}` : "";
+const ymlPath = path.join(distDir, `latest-mac${ymlSuffix}.yml`);
+const stableYmlPath = path.join(distDir, `stable-mac${ymlSuffix}.yml`);
 
-if (!existsSync(appPath)) {
-  console.log("[mac-update] skipping: mac app bundle was not found");
+if (!appPath || !existsSync(appPath)) {
+  console.log(
+    `[mac-update] skipping: mac app bundle was not found for ${buildArch || "default"} build`,
+  );
   process.exit(0);
 }
 
 const appVersion = (() => {
   try {
     const pkg = JSON.parse(readFileSync(desktopPkgPath, "utf8"));
-    return typeof pkg?.version === "string" && pkg.version.length > 0 ? pkg.version : "0.0.0";
+    return typeof pkg?.version === "string" && pkg.version.length > 0
+      ? pkg.version
+      : "0.0.0";
   } catch {
     return "0.0.0";
   }
@@ -43,7 +72,7 @@ const appUpdatePublishConfig = (() => {
       if (primary && typeof primary === "object") {
         return {
           ...primary,
-          updaterCacheDirName: APP_IDENTIFIER
+          updaterCacheDirName: APP_IDENTIFIER,
         };
       }
     }
@@ -54,13 +83,15 @@ const appUpdatePublishConfig = (() => {
   return {
     provider: "github",
     owner: "mhdtech1",
-    repo: "MultiChat",
-    updaterCacheDirName: APP_IDENTIFIER
+    repo: "Chatrix",
+    updaterCacheDirName: APP_IDENTIFIER,
   };
 })();
 
-const tempDir = mkdtempSync(path.join(os.tmpdir(), "chatrix-mac-release-"));
-const stagedAppPath = path.join(tempDir, "Chatrix.app");
+const tempDir = mkdtempSync(
+  path.join(os.tmpdir(), `chatrix-mac-release-${buildArch || "default"}-`),
+);
+const stagedAppPath = path.join(tempDir, `${APP_NAME}.app`);
 const dmgRootPath = path.join(tempDir, "dmg-root");
 const verifyExtractDir = path.join(tempDir, "verify-extract");
 
@@ -77,7 +108,7 @@ try {
   writeFileSync(
     path.join(stagedAppPath, "Contents", "Resources", "app-update.yml"),
     yaml.dump(appUpdatePublishConfig, { lineWidth: -1, noRefs: true }),
-    "utf8"
+    "utf8",
   );
   execFileSync(
     "codesign",
@@ -90,24 +121,50 @@ try {
       APP_IDENTIFIER,
       "--requirements",
       `=designated => identifier "${APP_IDENTIFIER}"`,
-      stagedAppPath
+      stagedAppPath,
     ],
-    { stdio: "inherit" }
+    { stdio: "inherit" },
   );
-  execFileSync("codesign", ["--verify", "--deep", "--strict", stagedAppPath], { stdio: "inherit" });
+  execFileSync("codesign", ["--verify", "--deep", "--strict", stagedAppPath], {
+    stdio: "inherit",
+  });
 
   rmSync(zipPath, { force: true });
-  execFileSync("ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", stagedAppPath, zipPath], {
-    stdio: "inherit"
-  });
+  execFileSync(
+    "ditto",
+    ["-c", "-k", "--sequesterRsrc", "--keepParent", stagedAppPath, zipPath],
+    {
+      stdio: "inherit",
+    },
+  );
 
   rmSync(dmgPath, { force: true });
   mkdirSync(dmgRootPath, { recursive: true });
-  execFileSync("ditto", [stagedAppPath, path.join(dmgRootPath, "Chatrix.app")], { stdio: "inherit" });
+  execFileSync(
+    "ditto",
+    [stagedAppPath, path.join(dmgRootPath, `${APP_NAME}.app`)],
+    {
+      stdio: "inherit",
+    },
+  );
   symlinkSync("/Applications", path.join(dmgRootPath, "Applications"));
-  execFileSync("hdiutil", ["create", "-volname", "Chatrix", "-srcfolder", dmgRootPath, "-ov", "-format", "UDZO", dmgPath], {
-    stdio: "inherit"
-  });
+  execFileSync(
+    "hdiutil",
+    [
+      "create",
+      "-volname",
+      APP_NAME,
+      "-srcfolder",
+      dmgRootPath,
+      "-ov",
+      "-format",
+      "UDZO",
+      dmgPath,
+    ],
+    {
+      stdio: "inherit",
+    },
+  );
 
   // Remove stale blockmaps generated by electron-builder artifacts we replaced.
   rmSync(zipBlockmapPath, { force: true });
@@ -116,10 +173,21 @@ try {
   // Verify zip payload is still strictly signed after extraction.
   rmSync(verifyExtractDir, { recursive: true, force: true });
   execFileSync("mkdir", ["-p", verifyExtractDir], { stdio: "inherit" });
-  execFileSync("ditto", ["-x", "-k", zipPath, verifyExtractDir], { stdio: "inherit" });
-  execFileSync("codesign", ["--verify", "--deep", "--strict", path.join(verifyExtractDir, "Chatrix.app")], {
-    stdio: "inherit"
+  execFileSync("ditto", ["-x", "-k", zipPath, verifyExtractDir], {
+    stdio: "inherit",
   });
+  execFileSync(
+    "codesign",
+    [
+      "--verify",
+      "--deep",
+      "--strict",
+      path.join(verifyExtractDir, `${APP_NAME}.app`),
+    ],
+    {
+      stdio: "inherit",
+    },
+  );
 
   const zipSha512 = toSha512(zipPath);
   const dmgSha512 = toSha512(dmgPath);
@@ -129,18 +197,22 @@ try {
   const latestMac = {
     version: appVersion,
     files: [
-      { url: "Chatrix-mac.zip", sha512: zipSha512, size: zipSize },
-      { url: "Chatrix-mac.dmg", sha512: dmgSha512, size: dmgSize }
+      { url: zipFileName, sha512: zipSha512, size: zipSize },
+      { url: dmgFileName, sha512: dmgSha512, size: dmgSize },
     ],
-    path: "Chatrix-mac.zip",
+    path: zipFileName,
     sha512: zipSha512,
-    releaseDate: new Date().toISOString()
+    releaseDate: new Date().toISOString(),
   };
 
   const ymlContent = yaml.dump(latestMac, { lineWidth: -1, noRefs: true });
   writeFileSync(ymlPath, ymlContent, "utf8");
   writeFileSync(stableYmlPath, ymlContent, "utf8");
-  console.log("[mac-update] generated signed Chatrix-mac.zip/.dmg and refreshed latest-mac.yml + stable-mac.yml");
+  console.log(
+    `[mac-update] generated signed ${zipFileName}/${dmgFileName} and refreshed ${path.basename(
+      ymlPath,
+    )} + ${path.basename(stableYmlPath)}`,
+  );
 } finally {
   rmSync(tempDir, { recursive: true, force: true });
 }

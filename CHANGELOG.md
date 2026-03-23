@@ -2,6 +2,21 @@
 
 All notable changes to Chatrix are documented here.
 
+## [1.0.7] – 2026-03-22
+
+### Added
+
+- **Intel Mac builds** – Release automation now publishes a dedicated `x64` macOS build alongside the Apple Silicon build, so Intel Macs get a native installer and update feed.
+
+### Changed
+
+- **Mac packaging scripts** – Split desktop packaging into explicit Apple Silicon and Intel targets, with architecture-specific `.dmg`, `.zip`, and update manifest outputs.
+- **Release workflow** – GitHub Actions now builds macOS installers on both Apple Silicon and Intel runners before publishing a release.
+
+### Fixed
+
+- **Mac updater identity** – The mac release artifact signing and publish metadata now match the legacy `com.multichat.desktop` app identity, which is required for the existing updater path to recognize Chatrix as the same app lineage.
+
 ## [1.0.6] – 2026-03-22
 
 ### Changed

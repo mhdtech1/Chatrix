@@ -18,6 +18,7 @@
     "build": "pnpm --filter @chatrix/chat-core build && pnpm --filter @chatrix/kick-broker build && pnpm --filter @chatrix/desktop build",
     "build:kick-broker": "pnpm --filter @chatrix/kick-broker build",
     "build:mac": "pnpm --filter @chatrix/chat-core build && pnpm --filter @chatrix/desktop build:renderer && pnpm --filter @chatrix/desktop build:main && pnpm --filter @chatrix/desktop package:mac",
+    "build:mac:x64": "pnpm --filter @chatrix/chat-core build && pnpm --filter @chatrix/desktop build:renderer && pnpm --filter @chatrix/desktop build:main && pnpm --filter @chatrix/desktop package:mac:x64",
     "build:win": "pnpm --filter @chatrix/chat-core build && pnpm --filter @chatrix/desktop build:renderer && pnpm --filter @chatrix/desktop build:main && pnpm --filter @chatrix/desktop package:win",
     "recreate:mac": "pnpm run clean && pnpm install && pnpm build:mac",
     "test": "pnpm --filter @chatrix/chat-core test && pnpm --filter @chatrix/kick-broker test && pnpm --filter @chatrix/desktop test",
