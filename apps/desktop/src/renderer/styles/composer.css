@@ -1,0 +1,136 @@
+.action-rail {
+  display: grid;
+  gap: 12px;
+  padding: 2px 2px 0;
+}
+
+.composer--main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-elevated);
+  box-shadow: var(--panel-shadow-md);
+}
+
+.composer-main__target,
+.composer-main__snippets,
+.composer-main__message,
+.quick-mod-panel input,
+.menu-group input,
+.menu-group select,
+.menu-group button,
+.menu-submenu button,
+.quick-mod-panel button,
+.context-menu button,
+.user-logs-modal button,
+.guide-modal button,
+.guide-modal select,
+.guide-modal input,
+button,
+select,
+input {
+  border-radius: 12px;
+}
+
+.composer-main__target,
+.composer-main__snippets,
+.composer-main__message,
+.quick-mod-panel input,
+.menu-group input,
+.menu-group select,
+.guide-modal input,
+.guide-modal select {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--ink-soft);
+}
+
+.composer-main__target,
+.composer-main__snippets,
+.quick-mod-panel input,
+.menu-group input,
+.menu-group select,
+.guide-modal input,
+.guide-modal select {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.composer-main__message-wrap {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.composer-main__message {
+  min-height: 48px;
+  padding: 0 14px;
+}
+
+.composer-main__meta {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.composer-main__counter {
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+}
+
+.composer-main__counter--warn {
+  color: #ffb86a;
+}
+
+.composer-main__counter--danger {
+  color: #ff6f61;
+}
+
+.composer-main__send,
+.quick-mod-panel button,
+.menu-group button,
+.context-menu button,
+.guide-modal button,
+.user-logs-modal button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--ink-soft);
+}
+
+.composer-main__send {
+  background: linear-gradient(
+    180deg,
+    rgba(22, 199, 154, 0.24),
+    rgba(22, 199, 154, 0.12)
+  );
+  border-color: var(--border-accent);
+}
+
+.quick-mod-panel--action-rail {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.3fr) repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: 10px;
+}
+
+.quick-mod-panel--action-rail strong {
+  grid-column: 1 / -1;
+}
+
+.quick-mod-panel__danger {
+  border-color: rgba(255, 111, 97, 0.35) !important;
+  background: var(--surface-danger) !important;
+  color: #ff9d93 !important;
+}
+
+.quick-mod-panel__danger.active {
+  background: var(--surface-danger-strong) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 111, 97, 0.15),
+    0 0 0 6px rgba(255, 111, 97, 0.06);
+}

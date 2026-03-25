@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./ui/App";
 import { ErrorBoundary } from "./ui/components/common/ErrorBoundary";
-import "./styles.css";
+import "./styles/index.css";
 
 const container = document.getElementById("root");
 if (!container) {

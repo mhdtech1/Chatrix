@@ -3523,6 +3523,7 @@ app.whenReady().then(async () => {
     backgroundMonitorOnClose: true,
     smartFilterSpam: true,
     smartFilterScam: true,
+    autoBanOnMessage: false,
     confirmSendAll: true,
     updateChannel: DEFAULT_UPDATE_CHANNEL,
     twitchGuest: false,

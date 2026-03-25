@@ -1,0 +1,61 @@
+.quick-actions-primary,
+.menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quick-action-button,
+.ghost,
+.go-newest-button {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--ink-soft);
+}
+
+.quick-action-button.active,
+.ghost:hover,
+.go-newest-button:hover {
+  background: var(--surface-interactive-strong);
+}
+
+.analytics-more summary,
+.source-more summary,
+.quick-actions-more summary,
+.account-strip-more summary {
+  cursor: pointer;
+  color: var(--ink-muted);
+}
+
+.menu-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.analytics-more-menu,
+.source-more-menu,
+.quick-actions-more-menu,
+.account-strip-more-menu {
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: var(--panel-radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-overlay);
+  box-shadow: var(--panel-shadow-md);
+}
+
+.username-button {
+  color: inherit;
+}
+
+.platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

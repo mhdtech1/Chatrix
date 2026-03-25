@@ -1,0 +1,85 @@
+.quick-mod-panel,
+.context-menu,
+.user-logs-modal,
+.guide-modal,
+.update-lock-card,
+.floating-status {
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface-elevated);
+  box-shadow: var(--panel-shadow-lg);
+}
+
+.quick-mod-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.context-menu,
+.floating-status {
+  padding: 12px;
+}
+
+.context-menu {
+  min-width: 240px;
+  display: grid;
+  gap: 8px;
+  background: var(--surface-overlay);
+}
+
+.context-menu-header,
+.user-logs-header,
+.guide-header,
+.guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.user-logs-modal,
+.guide-modal,
+.update-lock-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.guide-body,
+.user-logs-list {
+  display: grid;
+  gap: 12px;
+}
+
+.guide-section,
+.user-log-line {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-interactive);
+}
+
+.guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.user-log-meta,
+.user-logs-note,
+.user-logs-empty,
+.guide-note,
+.floating-status {
+  color: var(--ink-muted);
+}
+
+.account-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}

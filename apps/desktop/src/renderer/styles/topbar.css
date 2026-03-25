@@ -1,0 +1,112 @@
+.topbar-shell {
+  display: grid;
+  grid-template-columns: auto minmax(320px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
+    var(--surface-elevated);
+  box-shadow: var(--panel-shadow-lg);
+  backdrop-filter: blur(16px);
+}
+
+.topbar-shell__brand-zone,
+.topbar-shell__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-block--broadcast {
+  display: grid;
+  gap: 3px;
+}
+
+.brand-block--broadcast h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: -0.04em;
+}
+
+.brand-block--broadcast p {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.brand-block__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.channel-form--shell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-strong);
+}
+
+.channel-form--shell input,
+.channel-form--shell button,
+.platform-picker summary,
+.topbar-shell__refresh,
+.topbar-shell__submit,
+.topbar-shell__menu-trigger {
+  min-height: 46px;
+  border-radius: 14px;
+}
+
+.channel-form--shell input {
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-interactive);
+  color: var(--ink-soft);
+}
+
+.platform-picker summary,
+.topbar-shell__refresh,
+.topbar-shell__submit,
+.topbar-shell__menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-interactive);
+}
+
+.topbar-shell__submit,
+.topbar-shell__menu-trigger {
+  background: linear-gradient(
+    180deg,
+    rgba(22, 199, 154, 0.18),
+    rgba(22, 199, 154, 0.08)
+  );
+  border-color: var(--border-accent);
+}
+
+.topbar-shell__refresh:hover,
+.topbar-shell__submit:hover,
+.topbar-shell__menu-trigger:hover,
+.platform-picker summary:hover {
+  background: var(--surface-interactive-strong);
+}
+
+.platform-picker__value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-shell__mention-pill {
+  padding: 8px 12px;
+}

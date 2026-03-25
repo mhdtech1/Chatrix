@@ -1,0 +1,59 @@
+:root {
+  --surface-base: rgba(10, 14, 18, 0.9);
+  --surface-elevated: rgba(17, 22, 28, 0.92);
+  --surface-overlay: rgba(19, 25, 31, 0.97);
+  --surface-interactive: rgba(255, 255, 255, 0.04);
+  --surface-interactive-strong: rgba(255, 255, 255, 0.08);
+  --surface-danger: rgba(255, 111, 97, 0.16);
+  --surface-danger-strong: rgba(255, 111, 97, 0.28);
+  --border-strong: rgba(255, 255, 255, 0.1);
+  --border-accent: rgba(22, 199, 154, 0.45);
+  --ink-soft: rgba(242, 244, 247, 0.88);
+  --ink-muted: rgba(166, 173, 183, 0.88);
+  --ink-faint: rgba(166, 173, 183, 0.6);
+  --accent-strong: #20e7b1;
+  --accent-glow: rgba(32, 231, 177, 0.2);
+  --warm-glow: rgba(255, 142, 84, 0.18);
+  --danger-glow: rgba(255, 111, 97, 0.24);
+  --panel-radius-lg: 20px;
+  --panel-radius-md: 14px;
+  --panel-radius-sm: 10px;
+  --panel-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.28);
+  --panel-shadow-md: 0 14px 36px rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme="light"] {
+  --surface-base: rgba(255, 255, 255, 0.92);
+  --surface-elevated: rgba(247, 250, 253, 0.96);
+  --surface-overlay: rgba(255, 255, 255, 0.98);
+  --surface-interactive: rgba(16, 33, 49, 0.05);
+  --surface-interactive-strong: rgba(16, 33, 49, 0.09);
+  --surface-danger: rgba(215, 77, 67, 0.12);
+  --surface-danger-strong: rgba(215, 77, 67, 0.2);
+  --border-strong: rgba(16, 33, 49, 0.12);
+  --border-accent: rgba(14, 163, 123, 0.3);
+  --ink-soft: rgba(16, 33, 49, 0.92);
+  --ink-muted: rgba(90, 113, 132, 0.88);
+  --ink-faint: rgba(90, 113, 132, 0.62);
+  --accent-strong: #0ea37b;
+  --accent-glow: rgba(14, 163, 123, 0.15);
+  --warm-glow: rgba(219, 111, 63, 0.12);
+  --danger-glow: rgba(215, 77, 67, 0.18);
+  --panel-shadow-lg: 0 22px 48px rgba(30, 52, 70, 0.14);
+  --panel-shadow-md: 0 12px 30px rgba(30, 52, 70, 0.12);
+}
+
+:root[data-theme="classic"] {
+  --surface-base: rgba(17, 29, 35, 0.9);
+  --surface-elevated: rgba(24, 41, 49, 0.92);
+  --surface-overlay: rgba(20, 34, 41, 0.97);
+  --surface-interactive: rgba(232, 243, 249, 0.05);
+  --surface-interactive-strong: rgba(232, 243, 249, 0.1);
+  --surface-danger: rgba(255, 111, 97, 0.14);
+  --surface-danger-strong: rgba(255, 111, 97, 0.22);
+  --border-strong: rgba(146, 173, 187, 0.18);
+  --border-accent: rgba(22, 199, 154, 0.35);
+  --ink-soft: rgba(232, 243, 249, 0.92);
+  --ink-muted: rgba(146, 173, 187, 0.86);
+  --ink-faint: rgba(146, 173, 187, 0.64);
+}

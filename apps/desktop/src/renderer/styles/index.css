@@ -1,0 +1,11 @@
+@import "../styles.css";
+@import "./variables.css";
+@import "./shell.css";
+@import "./topbar.css";
+@import "./tabs.css";
+@import "./workspace.css";
+@import "./composer.css";
+@import "./menus.css";
+@import "./panels.css";
+@import "./overlays.css";
+@import "./responsive.css";

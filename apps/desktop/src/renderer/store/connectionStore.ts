@@ -3,7 +3,7 @@ import type { ChatAdapterStatus } from "@chatrix/chat-core";
 
 type Updater<T> = T | ((previous: T) => T);
 
-type ConnectionHealthState = {
+export type ConnectionHealthState = {
   lastStatus: ChatAdapterStatus;
   lastStatusAt: number;
   lastMessageAt?: number;
