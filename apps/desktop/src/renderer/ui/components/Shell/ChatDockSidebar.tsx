@@ -66,7 +66,8 @@ export function ChatDockSidebar({
     showGlobalTimeline && globalSearchMode && search.trim().length > 0;
   const showModHistorySection =
     isAdvancedMode && showModHistory && moderationHistory.length > 0;
-  const showUserCardSection = isAdvancedMode && showUserCard && Boolean(identityTarget);
+  const showUserCardSection =
+    isAdvancedMode && showUserCard && Boolean(identityTarget);
 
   if (
     !showMentionsSection &&

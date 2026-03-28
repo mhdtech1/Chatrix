@@ -91,7 +91,8 @@ export const resolveWorkspacePresetDecision = ({
       preset: "viewer",
       role: "idle",
       label: "Waiting",
-      reason: "Open a channel tab and Chatrix will match the desk to your role.",
+      reason:
+        "Open a channel tab and Chatrix will match the desk to your role.",
     };
   }
 
@@ -100,7 +101,8 @@ export const resolveWorkspacePresetDecision = ({
       preset: "moddesk",
       role: "multi-channel",
       label: "Multi-channel",
-      reason: "Merged tabs use Mod Desk so routing and moderation stay visible.",
+      reason:
+        "Merged tabs use Mod Desk so routing and moderation stay visible.",
     };
   }
 
@@ -109,7 +111,8 @@ export const resolveWorkspacePresetDecision = ({
       preset: "moddesk",
       role: "shared-chat",
       label: "Shared chat",
-      reason: "Shared chat needs the denser desk so linked-channel tools stay in reach.",
+      reason:
+        "Shared chat needs the denser desk so linked-channel tools stay in reach.",
     };
   }
 
@@ -118,7 +121,8 @@ export const resolveWorkspacePresetDecision = ({
       preset: "streamer",
       role: "broadcaster",
       label: "Broadcaster",
-      reason: "You are in your own channel, so the focused Streamer desk fits best.",
+      reason:
+        "You are in your own channel, so the focused Streamer desk fits best.",
     };
   }
 
@@ -127,7 +131,8 @@ export const resolveWorkspacePresetDecision = ({
       preset: "moddesk",
       role: "moderator",
       label: "Moderator",
-      reason: "You can moderate this channel, so Mod Desk keeps those tools ready.",
+      reason:
+        "You can moderate this channel, so Mod Desk keeps those tools ready.",
     };
   }
 
@@ -135,6 +140,7 @@ export const resolveWorkspacePresetDecision = ({
     preset: "viewer",
     role: "viewer",
     label: "Viewer",
-    reason: "You are watching a channel where you do not have broadcaster or mod tools.",
+    reason:
+      "You are watching a channel where you do not have broadcaster or mod tools.",
   };
 };

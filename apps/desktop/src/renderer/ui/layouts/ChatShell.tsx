@@ -2448,12 +2448,13 @@ const MainApp: React.FC = () => {
   const spamFilterRef = useRef<Map<string, number>>(new Map());
   const autoBanAttemptedAtRef = useRef<Map<string, number>>(new Map());
   const executeModeratorActionForSourceRef = useRef<
-    ((
-      source: ChatSource,
-      action: ModeratorAction,
-      message: ChatMessage,
-      options?: { silent?: boolean },
-    ) => Promise<boolean>) | null
+    | ((
+        source: ChatSource,
+        action: ModeratorAction,
+        message: ChatMessage,
+        options?: { silent?: boolean },
+      ) => Promise<boolean>)
+    | null
   >(null);
   const tabsRef = useRef<ChatTab[]>([]);
   const tabIdsBySourceIdRef = useRef<Record<string, string[]>>({});
@@ -3732,10 +3733,12 @@ const MainApp: React.FC = () => {
     : (settings.dockedPanels ?? manualWorkspacePresetConfig.dockedPanels);
   const effectiveGlobalSearchMode = autoWorkspacePreset
     ? effectiveWorkspacePresetConfig.globalSearchMode
-    : (settings.globalSearchMode ?? manualWorkspacePresetConfig.globalSearchMode);
+    : (settings.globalSearchMode ??
+      manualWorkspacePresetConfig.globalSearchMode);
   const effectiveCollaborationMode = autoWorkspacePreset
     ? effectiveWorkspacePresetConfig.collaborationMode
-    : (settings.collaborationMode ?? manualWorkspacePresetConfig.collaborationMode);
+    : (settings.collaborationMode ??
+      manualWorkspacePresetConfig.collaborationMode);
   const workspacePresetStatusTitle = autoWorkspacePreset
     ? `${resolvedWorkspacePreset.label} -> ${formatWorkspacePresetLabel(
         resolvedWorkspacePreset.preset,
@@ -3746,10 +3749,10 @@ const MainApp: React.FC = () => {
     : "Manual desk selection is active until you turn auto-switch back on.";
   const hasConfiguredDockPanels = Boolean(
     isAdvancedMode &&
-      (effectiveDockedPanels.mentions ||
-        effectiveDockedPanels.modHistory ||
-        effectiveDockedPanels.userCard ||
-        effectiveDockedPanels.globalTimeline),
+    (effectiveDockedPanels.mentions ||
+      effectiveDockedPanels.modHistory ||
+      effectiveDockedPanels.userCard ||
+      effectiveDockedPanels.globalTimeline),
   );
 
   const startDockPanelResize = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -5936,7 +5939,8 @@ const MainApp: React.FC = () => {
   };
 
   useEffect(() => {
-    executeModeratorActionForSourceRef.current = executeModeratorActionForSource;
+    executeModeratorActionForSourceRef.current =
+      executeModeratorActionForSource;
   }, [executeModeratorActionForSource]);
 
   const sendActiveMessage = async () => {
@@ -7316,62 +7320,59 @@ const MainApp: React.FC = () => {
   const showAccountStrip = isAdvancedMode || mentionInboxCount > 0;
   const hasSourceStatusSignal = activeSourceStatusItems.some(
     ({ status, staleSeconds }) =>
-      status !== "connected" ||
-      (staleSeconds !== null && staleSeconds > 30),
+      status !== "connected" || (staleSeconds !== null && staleSeconds > 30),
   );
   const showToolbar = Boolean(
     !activeTab ||
-      firstUnreadTimestamp > 0 ||
-      adaptivePerformanceMode ||
-      !newestLocked ||
-      pendingNewestCount > 0,
+    firstUnreadTimestamp > 0 ||
+    adaptivePerformanceMode ||
+    !newestLocked ||
+    pendingNewestCount > 0,
   );
   const showActiveTabMeta = Boolean(
     activeTab &&
-      (activeTabIsMerged ||
-        activeSourcePreviewItems.length > 1 ||
-        hiddenActiveSourceCount > 0 ||
-        hasSourceStatusSignal),
+    (activeTabIsMerged ||
+      activeSourcePreviewItems.length > 1 ||
+      hiddenActiveSourceCount > 0 ||
+      hasSourceStatusSignal),
   );
   const showAnalyticsStrip = Boolean(
     isAdvancedMode &&
-      activeTab &&
-      (analyticsSummary.messagesPerMinute > 0 ||
-        analyticsSummary.activeChatters > 0 ||
-        analyticsSummary.mentionRatePerMinute > 0 ||
-        analyticsSummary.modActionRatePerMinute > 0),
+    activeTab &&
+    (analyticsSummary.messagesPerMinute > 0 ||
+      analyticsSummary.activeChatters > 0 ||
+      analyticsSummary.mentionRatePerMinute > 0 ||
+      analyticsSummary.modActionRatePerMinute > 0),
   );
   const showQuickActionRail = Boolean(
     isAdvancedMode &&
-      activeTab &&
-      (welcomeModeEnabled || replayBufferSeconds > 0 || pollComposerOpen),
+    activeTab &&
+    (welcomeModeEnabled || replayBufferSeconds > 0 || pollComposerOpen),
   );
   const showMentionsDock = Boolean(
     isAdvancedMode &&
-      effectiveDockedPanels.mentions === true &&
-      mentionInbox.length > 0,
+    effectiveDockedPanels.mentions === true &&
+    mentionInbox.length > 0,
   );
   const showGlobalTimelineDock = Boolean(
     isAdvancedMode &&
-      effectiveDockedPanels.globalTimeline === true &&
-      effectiveGlobalSearchMode &&
-      search.trim().length > 0,
+    effectiveDockedPanels.globalTimeline === true &&
+    effectiveGlobalSearchMode &&
+    search.trim().length > 0,
   );
   const showModHistoryDock = Boolean(
     isAdvancedMode &&
-      effectiveDockedPanels.modHistory === true &&
-      moderationHistory.length > 0,
+    effectiveDockedPanels.modHistory === true &&
+    moderationHistory.length > 0,
   );
   const showUserCardDock = Boolean(
-    isAdvancedMode &&
-      effectiveDockedPanels.userCard === true &&
-      identityTarget,
+    isAdvancedMode && effectiveDockedPanels.userCard === true && identityTarget,
   );
   const hasVisibleDockPanels = Boolean(
     showMentionsDock ||
-      showGlobalTimelineDock ||
-      showModHistoryDock ||
-      showUserCardDock,
+    showGlobalTimelineDock ||
+    showModHistoryDock ||
+    showUserCardDock,
   );
   const focusChannelComposer = () => {
     window.setTimeout(() => {
