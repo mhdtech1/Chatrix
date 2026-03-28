@@ -2,6 +2,23 @@
 
 All notable changes to Chatrix are documented here.
 
+## [1.0.8] – 2026-03-28
+
+### Added
+
+- **Role-based desk switching** – Chatrix can now automatically choose the right workspace desk based on the active channel context, including broadcaster, moderator, shared chat, merged tabs, and viewer-only sessions.
+- **Kick broker warm-up** – The desktop app now wakes the hosted Kick broker on launch and keeps it warm in the background while Chatrix is open, reducing Render cold-start failures during Kick sign-in and token refresh.
+
+### Changed
+
+- **Moderation controls** – Simplified the in-chat moderation rail so it stays readable during active chat, with a slimmer quick-mod layout and better separation of emergency actions.
+- **Workspace density** – Reduced empty-state chrome by hiding inactive dock panels, zero-value analytics, and low-signal workspace strips until they are actually useful.
+
+### Fixed
+
+- **Kick auth reliability** – Kick sign-in and refresh now wait for the broker health check before attempting token exchange, which reduces the “needs multiple tries” problem when the hosted broker has spun down.
+- **CI formatting** – Normalized renderer shell formatting so the desktop format check passes consistently in GitHub Actions.
+
 ## [1.0.7] – 2026-03-22
 
 ### Added
