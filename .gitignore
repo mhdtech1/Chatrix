@@ -1,6 +1,7 @@
 node_modules
 .DS_Store
 apps/desktop/dist
+apps/site/dist
 packages/chat-core/dist
 *.log
 .env
