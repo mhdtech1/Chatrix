@@ -3621,7 +3621,10 @@ const createMainWindow = () => {
 app.on("web-contents-created", (_event, webContents) => {
   webContents.on("will-navigate", (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
-    if (parsedUrl.origin !== process.env.VITE_DEV_SERVER_URL && parsedUrl.protocol !== 'file:') {
+    if (
+      parsedUrl.origin !== process.env.VITE_DEV_SERVER_URL &&
+      parsedUrl.protocol !== "file:"
+    ) {
       event.preventDefault();
       if (isSafeExternalUrl(navigationUrl)) {
         void shell.openExternal(navigationUrl);
