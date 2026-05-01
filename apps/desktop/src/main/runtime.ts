@@ -1309,12 +1309,19 @@ const buildYouTubeLiveUrl = (rawInput: string) => {
 };
 
 const fetchYouTubeHtml = async (url: string, source: string) => {
+  const signal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(15_000)
+      : undefined;
   const response = await fetch(url, {
     headers: {
-      Accept: "text/html",
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "en-US,en;q=0.9",
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     },
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) {
     throw new Error(`${source} failed (${response.status}).`);
@@ -1446,7 +1453,18 @@ const fetchYouTubeWebLiveMessages = async (payload: {
   pageToken?: string;
 }) => {
   cleanupYouTubeWebSessions();
-  const session = youtubeWebChatSessions.get(payload.liveChatId);
+  let session = youtubeWebChatSessions.get(payload.liveChatId);
+  if (!session && payload.liveChatId.startsWith("web:")) {
+    const videoId = payload.liveChatId.slice(4).trim();
+    if (videoId) {
+      try {
+        await resolveYouTubeLiveChatViaWeb(videoId);
+        session = youtubeWebChatSessions.get(payload.liveChatId);
+      } catch {
+        // fall through to the error below
+      }
+    }
+  }
   if (!session) {
     throw new Error(
       "YouTube web chat session expired. Re-open the YouTube tab.",
@@ -1474,17 +1492,24 @@ const fetchYouTubeWebLiveMessages = async (payload: {
     continuation,
   };
 
+  const pollSignal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(15_000)
+      : undefined;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      "Accept-Language": "en-US,en;q=0.9",
       Origin: "https://www.youtube.com",
       Referer: `https://www.youtube.com/watch?v=${session.videoId}`,
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     },
     body: JSON.stringify(body),
+    ...(pollSignal ? { signal: pollSignal } : {}),
   });
   if (!response.ok) {
     throw new Error(`YouTube web chat polling failed (${response.status}).`);
