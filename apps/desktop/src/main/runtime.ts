@@ -1396,34 +1396,56 @@ const resolveYouTubeLiveChatViaWeb = async (rawInput: string) => {
       ? liveHtml
       : (await fetchYouTubeHtml(watchUrl, "YouTube watch page lookup")).html;
 
-  const apiKey = matchFromHtml(watchHtml, /"INNERTUBE_API_KEY":"([^"]+)"/);
-  const clientVersion = matchFromHtml(
-    watchHtml,
-    /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/,
-  );
-  const visitorData = matchFromHtml(watchHtml, /"VISITOR_DATA":"([^"]+)"/);
-  const continuation =
-    matchFromHtml(
-      watchHtml,
-      /"reloadContinuationData":\{"continuation":"([^"]+)"/,
-    ) ||
-    matchFromHtml(
-      watchHtml,
-      /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-    ) ||
-    matchFromHtml(
-      watchHtml,
-      /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-    );
   const channelId = matchFromHtml(watchHtml, /"channelId":"(UC[^"]+)"/);
   const channelTitle =
     matchFromHtml(watchHtml, /"ownerChannelName":"([^"]+)"/) ||
     matchFromHtml(watchHtml, /<meta property="og:title" content="([^"]+)"/) ||
     normalizeYouTubeInput(rawInput);
 
-  if (!apiKey || !clientVersion || !continuation) {
+  const liveChatPopoutUrl = `https://www.youtube.com/live_chat?v=${pageVideoId}&is_popout=1`;
+  let chatHtml = "";
+  try {
+    chatHtml = (
+      await fetchYouTubeHtml(liveChatPopoutUrl, "YouTube live chat popup lookup")
+    ).html;
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    if (!text.includes("(404)")) {
+      throw error;
+    }
+  }
+
+  const extractChat = (source: string) => ({
+    apiKey: matchFromHtml(source, /"INNERTUBE_API_KEY":"([^"]+)"/),
+    clientVersion: matchFromHtml(source, /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/),
+    visitorData: matchFromHtml(source, /"VISITOR_DATA":"([^"]+)"/),
+    continuation:
+      matchFromHtml(source, /"reloadContinuationData":\{"continuation":"([^"]+)"/) ||
+      matchFromHtml(
+        source,
+        /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+      ) ||
+      matchFromHtml(
+        source,
+        /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+      ),
+  });
+
+  const fromChat = extractChat(chatHtml);
+  const fromWatch = extractChat(watchHtml);
+  const apiKey = fromChat.apiKey || fromWatch.apiKey;
+  const clientVersion = fromChat.clientVersion || fromWatch.clientVersion;
+  const visitorData = fromChat.visitorData || fromWatch.visitorData;
+  const continuation = fromChat.continuation || fromWatch.continuation;
+
+  if (!apiKey || !clientVersion) {
     throw new Error(
       "YouTube read-only web fallback could not extract live chat metadata for this stream.",
+    );
+  }
+  if (!continuation) {
+    throw new Error(
+      `No active live chat for "${channelTitle}". The stream may not be live, or live chat is disabled or members-only.`,
     );
   }
 
