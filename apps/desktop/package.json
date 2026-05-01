@@ -2,6 +2,17 @@
   "name": "@chatrix/desktop",
   "version": "1.0.10",
   "private": true,
+  "description": "A desktop chat companion for live streams.",
+  "homepage": "https://github.com/mhdtech1/Chatrix",
+  "author": {
+    "name": "mhdtech1",
+    "email": "mhdtech1@users.noreply.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mhdtech1/Chatrix.git",
+    "directory": "apps/desktop"
+  },
   "type": "module",
   "main": "dist/main/main.js",
   "scripts": {

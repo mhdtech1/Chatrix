@@ -112,6 +112,7 @@ linux:
   artifactName: ${productName}-linux-${arch}.${ext}
   category: Network
   executableName: chatrix
+  maintainer: mhdtech1 <mhdtech1@users.noreply.github.com>
 publish:
   provider: github
   owner: mhdtech1
