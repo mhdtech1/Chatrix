@@ -1,6 +1,8 @@
 import type { RefObject, ReactNode } from "react";
 import type {
   AuthHealthSnapshot,
+  UIDensity,
+  UIVisualMode,
   Platform,
   ThemeOption,
   UpdateStatus,
@@ -69,6 +71,10 @@ export type ChatShellMenuContentProps = {
   onModeChange: (mode: "simple" | "advanced") => void;
   theme: ThemeOption;
   onThemeChange: (theme: ThemeOption) => void;
+  uiVisualMode: UIVisualMode;
+  onUIVisualModeChange: (mode: UIVisualMode) => void;
+  uiDensity: UIDensity;
+  onUIDensityChange: (density: UIDensity) => void;
   chatTextScale: number;
   onChatTextScaleChange: (value: number) => void;
   welcomeModeEnabled: boolean;
@@ -217,6 +223,10 @@ export function ChatShellMenuContent({
   onModeChange,
   theme,
   onThemeChange,
+  uiVisualMode,
+  onUIVisualModeChange,
+  uiDensity,
+  onUIDensityChange,
   chatTextScale,
   onChatTextScaleChange,
   welcomeModeEnabled,
@@ -401,6 +411,68 @@ export function ChatShellMenuContent({
               <option value="classic">Classic</option>
             </select>
           </label>
+          <div className="menu-inline">
+            <span>Visual mode</span>
+            <div
+              className="menu-segmented"
+              role="group"
+              aria-label="Visual mode"
+            >
+              <button
+                type="button"
+                className={
+                  uiVisualMode === "creator"
+                    ? "menu-segmented__option active"
+                    : "menu-segmented__option"
+                }
+                aria-pressed={uiVisualMode === "creator"}
+                onClick={() => onUIVisualModeChange("creator")}
+              >
+                Creator Console
+              </button>
+              <button
+                type="button"
+                className={
+                  uiVisualMode === "command"
+                    ? "menu-segmented__option active"
+                    : "menu-segmented__option"
+                }
+                aria-pressed={uiVisualMode === "command"}
+                onClick={() => onUIVisualModeChange("command")}
+              >
+                Command Center
+              </button>
+            </div>
+          </div>
+          <div className="menu-inline">
+            <span>Density</span>
+            <div className="menu-segmented" role="group" aria-label="Density">
+              <button
+                type="button"
+                className={
+                  uiDensity === "compact"
+                    ? "menu-segmented__option active"
+                    : "menu-segmented__option"
+                }
+                aria-pressed={uiDensity === "compact"}
+                onClick={() => onUIDensityChange("compact")}
+              >
+                Compact
+              </button>
+              <button
+                type="button"
+                className={
+                  uiDensity === "comfortable"
+                    ? "menu-segmented__option active"
+                    : "menu-segmented__option"
+                }
+                aria-pressed={uiDensity === "comfortable"}
+                onClick={() => onUIDensityChange("comfortable")}
+              >
+                Comfortable
+              </button>
+            </div>
+          </div>
           <label className="menu-inline menu-inline--slider">
             <span>Chat text size</span>
             <input
@@ -965,9 +1037,7 @@ export function ChatShellMenuContent({
                   onClick={onSignInYouTube}
                   disabled={authBusy !== null}
                 >
-                  {authBusy === "youtube"
-                    ? "Signing in..."
-                    : "Sign in YouTube"}
+                  {authBusy === "youtube" ? "Signing in..." : "Sign in YouTube"}
                 </button>
               )}
             </details>

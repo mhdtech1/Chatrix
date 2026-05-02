@@ -24,6 +24,9 @@ import type {
   AppSettings,
   ChatSource,
   ChatTab,
+  UIDensity,
+  UIMode,
+  UIVisualMode,
   LocalTabPoll,
   ModeratorAction,
   Platform,
@@ -83,7 +86,9 @@ const hotkeys = {
 };
 
 type Settings = AppSettings & {
-  uiMode?: "simple" | "advanced";
+  uiMode?: UIMode;
+  uiVisualMode?: UIVisualMode;
+  uiDensity?: UIDensity;
   collaborationMode?: boolean;
   chatDeckMode?: boolean;
   dockedPanels?: {
@@ -180,6 +185,8 @@ type DisplayBadge =
 const defaultSettings: Settings = {
   autoWorkspacePreset: true,
   uiMode: "simple",
+  uiVisualMode: "creator",
+  uiDensity: "compact",
   workspacePreset: "streamer",
   theme: "dark",
   chatTextScale: 100,
@@ -2489,6 +2496,10 @@ const MainApp: React.FC = () => {
       : settings.theme === "classic"
         ? "classic"
         : "dark";
+  const uiVisualMode: UIVisualMode =
+    settings.uiVisualMode === "command" ? "command" : "creator";
+  const uiDensity: UIDensity =
+    settings.uiDensity === "comfortable" ? "comfortable" : "compact";
   const chatTextScale = clampChatTextScale(
     Number(settings.chatTextScale ?? CHAT_TEXT_SCALE_DEFAULT),
   );
@@ -2545,11 +2556,13 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", theme);
+    root.setAttribute("data-ui-visual-mode", uiVisualMode);
+    root.setAttribute("data-ui-density", uiDensity);
     root.style.setProperty(
       "color-scheme",
       theme === "light" ? "light" : "dark",
     );
-  }, [theme]);
+  }, [theme, uiDensity, uiVisualMode]);
 
   useEffect(() => {
     try {
@@ -7440,6 +7453,14 @@ const MainApp: React.FC = () => {
             onThemeChange={(nextTheme) => {
               void persistSettings({ theme: nextTheme });
             }}
+            uiVisualMode={uiVisualMode}
+            onUIVisualModeChange={(nextMode) => {
+              void persistSettings({ uiVisualMode: nextMode });
+            }}
+            uiDensity={uiDensity}
+            onUIDensityChange={(nextDensity) => {
+              void persistSettings({ uiDensity: nextDensity });
+            }}
             chatTextScale={chatTextScale}
             onChatTextScaleChange={updateChatTextScale}
             welcomeModeEnabled={welcomeModeEnabled}
@@ -7676,7 +7697,9 @@ const MainApp: React.FC = () => {
 
   return (
     <div
-      className={isSimpleMode ? "chat-shell simple" : "chat-shell"}
+      className={`chat-shell ${isSimpleMode ? "simple " : ""}density-${uiDensity} visual-${uiVisualMode}`}
+      data-ui-density={uiDensity}
+      data-ui-visual-mode={uiVisualMode}
       style={
         {
           "--chat-text-scale": (chatTextScale / 100).toFixed(2),

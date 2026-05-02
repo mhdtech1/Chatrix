@@ -163,10 +163,41 @@ describe("createSettingsHandlers", () => {
 
     expect(result).toEqual({
       theme: "light",
+      uiVisualMode: "creator",
+      uiDensity: "compact",
       updateChannel: "stable",
       youtubeAlphaEnabled: true,
       tiktokAlphaEnabled: true,
     });
+  });
+
+  it("normalizes visual mode and density settings", async () => {
+    const store = createMockSettingsStore({
+      uiVisualMode: "command",
+      uiDensity: "comfortable",
+      updateChannel: "stable",
+    });
+
+    const handlers = createSettingsHandlers({
+      store: store as never,
+      youtubeAlphaEnabled: true,
+      tiktokAlphaEnabled: true,
+      resolveConfiguredUpdateChannel: () => "stable",
+      applyAutoUpdaterChannel: vi.fn(),
+      storeAuthTokens: vi.fn().mockResolvedValue(undefined),
+      clearAuthTokens: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const result = await handlers[IPC_CHANNELS.SETTINGS_SET](
+      {} as never,
+      {
+        uiVisualMode: "unknown",
+        uiDensity: "wide",
+      } as never,
+    );
+
+    expect(result.uiVisualMode).toBe("command");
+    expect(result.uiDensity).toBe("comfortable");
   });
 });
 

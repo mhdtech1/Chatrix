@@ -47,6 +47,22 @@ export function createSettingsHandlers(
       const requestedUpdates = rawRequestedUpdates as AppSettings;
       const nextUpdates: Partial<AppSettings> = {
         ...requestedUpdates,
+        uiVisualMode:
+          requestedUpdates.uiVisualMode === "command"
+            ? "command"
+            : requestedUpdates.uiVisualMode === "creator"
+              ? "creator"
+              : store.get("uiVisualMode") === "command"
+                ? "command"
+                : "creator",
+        uiDensity:
+          requestedUpdates.uiDensity === "comfortable"
+            ? "comfortable"
+            : requestedUpdates.uiDensity === "compact"
+              ? "compact"
+              : store.get("uiDensity") === "comfortable"
+                ? "comfortable"
+                : "compact",
         updateChannel:
           requestedUpdates.updateChannel === "beta"
             ? "beta"

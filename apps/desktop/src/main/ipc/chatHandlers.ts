@@ -5,6 +5,21 @@ import type { IpcHandlerRegistry } from "./handlers.js";
 
 type ChannelPlatform = "twitch" | "kick" | "youtube" | "tiktok";
 
+const CHANNEL_PLATFORMS = new Set<ChannelPlatform>([
+  "twitch",
+  "kick",
+  "youtube",
+  "tiktok",
+]);
+
+const MODERATION_ACTIONS = new Set<ModerationRequest["action"]>([
+  "timeout_60",
+  "timeout_600",
+  "ban",
+  "unban",
+  "delete",
+]);
+
 type KickChannelLookup = {
   ok: boolean;
   message: string;
@@ -68,13 +83,13 @@ export function createChatHandlers(
       const platform = input.platform;
       const channel = normalizeLogin(input.channel ?? "");
       const action = input.action;
-      if (!platform) {
+      if (!platform || !CHANNEL_PLATFORMS.has(platform)) {
         throw new Error("Moderation platform is required.");
       }
       if (!channel) {
         throw new Error("Moderation channel is required.");
       }
-      if (!action) {
+      if (!action || !MODERATION_ACTIONS.has(action)) {
         throw new Error("Moderation action is required.");
       }
       await runModerationAction({
