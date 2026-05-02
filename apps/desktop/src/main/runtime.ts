@@ -3782,23 +3782,34 @@ app.whenReady().then(async () => {
     store.set("kickRedirectUri", managedKickRedirectUri);
   }
   if (YOUTUBE_ALPHA_ENABLED) {
-    const managedYouTubeClientId = (
-      process.env.YOUTUBE_CLIENT_ID ?? YOUTUBE_MANAGED_CLIENT_ID
-    ).trim();
-    if (!store.get("youtubeClientId")?.trim() && managedYouTubeClientId) {
-      store.set("youtubeClientId", managedYouTubeClientId);
+    const envYouTubeClientId = process.env.YOUTUBE_CLIENT_ID?.trim() ?? "";
+    const fallbackYouTubeClientId = YOUTUBE_MANAGED_CLIENT_ID.trim();
+    if (envYouTubeClientId) {
+      store.set("youtubeClientId", envYouTubeClientId);
+    } else if (
+      !store.get("youtubeClientId")?.trim() &&
+      fallbackYouTubeClientId
+    ) {
+      store.set("youtubeClientId", fallbackYouTubeClientId);
     }
-    const managedYouTubeRedirectUri = (
-      process.env.YOUTUBE_REDIRECT_URI ?? YOUTUBE_DEFAULT_REDIRECT_URI
-    ).trim();
-    if (!store.get("youtubeRedirectUri")?.trim() && managedYouTubeRedirectUri) {
-      store.set("youtubeRedirectUri", managedYouTubeRedirectUri);
+    const envYouTubeRedirectUri = process.env.YOUTUBE_REDIRECT_URI?.trim() ?? "";
+    if (envYouTubeRedirectUri) {
+      store.set("youtubeRedirectUri", envYouTubeRedirectUri);
+    } else if (
+      !store.get("youtubeRedirectUri")?.trim() &&
+      YOUTUBE_DEFAULT_REDIRECT_URI
+    ) {
+      store.set("youtubeRedirectUri", YOUTUBE_DEFAULT_REDIRECT_URI);
     }
-    const managedYouTubeApiKey = (
-      process.env.YOUTUBE_API_KEY ?? YOUTUBE_MANAGED_API_KEY
-    ).trim();
-    if (!store.get("youtubeApiKey")?.trim() && managedYouTubeApiKey) {
-      store.set("youtubeApiKey", managedYouTubeApiKey);
+    const envYouTubeApiKey = process.env.YOUTUBE_API_KEY?.trim() ?? "";
+    const fallbackYouTubeApiKey = YOUTUBE_MANAGED_API_KEY.trim();
+    if (envYouTubeApiKey) {
+      store.set("youtubeApiKey", envYouTubeApiKey);
+    } else if (
+      !store.get("youtubeApiKey")?.trim() &&
+      fallbackYouTubeApiKey
+    ) {
+      store.set("youtubeApiKey", fallbackYouTubeApiKey);
     }
   } else {
     store.set({
