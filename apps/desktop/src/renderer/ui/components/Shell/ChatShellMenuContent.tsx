@@ -1,6 +1,7 @@
 import type { RefObject, ReactNode } from "react";
 import type {
   AuthHealthSnapshot,
+  Platform,
   ThemeOption,
   UpdateStatus,
   WorkspacePreset,
@@ -139,11 +140,15 @@ export type ChatShellMenuContentProps = {
   onClearCurrentTabSendRule: () => void;
   twitchSignedIn: boolean;
   kickSignedIn: boolean;
+  youtubeSignedIn: boolean;
+  youtubeAlphaEnabled: boolean;
   onSignInTwitch: () => void;
   onSignOutTwitch: () => void;
   onSignInKick: () => void;
   onSignOutKick: () => void;
-  authBusy: "twitch" | "kick" | null;
+  onSignInYouTube: () => void;
+  onSignOutYouTube: () => void;
+  authBusy: Platform | null;
   kickWriteAuthConfigured: boolean;
   newAccountProfileName: string;
   onNewAccountProfileNameChange: (value: string) => void;
@@ -283,10 +288,14 @@ export function ChatShellMenuContent({
   onClearCurrentTabSendRule,
   twitchSignedIn,
   kickSignedIn,
+  youtubeSignedIn,
+  youtubeAlphaEnabled,
   onSignInTwitch,
   onSignOutTwitch,
   onSignInKick,
   onSignOutKick,
+  onSignInYouTube,
+  onSignOutYouTube,
   authBusy,
   kickWriteAuthConfigured,
   newAccountProfileName,
@@ -943,6 +952,26 @@ export function ChatShellMenuContent({
               </button>
             )}
           </details>
+          {youtubeAlphaEnabled ? (
+            <details className="menu-submenu">
+              <summary>YouTube</summary>
+              {youtubeSignedIn ? (
+                <button type="button" onClick={onSignOutYouTube}>
+                  Sign out YouTube
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onSignInYouTube}
+                  disabled={authBusy !== null}
+                >
+                  {authBusy === "youtube"
+                    ? "Signing in..."
+                    : "Sign in YouTube"}
+                </button>
+              )}
+            </details>
+          ) : null}
           {isAdvancedMode ? (
             <>
               <label className="menu-inline">

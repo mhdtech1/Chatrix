@@ -6466,6 +6466,29 @@ const MainApp: React.FC = () => {
     void refreshAuthHealth(false);
   };
 
+  const signInYouTube = async () => {
+    setAuthBusy("youtube");
+    setAuthMessage("");
+    try {
+      const next = await window.electronAPI.signInYouTube();
+      setSettings({ ...defaultSettings, ...next });
+      setAuthMessage(
+        `Signed in to YouTube as ${next.youtubeUsername ?? "unknown channel"}.`,
+      );
+      void refreshAuthHealth(false);
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAuthBusy(null);
+    }
+  };
+
+  const signOutYouTube = async () => {
+    const next = await window.electronAPI.signOutYouTube();
+    setSettings({ ...defaultSettings, ...next });
+    void refreshAuthHealth(false);
+  };
+
   const enterReadOnlyGuide = async (
     message = "Read-only mode enabled. You can open Twitch, Kick, YouTube, and TikTok without signing in.",
   ) => {
@@ -7551,6 +7574,16 @@ const MainApp: React.FC = () => {
             onSignOutKick={() => {
               void signOutKick();
             }}
+            onSignInYouTube={() => {
+              void signInYouTube();
+            }}
+            onSignOutYouTube={() => {
+              void signOutYouTube();
+            }}
+            youtubeSignedIn={Boolean(
+              settings.youtubeAccessToken && settings.youtubeRefreshToken,
+            )}
+            youtubeAlphaEnabled={Boolean(settings.youtubeAlphaEnabled)}
             authBusy={authBusy}
             kickWriteAuthConfigured={kickWriteAuthConfigured}
             newAccountProfileName={newAccountProfileName}

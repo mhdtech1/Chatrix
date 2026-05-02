@@ -1,6 +1,6 @@
 {
   "name": "@chatrix/desktop",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "private": true,
   "description": "A desktop chat companion for live streams.",
   "homepage": "https://github.com/mhdtech1/Chatrix",
