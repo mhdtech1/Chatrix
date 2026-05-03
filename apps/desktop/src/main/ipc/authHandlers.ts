@@ -244,7 +244,7 @@ export function createAuthSignInHandlers(
         store.get("twitchRedirectUri")?.trim() || twitchDefaultRedirectUri;
 
       if (!clientId) {
-        const guestName = `justinfan${Math.floor(Math.random() * 100000)}`;
+        const guestName = `justinfan${crypto.randomInt(100000)}`;
         store.set({
           twitchToken: "",
           twitchUsername: guestName,

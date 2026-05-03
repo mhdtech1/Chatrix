@@ -38,8 +38,16 @@ export const formatOptionalExpiry = (value: number | null | undefined) => {
   return `${asDate.toLocaleString()} (${minutes}m left)`;
 };
 
+const secureRandomHex = (length: number) => {
+  const bytes = new Uint8Array(Math.ceil(length / 2));
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, length);
+};
+
 export const createId = () =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  `${Date.now().toString(36)}-${secureRandomHex(6)}`;
 
 export const platformIconGlyph = (platform: string) => {
   const value = platform.trim().toLowerCase();

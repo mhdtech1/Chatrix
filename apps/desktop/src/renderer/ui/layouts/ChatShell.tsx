@@ -5773,7 +5773,7 @@ const MainApp: React.FC = () => {
 
     const appendModeratorAuditMessage = (ok: boolean, detail: string) => {
       const systemMessage: ChatMessage = {
-        id: `system-${source.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: `system-${source.id}-${createId()}`,
         platform: source.platform,
         channel: source.channel,
         username: "system",
@@ -6238,7 +6238,7 @@ const MainApp: React.FC = () => {
       const source = sourceById.get(result.sourceId);
       if (!source) continue;
       const auditMessage: ChatMessage = {
-        id: `system-${source.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: `system-${source.id}-${createId()}`,
         platform: source.platform,
         channel: source.channel,
         username: "system",
