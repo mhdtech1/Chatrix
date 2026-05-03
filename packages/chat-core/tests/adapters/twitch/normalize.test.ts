@@ -1,6 +1,47 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTwitchMessage } from "../../../src/adapters/twitch/normalize";
+import {
+  normalizeTwitchMessage,
+  parseTwitchBadges,
+} from "../../../src/adapters/twitch/normalize";
 import { parseIrcMessage } from "../../../src/adapters/twitch/ircParser";
+
+describe("parseTwitchBadges", () => {
+  it("parses badges from an array", () => {
+    const badges = ["subscriber/3", "premium/1"];
+    const result = parseTwitchBadges(badges);
+    expect(result).toEqual([
+      { setId: "subscriber", versionId: "3", key: "subscriber/3" },
+      { setId: "premium", versionId: "1", key: "premium/1" },
+    ]);
+  });
+
+  it("parses badges from a raw comma-separated string", () => {
+    const rawBadgesString = "subscriber/3,premium/1";
+    const result = parseTwitchBadges([], rawBadgesString);
+    expect(result).toEqual([
+      { setId: "subscriber", versionId: "3", key: "subscriber/3" },
+      { setId: "premium", versionId: "1", key: "premium/1" },
+    ]);
+  });
+
+  it("combines badges from array and raw string without duplicates", () => {
+    const badges = ["subscriber/3"];
+    const rawBadgesString = "subscriber/3,premium/1";
+    const result = parseTwitchBadges(badges, rawBadgesString);
+    expect(result).toEqual([
+      { setId: "subscriber", versionId: "3", key: "subscriber/3" },
+      { setId: "premium", versionId: "1", key: "premium/1" },
+    ]);
+  });
+
+  it("handles malformed or invalid badge strings", () => {
+    const badges = ["invalidbadge", "another/invalid/format", ""];
+    const result = parseTwitchBadges(badges);
+    expect(result).toEqual([
+      { setId: "another", versionId: "invalid", key: "another/invalid" },
+    ]);
+  });
+});
 
 describe("normalizeTwitchMessage", () => {
   describe("PRIVMSG", () => {
