@@ -18,6 +18,7 @@ type CreateSettingsHandlersOptions = {
   tiktokAlphaEnabled: boolean;
   resolveConfiguredUpdateChannel: () => UpdateChannel;
   applyAutoUpdaterChannel: (channel: UpdateChannel) => void;
+  applyAutoUpdaterAutoDownload: (enabled: boolean) => void;
   storeAuthTokens: StoreAuthTokens;
   clearAuthTokens: ClearAuthTokens;
 };
@@ -31,6 +32,7 @@ export function createSettingsHandlers(
     tiktokAlphaEnabled,
     resolveConfiguredUpdateChannel,
     applyAutoUpdaterChannel,
+    applyAutoUpdaterAutoDownload,
     storeAuthTokens,
     clearAuthTokens,
   } = options;
@@ -214,6 +216,9 @@ export function createSettingsHandlers(
         nextUpdates.updateChannel === "beta"
       ) {
         applyAutoUpdaterChannel(nextUpdates.updateChannel);
+      }
+      if (typeof nextUpdates.autoDownloadUpdates === "boolean") {
+        applyAutoUpdaterAutoDownload(nextUpdates.autoDownloadUpdates);
       }
       return store.store;
     },

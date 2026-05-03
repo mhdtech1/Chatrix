@@ -207,6 +207,8 @@ export type ChatShellMenuContentProps = {
   onImportSessionFile: (file: File) => void;
   updateChannel: "stable" | "beta";
   onUpdateChannelChange: (channel: "stable" | "beta") => void;
+  autoDownloadUpdates: boolean;
+  onAutoDownloadUpdatesChange: (enabled: boolean) => void;
   updateStatus: UpdateStatus;
   onCheckForUpdates: () => void;
   formatOptionalDateTime: (value: string | undefined) => string;
@@ -357,6 +359,8 @@ export function ChatShellMenuContent({
   onImportSessionFile,
   updateChannel,
   onUpdateChannelChange,
+  autoDownloadUpdates,
+  onAutoDownloadUpdatesChange,
   updateStatus,
   onCheckForUpdates,
   formatOptionalDateTime,
@@ -1481,6 +1485,18 @@ export function ChatShellMenuContent({
                     <option value="stable">Stable</option>
                     <option value="beta">Beta</option>
                   </select>
+                </label>
+              ) : null}
+              {isAdvancedMode ? (
+                <label className="menu-check">
+                  <input
+                    type="checkbox"
+                    checked={autoDownloadUpdates}
+                    onChange={(event) =>
+                      onAutoDownloadUpdatesChange(event.target.checked)
+                    }
+                  />
+                  Automatically download updates
                 </label>
               ) : null}
               <span>

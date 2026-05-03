@@ -2697,6 +2697,10 @@ const applyAutoUpdaterChannel = (channel: UpdateChannel) => {
   setUpdateStatus(updateStatus.state, updateStatus.message, { channel });
 };
 
+const applyAutoUpdaterAutoDownload = (enabled: boolean) => {
+  autoUpdater.autoDownload = enabled;
+};
+
 const waitForUpdateTerminalState = async (timeoutMs = 12_000) => {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
@@ -2950,7 +2954,7 @@ const setupAutoUpdater = () => {
     return;
   }
 
-  autoUpdater.autoDownload = true;
+  applyAutoUpdaterAutoDownload(store.get("autoDownloadUpdates") !== false);
   autoUpdater.autoInstallOnAppQuit = false;
   if (isWindows) {
     const windowsUpdater = autoUpdater as unknown as {
@@ -3103,6 +3107,7 @@ app.whenReady().then(async () => {
     autoBanOnMessage: false,
     confirmSendAll: true,
     updateChannel: DEFAULT_UPDATE_CHANNEL,
+    autoDownloadUpdates: true,
     twitchGuest: false,
     twitchScopeVersion: TWITCH_SCOPE_VERSION,
     kickGuest: false,
@@ -3352,6 +3357,7 @@ app.whenReady().then(async () => {
       tiktokAlphaEnabled: TIKTOK_ALPHA_ENABLED,
       resolveConfiguredUpdateChannel,
       applyAutoUpdaterChannel,
+      applyAutoUpdaterAutoDownload,
       storeAuthTokens,
       clearAuthTokens,
     }),

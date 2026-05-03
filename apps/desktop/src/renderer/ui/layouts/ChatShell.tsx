@@ -7165,6 +7165,10 @@ const MainApp: React.FC = () => {
             onUpdateChannelChange={(channel) => {
               void setUpdateChannelPreference(channel);
             }}
+            autoDownloadUpdates={settings.autoDownloadUpdates !== false}
+            onAutoDownloadUpdatesChange={(enabled) => {
+              void persistSettings({ autoDownloadUpdates: enabled });
+            }}
             updateStatus={updateStatus}
             onCheckForUpdates={() => {
               void checkForUpdatesNow();
