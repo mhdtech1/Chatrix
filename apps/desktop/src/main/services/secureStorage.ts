@@ -243,16 +243,20 @@ export async function hydrateTokenStateFromSecureStorage(
 ): Promise<void> {
   const updates: Partial<AppSettings> = {};
 
-  for (const platform of Object.keys(PLATFORM_TOKEN_KEYS) as TokenPlatform[]) {
-    const keys = PLATFORM_TOKEN_KEYS[platform];
-    const tokens = await getAuthTokens(platform);
-    (updates as Record<string, unknown>)[keys.access] =
-      tokens.accessToken ?? "";
-    if (keys.refresh) {
-      (updates as Record<string, unknown>)[keys.refresh] =
-        tokens.refreshToken ?? "";
-    }
-  }
+  await Promise.all(
+    (Object.keys(PLATFORM_TOKEN_KEYS) as TokenPlatform[]).map(
+      async (platform) => {
+        const keys = PLATFORM_TOKEN_KEYS[platform];
+        const tokens = await getAuthTokens(platform);
+        (updates as Record<string, unknown>)[keys.access] =
+          tokens.accessToken ?? "";
+        if (keys.refresh) {
+          (updates as Record<string, unknown>)[keys.refresh] =
+            tokens.refreshToken ?? "";
+        }
+      },
+    ),
+  );
 
   store.set(updates);
 }
@@ -260,23 +264,27 @@ export async function hydrateTokenStateFromSecureStorage(
 export async function migrateLegacySettingsTokens(
   store: SettingsReaderWriter,
 ): Promise<void> {
-  for (const platform of Object.keys(PLATFORM_TOKEN_KEYS) as TokenPlatform[]) {
-    const keys = PLATFORM_TOKEN_KEYS[platform];
-    const access = String(store.get(keys.access) ?? "").trim();
-    const refresh = keys.refresh
-      ? String(store.get(keys.refresh) ?? "").trim()
-      : "";
-    if (!access && !refresh) continue;
+  await Promise.all(
+    (Object.keys(PLATFORM_TOKEN_KEYS) as TokenPlatform[]).map(
+      async (platform) => {
+        const keys = PLATFORM_TOKEN_KEYS[platform];
+        const access = String(store.get(keys.access) ?? "").trim();
+        const refresh = keys.refresh
+          ? String(store.get(keys.refresh) ?? "").trim()
+          : "";
+        if (!access && !refresh) return;
 
-    const existing = await getAuthTokens(platform);
-    const hasExisting = Boolean(
-      existing.accessToken?.trim() || existing.refreshToken?.trim(),
-    );
-    if (hasExisting) continue;
+        const existing = await getAuthTokens(platform);
+        const hasExisting = Boolean(
+          existing.accessToken?.trim() || existing.refreshToken?.trim(),
+        );
+        if (hasExisting) return;
 
-    await storeAuthTokens(platform, {
-      accessToken: access,
-      refreshToken: refresh || undefined,
-    });
-  }
+        await storeAuthTokens(platform, {
+          accessToken: access,
+          refreshToken: refresh || undefined,
+        });
+      },
+    ),
+  );
 }
