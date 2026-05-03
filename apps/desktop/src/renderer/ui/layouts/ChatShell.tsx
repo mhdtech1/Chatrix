@@ -7359,11 +7359,12 @@ const MainApp: React.FC = () => {
     );
     return { top: y, left: x };
   })();
-  const toolbarSummaryText = activeTab
-    ? newestLocked
-      ? `${visibleMessages.length} ${visibleMessages.length === 1 ? "message" : "messages"}`
-      : `${visibleMessages.length} ${visibleMessages.length === 1 ? "message" : "messages"} · ${pendingNewestCount} new`
-    : "Open a channel tab to start";
+  const toolbarSummaryText = (() => {
+    if (!activeTab) return "Open a channel tab to start";
+    const msgCount = `${visibleMessages.length} ${visibleMessages.length === 1 ? "message" : "messages"}`;
+    if (newestLocked) return msgCount;
+    return `${msgCount} · ${pendingNewestCount} new`;
+  })();
   const simpleActiveTabMetaText = activeTabIsMerged
     ? `${activeTabSources.length} chats in merged tab`
     : activeSingleSource

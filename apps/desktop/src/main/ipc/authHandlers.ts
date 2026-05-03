@@ -112,25 +112,27 @@ const describeHttpErrorPayload = (text: string): string => {
         ? (parsed.error as Record<string, unknown>)
         : null;
     const payloadError = parsed.error;
-    const explicitError =
-      typeof payloadError === "string"
-        ? payloadError
-        : Array.isArray(payloadError)
-          ? (payloadError.find(
-              (entry): entry is string =>
-                typeof entry === "string" && entry.trim().length > 0,
-            ) ?? "")
-          : "";
+    let explicitError = "";
+    if (typeof payloadError === "string") {
+      explicitError = payloadError;
+    } else if (Array.isArray(payloadError)) {
+      explicitError =
+        payloadError.find(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0,
+        ) ?? "";
+    }
     const errorsField = parsed.errors;
-    const topLevelError =
-      typeof errorsField === "string"
-        ? errorsField
-        : Array.isArray(errorsField)
-          ? (errorsField.find(
-              (entry): entry is string =>
-                typeof entry === "string" && entry.trim().length > 0,
-            ) ?? "")
-          : "";
+    let topLevelError = "";
+    if (typeof errorsField === "string") {
+      topLevelError = errorsField;
+    } else if (Array.isArray(errorsField)) {
+      topLevelError =
+        errorsField.find(
+          (entry): entry is string =>
+            typeof entry === "string" && entry.trim().length > 0,
+        ) ?? "";
+    }
 
     return (
       (typeof parsed.message === "string" && parsed.message.trim()) ||

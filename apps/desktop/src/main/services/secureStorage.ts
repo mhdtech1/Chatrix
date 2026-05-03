@@ -76,11 +76,11 @@ class KeytarSecureStorage implements SecureStorageService {
     const cached = this.cache.get(account);
     if (cached === normalized) return;
     await keytar.setPassword(SERVICE_NAME, account, normalized);
-    for (const legacyServiceName of LEGACY_SERVICE_NAMES) {
-      await keytar
-        .deletePassword(legacyServiceName, account)
-        .catch(() => false);
-    }
+    await Promise.all(
+      LEGACY_SERVICE_NAMES.map((legacyServiceName) =>
+        keytar.deletePassword(legacyServiceName, account).catch(() => false),
+      ),
+    );
     this.cache.set(account, normalized);
   }
 
