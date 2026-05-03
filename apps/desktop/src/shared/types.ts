@@ -1,3 +1,5 @@
+import type { ChatMessage } from "@chatrix/chat-core";
+
 export type WorkspacePreset = "streamer" | "moddesk" | "viewer";
 export type ThemeOption = "dark" | "light" | "classic";
 export type Platform = "twitch" | "kick" | "youtube" | "tiktok";
@@ -167,6 +169,6 @@ export type TikTokRendererEvent = {
   connectionId: string;
   type: "connected" | "disconnected" | "chat" | "error";
   roomId?: string;
-  message?: unknown;
+  message?: ChatMessage;
   error?: string;
 };

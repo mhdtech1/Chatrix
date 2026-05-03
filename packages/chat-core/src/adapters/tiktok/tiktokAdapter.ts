@@ -6,7 +6,7 @@ import type {
   ChatMessage,
 } from "../../types.js";
 
-type TikTokTransportEvent = {
+export type TikTokTransportEvent = {
   connectionId: string;
   type: "connected" | "disconnected" | "chat" | "error";
   roomId?: string;
@@ -14,7 +14,7 @@ type TikTokTransportEvent = {
   error?: string;
 };
 
-type TikTokTransport = {
+export type TikTokTransport = {
   connect: (payload: {
     channel: string;
   }) => Promise<{ connectionId: string; roomId?: string }>;
