@@ -20,8 +20,26 @@ body {
 .chat-shell.simple .account-strip,
 .chat-shell.simple .analytics-strip,
 .chat-shell.simple .quick-actions-row,
+.chat-shell.simple .quick-mod-panel--action-rail,
 .chat-shell.simple .dock-sidebar {
   display: none !important;
+}
+
+/*
+ * Compact stack: topbar + tab bar render as one continuous chrome
+ * unit instead of two separate panels with their own borders.
+ */
+.chat-shell {
+  gap: 0;
+}
+
+.main-layout,
+.main-layout-primary {
+  gap: 0;
+}
+
+.nav-strip {
+  margin-top: 0;
 }
 
 .chat-shell {

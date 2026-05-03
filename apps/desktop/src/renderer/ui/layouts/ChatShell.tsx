@@ -7863,6 +7863,32 @@ const MainApp: React.FC = () => {
         }}
         menuPanel={mainMenuPanel}
         mentionPillCount={mentionInboxCount}
+        authDots={[
+          {
+            platform: "twitch",
+            signedIn: Boolean(settings.twitchToken || settings.twitchGuest),
+            username: settings.twitchUsername ?? "",
+          },
+          {
+            platform: "kick",
+            signedIn: Boolean(
+              settings.kickAccessToken || settings.kickGuest,
+            ),
+            username: settings.kickUsername ?? "",
+          },
+          ...(youtubeAlphaEnabled
+            ? [
+                {
+                  platform: "youtube" as const,
+                  signedIn: Boolean(
+                    settings.youtubeAccessToken &&
+                      settings.youtubeRefreshToken,
+                  ),
+                  username: settings.youtubeUsername ?? "",
+                },
+              ]
+            : []),
+        ]}
       />
 
       <ChatShellAccountStrip

@@ -20,9 +20,17 @@
 }
 
 .menu-dropdown-panel--portal {
+  /* Reset legacy popover positioning from styles.css */
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  bottom: auto;
+  margin: 0;
   width: min(1080px, calc(100vw - 48px));
   max-width: 100%;
   height: min(82vh, 880px);
+  max-height: none;
   display: grid;
   grid-template-rows: auto 1fr;
   padding: 16px;
@@ -31,6 +39,17 @@
   background: var(--surface-overlay);
   box-shadow: var(--panel-shadow-lg);
   overflow: hidden;
+}
+
+/* Make sure the body fills the panel and lets the inner sidebar
+   layout grid actually shrink to fit. */
+.menu-dropdown-panel--portal .menu-panel-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.menu-dropdown-panel--portal .settings-page__content {
+  overflow-y: auto;
 }
 
 .menu-panel-header {

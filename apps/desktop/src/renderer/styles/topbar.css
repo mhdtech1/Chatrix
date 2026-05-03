@@ -3,7 +3,7 @@
   grid-template-columns: auto minmax(320px, 1fr) auto;
   align-items: center;
   gap: var(--ui-gap);
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-panel);
   background: var(--surface-panel);
@@ -14,30 +14,112 @@
 .topbar-shell__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
-.brand-block--broadcast {
-  display: grid;
-  gap: 3px;
+.topbar-shell__wordmark {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 0 4px;
+  color: var(--ink-strong);
 }
 
-.brand-block--broadcast h1 {
+/* --- Auth status dots ------------------------------------------ */
+.topbar-shell__auth-dots {
+  list-style: none;
   margin: 0;
-  font-size: 1.4rem;
-  letter-spacing: -0.04em;
+  padding: 0 0 0 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-left: 1px solid var(--border-soft);
 }
 
-.brand-block--broadcast p {
-  margin: 0;
-  color: var(--ink-muted);
+.auth-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease);
 }
 
-.brand-block__eyebrow {
-  font-size: 0.72rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.auth-dot:hover {
+  background: var(--surface-interactive) !important;
+}
+
+.auth-dot__indicator {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink-faint);
+  box-shadow: 0 0 0 1px var(--border-soft) inset;
+  transition: background var(--motion-fast) var(--motion-ease);
+}
+
+.auth-dot--on.auth-dot--twitch .auth-dot__indicator {
+  background: #a970ff;
+  box-shadow: 0 0 6px rgba(169, 112, 255, 0.4);
+}
+
+.auth-dot--on.auth-dot--kick .auth-dot__indicator {
+  background: #53fc18;
+  box-shadow: 0 0 6px rgba(83, 252, 24, 0.4);
+}
+
+.auth-dot--on.auth-dot--youtube .auth-dot__indicator {
+  background: #ff4646;
+  box-shadow: 0 0 6px rgba(255, 70, 70, 0.4);
+}
+
+.auth-dot--on.auth-dot--tiktok .auth-dot__indicator {
+  background: #ee1d52;
+  box-shadow: 0 0 6px rgba(238, 29, 82, 0.4);
+}
+
+/* --- Compact icon buttons -------------------------------------- */
+.topbar-shell__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 !important;
+  border-radius: var(--radius-control) !important;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-interactive);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.topbar-shell__icon-btn:hover {
+  background: var(--surface-interactive-strong);
+  color: var(--ink-strong);
+}
+
+.topbar-shell__icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.topbar-shell__icon-btn.topbar-shell__submit {
+  background: var(--accent-glow);
+  border-color: var(--border-accent);
   color: var(--accent-strong);
+}
+
+.topbar-shell__icon-btn.topbar-shell__submit:hover {
+  background: var(--accent);
+  color: var(--surface-app);
 }
 
 .channel-form--shell {
@@ -52,45 +134,28 @@
 }
 
 .channel-form--shell input,
-.channel-form--shell button,
-.platform-picker summary,
-.topbar-shell__refresh,
-.topbar-shell__submit,
-.topbar-shell__menu-trigger {
-  min-height: var(--ui-control-height);
+.platform-picker summary {
+  min-height: 30px;
   border-radius: var(--radius-control);
 }
 
 .channel-form--shell input {
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
+  padding: 0 12px;
+  border: 1px solid var(--border-soft);
   background: var(--surface-interactive);
-  color: var(--ink-soft);
-}
-
-.platform-picker summary,
-.topbar-shell__refresh,
-.topbar-shell__submit,
-.topbar-shell__menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-interactive);
-}
-
-.topbar-shell__submit,
-.topbar-shell__menu-trigger {
-  background: var(--accent-glow);
-  border-color: var(--border-accent);
   color: var(--ink-strong);
 }
 
-.topbar-shell__refresh:hover,
-.topbar-shell__submit:hover,
-.topbar-shell__menu-trigger:hover,
+.platform-picker summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-interactive);
+}
+
 .platform-picker summary:hover {
   background: var(--surface-interactive-strong);
 }

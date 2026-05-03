@@ -1,13 +1,14 @@
 .nav-strip {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px;
-  border-radius: var(--radius-panel);
-  border: 1px solid var(--border-soft);
-  background: var(--surface-panel);
-  box-shadow: var(--panel-shadow-md);
+  padding: 4px 6px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  box-shadow: none;
 }
 
 .nav-strip .tab {

@@ -36,18 +36,19 @@ describe("ChatShellTopBar", () => {
     );
 
     expect(screen.getByText("Chatrix")).toBeInTheDocument();
-    expect(screen.getByText("Unified streaming desk")).toBeInTheDocument();
     expect(screen.getByDisplayValue("mazen")).toBeInTheDocument();
     expect(screen.getByText("Mentions 3")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Refresh current tab" }),
+    );
     expect(onRefresh).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open settings" }));
     expect(onToggleMenu).toHaveBeenCalledTimes(1);
 
     fireEvent.submit(
-      screen.getByRole("button", { name: "Open Tab" }).closest("form")!,
+      screen.getByRole("button", { name: "Open tab" }).closest("form")!,
     );
     expect(onOpenTab).toHaveBeenCalledTimes(1);
   });
