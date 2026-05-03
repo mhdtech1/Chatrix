@@ -1,7 +1,6 @@
 export type WorkspacePreset = "streamer" | "moddesk" | "viewer";
 export type ThemeOption = "dark" | "light" | "classic";
 export type UIMode = "simple" | "advanced";
-export type UIVisualMode = "creator" | "command";
 export type UIDensity = "compact" | "comfortable";
 export type Platform = "twitch" | "kick" | "youtube" | "tiktok";
 export type UpdateChannel = "stable" | "beta";
@@ -61,7 +60,6 @@ export type ChatTab = {
 export type AppSettings = {
   autoWorkspacePreset?: boolean;
   uiMode?: UIMode;
-  uiVisualMode?: UIVisualMode;
   uiDensity?: UIDensity;
   workspacePreset?: WorkspacePreset;
   theme?: ThemeOption;

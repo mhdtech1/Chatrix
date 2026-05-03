@@ -1,12 +1,36 @@
+.settings-page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+  animation: settings-page-fade var(--motion-fast) var(--motion-ease);
+}
+
+@keyframes settings-page-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .menu-dropdown-panel--portal {
-  width: min(1120px, calc(100vw - 40px));
-  max-height: min(82vh, 920px);
+  width: min(1080px, calc(100vw - 48px));
+  max-width: 100%;
+  height: min(82vh, 880px);
+  display: grid;
+  grid-template-rows: auto 1fr;
   padding: 16px;
   border-radius: var(--radius-overlay);
   border: 1px solid var(--border-strong);
   background: var(--surface-overlay);
   box-shadow: var(--panel-shadow-lg);
-  backdrop-filter: blur(18px);
+  overflow: hidden;
 }
 
 .menu-panel-header {

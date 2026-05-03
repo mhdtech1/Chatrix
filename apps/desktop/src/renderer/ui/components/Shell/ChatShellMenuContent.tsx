@@ -13,7 +13,6 @@ type SettingsCategoryKey = (typeof SETTINGS_CATEGORIES)[number]["key"];
 import type {
   AuthHealthSnapshot,
   UIDensity,
-  UIVisualMode,
   Platform,
   ThemeOption,
   UpdateStatus,
@@ -82,8 +81,6 @@ export type ChatShellMenuContentProps = {
   onModeChange: (mode: "simple" | "advanced") => void;
   theme: ThemeOption;
   onThemeChange: (theme: ThemeOption) => void;
-  uiVisualMode: UIVisualMode;
-  onUIVisualModeChange: (mode: UIVisualMode) => void;
   uiDensity: UIDensity;
   onUIDensityChange: (density: UIDensity) => void;
   chatTextScale: number;
@@ -234,8 +231,6 @@ export function ChatShellMenuContent({
   onModeChange,
   theme,
   onThemeChange,
-  uiVisualMode,
-  onUIVisualModeChange,
   uiDensity,
   onUIDensityChange,
   chatTextScale,
@@ -443,39 +438,6 @@ export function ChatShellMenuContent({
               <option value="classic">Classic</option>
             </select>
           </label>
-          <div className="menu-inline">
-            <span>Visual mode</span>
-            <div
-              className="menu-segmented"
-              role="group"
-              aria-label="Visual mode"
-            >
-              <button
-                type="button"
-                className={
-                  uiVisualMode === "creator"
-                    ? "menu-segmented__option active"
-                    : "menu-segmented__option"
-                }
-                aria-pressed={uiVisualMode === "creator"}
-                onClick={() => onUIVisualModeChange("creator")}
-              >
-                Creator Console
-              </button>
-              <button
-                type="button"
-                className={
-                  uiVisualMode === "command"
-                    ? "menu-segmented__option active"
-                    : "menu-segmented__option"
-                }
-                aria-pressed={uiVisualMode === "command"}
-                onClick={() => onUIVisualModeChange("command")}
-              >
-                Command Center
-              </button>
-            </div>
-          </div>
           <div className="menu-inline">
             <span>Density</span>
             <div className="menu-segmented" role="group" aria-label="Density">

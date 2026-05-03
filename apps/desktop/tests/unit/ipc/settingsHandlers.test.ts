@@ -163,7 +163,6 @@ describe("createSettingsHandlers", () => {
 
     expect(result).toEqual({
       theme: "light",
-      uiVisualMode: "creator",
       uiDensity: "compact",
       updateChannel: "stable",
       youtubeAlphaEnabled: true,
@@ -171,9 +170,8 @@ describe("createSettingsHandlers", () => {
     });
   });
 
-  it("normalizes visual mode and density settings", async () => {
+  it("normalizes density and ignores legacy uiVisualMode", async () => {
     const store = createMockSettingsStore({
-      uiVisualMode: "command",
       uiDensity: "comfortable",
       updateChannel: "stable",
     });
@@ -196,8 +194,8 @@ describe("createSettingsHandlers", () => {
       } as never,
     );
 
-    expect(result.uiVisualMode).toBe("command");
     expect(result.uiDensity).toBe("comfortable");
+    expect(result).not.toHaveProperty("uiVisualMode");
   });
 });
 

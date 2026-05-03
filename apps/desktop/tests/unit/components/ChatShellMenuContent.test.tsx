@@ -16,8 +16,6 @@ const baseProps: React.ComponentProps<typeof ChatShellMenuContent> = {
   onModeChange: vi.fn(),
   theme: "dark",
   onThemeChange: vi.fn(),
-  uiVisualMode: "creator",
-  onUIVisualModeChange: vi.fn(),
   uiDensity: "compact",
   onUIDensityChange: vi.fn(),
   chatTextScale: 100,
@@ -216,13 +214,11 @@ describe("ChatShellMenuContent", () => {
     expect(baseProps.onAutoWorkspacePresetChange).toHaveBeenCalledWith(false);
   });
 
-  it("lets the user switch visual mode and density", () => {
+  it("lets the user switch density", () => {
     render(<ChatShellMenuContent {...baseProps} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Command Center" }));
     fireEvent.click(screen.getByRole("button", { name: "Comfortable" }));
 
-    expect(baseProps.onUIVisualModeChange).toHaveBeenCalledWith("command");
     expect(baseProps.onUIDensityChange).toHaveBeenCalledWith("comfortable");
   });
 });

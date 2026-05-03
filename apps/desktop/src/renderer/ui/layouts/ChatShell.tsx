@@ -26,7 +26,6 @@ import type {
   ChatTab,
   UIDensity,
   UIMode,
-  UIVisualMode,
   LocalTabPoll,
   ModeratorAction,
   Platform,
@@ -101,7 +100,6 @@ const hotkeys = {
 
 type Settings = AppSettings & {
   uiMode?: UIMode;
-  uiVisualMode?: UIVisualMode;
   uiDensity?: UIDensity;
   collaborationMode?: boolean;
   chatDeckMode?: boolean;
@@ -199,7 +197,6 @@ type DisplayBadge =
 const defaultSettings: Settings = {
   autoWorkspacePreset: true,
   uiMode: "simple",
-  uiVisualMode: "creator",
   uiDensity: "compact",
   workspacePreset: "streamer",
   theme: "dark",
@@ -2461,8 +2458,6 @@ const MainApp: React.FC = () => {
       : settings.theme === "classic"
         ? "classic"
         : "dark";
-  const uiVisualMode: UIVisualMode =
-    settings.uiVisualMode === "command" ? "command" : "creator";
   const uiDensity: UIDensity =
     settings.uiDensity === "comfortable" ? "comfortable" : "compact";
   const chatTextScale = clampChatTextScale(
@@ -2521,13 +2516,12 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", theme);
-    root.setAttribute("data-ui-visual-mode", uiVisualMode);
     root.setAttribute("data-ui-density", uiDensity);
     root.style.setProperty(
       "color-scheme",
       theme === "light" ? "light" : "dark",
     );
-  }, [theme, uiDensity, uiVisualMode]);
+  }, [theme, uiDensity]);
 
   useEffect(() => {
     try {
@@ -7410,7 +7404,6 @@ const MainApp: React.FC = () => {
     ? createPortal(
         <ChatShellMenu
           panelRef={mainMenuPanelRef}
-          style={mainMenuPanelStyle}
           onClose={() => setMainMenuOpen(false)}
         >
           <ChatShellMenuContent
@@ -7432,10 +7425,6 @@ const MainApp: React.FC = () => {
             theme={theme}
             onThemeChange={(nextTheme) => {
               void persistSettings({ theme: nextTheme });
-            }}
-            uiVisualMode={uiVisualMode}
-            onUIVisualModeChange={(nextMode) => {
-              void persistSettings({ uiVisualMode: nextMode });
             }}
             uiDensity={uiDensity}
             onUIDensityChange={(nextDensity) => {
@@ -7835,9 +7824,8 @@ const MainApp: React.FC = () => {
 
   return (
     <div
-      className={`chat-shell ${isSimpleMode ? "simple " : ""}density-${uiDensity} visual-${uiVisualMode}`}
+      className={`chat-shell ${isSimpleMode ? "simple " : ""}density-${uiDensity}`}
       data-ui-density={uiDensity}
-      data-ui-visual-mode={uiVisualMode}
       style={
         {
           "--chat-text-scale": (chatTextScale / 100).toFixed(2),
