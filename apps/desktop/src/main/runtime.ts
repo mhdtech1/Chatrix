@@ -2942,7 +2942,7 @@ const runModerationAction = async (
 
 const writeLog = (message: string) => {
   const formatted = `[${new Date().toISOString()}] ${message}`;
-  console.log(formatted);
+  console.info(formatted);
 };
 
 let mainWindow: BrowserWindow | null = null;
