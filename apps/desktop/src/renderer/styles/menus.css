@@ -148,6 +148,58 @@
   color: #ff9187;
 }
 
+.settings-page {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--ui-gap);
+  min-height: 0;
+}
+
+.settings-page__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-app);
+  align-self: start;
+  position: sticky;
+  top: 0;
+}
+
+.settings-page__nav-item {
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.settings-page__nav-item:hover {
+  background: var(--surface-interactive);
+  color: var(--ink-strong);
+}
+
+.settings-page__nav-item--active {
+  background: var(--accent-glow);
+  color: var(--ink-strong);
+}
+
+.settings-page__content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  align-content: start;
+}
+
 .release-notes-preview {
   margin: 0;
   max-height: 180px;

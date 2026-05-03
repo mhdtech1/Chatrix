@@ -1,4 +1,15 @@
+import { useState } from "react";
 import type { RefObject, ReactNode } from "react";
+
+const SETTINGS_CATEGORIES = [
+  { key: "workspace", label: "Workspace" },
+  { key: "moderation", label: "Moderation" },
+  { key: "connections", label: "Accounts" },
+  { key: "search", label: "Search & Filters" },
+  { key: "session", label: "Session" },
+  { key: "updates", label: "Updates" },
+] as const;
+type SettingsCategoryKey = (typeof SETTINGS_CATEGORIES)[number]["key"];
 import type {
   AuthHealthSnapshot,
   UIDensity,
@@ -350,8 +361,29 @@ export function ChatShellMenuContent({
   confirmSendAll,
   onConfirmSendAllChange,
 }: ChatShellMenuContentProps) {
+  const [activeCategory, setActiveCategory] =
+    useState<SettingsCategoryKey>("workspace");
   return (
-    <>
+    <div className="settings-page">
+      <nav className="settings-page__sidebar" aria-label="Settings categories">
+        {SETTINGS_CATEGORIES.map((category) => (
+          <button
+            key={category.key}
+            type="button"
+            className={
+              category.key === activeCategory
+                ? "settings-page__nav-item settings-page__nav-item--active"
+                : "settings-page__nav-item"
+            }
+            aria-pressed={category.key === activeCategory}
+            onClick={() => setActiveCategory(category.key)}
+          >
+            {category.label}
+          </button>
+        ))}
+      </nav>
+      <div className="settings-page__content">
+      {activeCategory === "workspace" && (
       <MenuSection
         eyebrow="Workspace"
         title="Experience, layout, and panel flow"
@@ -720,7 +752,8 @@ export function ChatShellMenuContent({
           </div>
         ) : null}
       </MenuSection>
-
+      )}
+      {activeCategory === "moderation" && (
       <MenuSection
         eyebrow="Moderation"
         title="Quick controls, alerts, and emergency tools"
@@ -981,7 +1014,8 @@ export function ChatShellMenuContent({
           </div>
         ) : null}
       </MenuSection>
-
+      )}
+      {activeCategory === "connections" && (
       <MenuSection
         eyebrow="Connections"
         title="Account sign-in, health, and source status"
@@ -1212,7 +1246,8 @@ export function ChatShellMenuContent({
           </div>
         ) : null}
       </MenuSection>
-
+      )}
+      {activeCategory === "search" && (
       <MenuSection
         eyebrow="Search & Filters"
         title="Find the right message and tame the noise"
@@ -1307,7 +1342,8 @@ export function ChatShellMenuContent({
           </label>
         </div>
       </MenuSection>
-
+      )}
+      {activeCategory === "session" && (
       <MenuSection
         eyebrow="Session"
         title="Profiles, imports, and local behavior"
@@ -1354,7 +1390,8 @@ export function ChatShellMenuContent({
           </div>
         ) : null}
       </MenuSection>
-
+      )}
+      {activeCategory === "updates" && (
       <MenuSection
         eyebrow="Updates"
         title="Release channel and update reliability"
@@ -1399,6 +1436,8 @@ export function ChatShellMenuContent({
           ) : null}
         </div>
       </MenuSection>
-    </>
+      )}
+      </div>
+    </div>
   );
 }

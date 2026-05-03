@@ -12,6 +12,18 @@ body {
   letter-spacing: 0;
 }
 
+/*
+ * Simple mode: hide always-visible chrome that overwhelms new users.
+ * The Cmd-K command palette and the in-tab menus replace the missing
+ * affordances; advanced users can flip back via Settings -> Workspace.
+ */
+.chat-shell.simple .account-strip,
+.chat-shell.simple .analytics-strip,
+.chat-shell.simple .quick-actions-row,
+.chat-shell.simple .dock-sidebar {
+  display: none !important;
+}
+
 .chat-shell {
   gap: var(--ui-gap);
   padding: var(--ui-gap);

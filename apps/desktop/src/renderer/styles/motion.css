@@ -44,3 +44,33 @@
   border-radius: var(--radius-control);
   transition: outline-color var(--motion-fast) var(--motion-ease);
 }
+
+/*
+ * Phase 5 polish — micro-interactions.
+ * Each rule is intentionally tiny. If a transition doesn't carry
+ * meaning (state change, reveal, focus) it shouldn't be here.
+ */
+
+/* Message rows fade in subtly when newly added. */
+@keyframes chat-row-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.message-list .chat-line,
+.message-list .chat-line--legacy {
+  animation: chat-row-fade-in 140ms var(--motion-ease);
+}
+
+/* Buttons subtly press. */
+button:not([disabled]):active,
+.tab-select:active {
+  transform: translateY(1px);
+  transition: transform 60ms var(--motion-ease);
+}

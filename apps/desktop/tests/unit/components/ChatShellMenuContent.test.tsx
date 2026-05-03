@@ -171,34 +171,42 @@ const baseProps: React.ComponentProps<typeof ChatShellMenuContent> = {
 };
 
 describe("ChatShellMenuContent", () => {
-  it("renders workflow sections in the intended order and keeps auto ban visible", () => {
+  it("renders the settings sidebar with categories in the intended order", () => {
     const { container } = render(<ChatShellMenuContent {...baseProps} />);
 
-    const sectionLabels = Array.from(
-      container.querySelectorAll(".menu-section-eyebrow"),
+    const navLabels = Array.from(
+      container.querySelectorAll(".settings-page__nav-item"),
     ).map((node) => node.textContent?.trim());
 
-    expect(sectionLabels).toEqual([
+    expect(navLabels).toEqual([
       "Workspace",
       "Moderation",
-      "Connections",
+      "Accounts",
       "Search & Filters",
       "Session",
       "Updates",
     ]);
-    expect(
-      screen.getByRole("button", { name: "Auto Ban: ON" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Sign in Twitch" }),
-    ).toBeInTheDocument();
+
+    // Workspace is active by default; its workspace-preset radio is rendered.
+    expect(screen.getByLabelText("Workspace")).toBeDisabled();
     expect(
       screen.getByText((content) => content.includes("Moderator -> Mod Desk")),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Workspace")).toBeDisabled();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: "Auto Ban: ON" }));
+  it("switches sidebar categories and reveals their controls", () => {
+    render(<ChatShellMenuContent {...baseProps} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Moderation" }));
+    const autoBanButton = screen.getByRole("button", { name: "Auto Ban: ON" });
+    expect(autoBanButton).toBeInTheDocument();
+    fireEvent.click(autoBanButton);
     expect(baseProps.onToggleAutoBan).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Accounts" }));
+    expect(
+      screen.getByRole("button", { name: "Sign in Twitch" }),
+    ).toBeInTheDocument();
   });
 
   it("lets the user disable auto desk switching", () => {
