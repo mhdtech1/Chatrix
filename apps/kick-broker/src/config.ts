@@ -20,6 +20,7 @@ export type BrokerConfig = {
   maxBodyBytes: number;
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
+  trustProxy: boolean;
 };
 
 const MAX_PORT = 65535;
@@ -57,6 +58,13 @@ const parsePort = (value: string | undefined): number => {
     throw new Error("KICK_BROKER_PORT must be a valid TCP port.");
   }
   return parsed;
+};
+
+const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
+  const raw = normalizeNonEmptyString(value).toLowerCase();
+  if (raw === "true" || raw === "1" || raw === "yes") return true;
+  if (raw === "false" || raw === "0" || raw === "no") return false;
+  return fallback;
 };
 
 const resolveDefaultHost = (env: NodeJS.ProcessEnv): string => {
@@ -172,6 +180,7 @@ export const loadBrokerConfig = (
       DEFAULT_RATE_LIMIT_MAX_REQUESTS,
       "KICK_BROKER_RATE_LIMIT_MAX_REQUESTS",
     ),
+    trustProxy: parseBoolean(env.KICK_BROKER_TRUST_PROXY, false),
   };
 };
 

@@ -46,20 +46,30 @@ const resolveRequestOrigin = (request: IncomingMessage): string => {
   return normalizeNonEmptyString(request.headers.origin);
 };
 
-const resolveRequestIp = (request: IncomingMessage): string => {
-  const forwarded = normalizeNonEmptyString(request.headers["x-forwarded-for"]);
-  if (forwarded) {
-    return forwarded.split(",")[0]?.trim() || "unknown";
+const resolveRequestIp = (
+  request: IncomingMessage,
+  config: BrokerConfig,
+): string => {
+  if (config.trustProxy) {
+    const forwarded = normalizeNonEmptyString(request.headers["x-forwarded-for"]);
+    if (forwarded) {
+      return forwarded.split(",")[0]?.trim() || "unknown";
+    }
   }
   return normalizeNonEmptyString(request.socket.remoteAddress) || "unknown";
 };
 
-const resolveRequestProto = (request: IncomingMessage): string => {
-  const forwardedProto = normalizeNonEmptyString(
-    request.headers["x-forwarded-proto"],
-  );
-  if (forwardedProto) {
-    return forwardedProto.split(",")[0]?.trim().toLowerCase() || "http";
+const resolveRequestProto = (
+  request: IncomingMessage,
+  config: BrokerConfig,
+): string => {
+  if (config.trustProxy) {
+    const forwardedProto = normalizeNonEmptyString(
+      request.headers["x-forwarded-proto"],
+    );
+    if (forwardedProto) {
+      return forwardedProto.split(",")[0]?.trim().toLowerCase() || "http";
+    }
   }
   return "http";
 };
@@ -83,7 +93,7 @@ const buildResponseHeaders = (
     headers.Vary = "Origin";
   }
 
-  if (resolveRequestProto(request) === "https") {
+  if (resolveRequestProto(request, config) === "https") {
     headers["Strict-Transport-Security"] =
       "max-age=31536000; includeSubDomains";
   }
@@ -182,7 +192,7 @@ const enforceRateLimit = (
   buckets: Map<string, RateLimitBucket>,
 ): void => {
   const now = Date.now();
-  const ip = resolveRequestIp(request);
+  const ip = resolveRequestIp(request, config);
   const existing = buckets.get(ip);
 
   if (!existing || existing.resetAt <= now) {
