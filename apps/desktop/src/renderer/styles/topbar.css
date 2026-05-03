@@ -124,7 +124,7 @@
 
 .channel-form--shell {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 6px;
   padding: 6px;
@@ -140,10 +140,30 @@
 }
 
 .channel-form--shell input {
+  min-width: 0;
   padding: 0 12px;
   border: 1px solid var(--border-soft);
   background: var(--surface-interactive);
   color: var(--ink-strong);
+}
+
+.channel-form__detected-platform {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+  background: var(--surface-interactive);
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.channel-form__detected-platform--disabled {
+  opacity: 0.7;
+  border-style: dashed;
 }
 
 .platform-picker summary {
@@ -154,6 +174,13 @@
   padding: 0 10px;
   border: 1px solid var(--border-soft);
   background: var(--surface-interactive);
+}
+
+.platform-picker--fallback > summary {
+  min-width: 0;
+  height: 30px;
+  padding-inline: 8px;
+  white-space: nowrap;
 }
 
 .platform-picker summary:hover {

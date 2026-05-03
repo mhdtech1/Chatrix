@@ -83,8 +83,6 @@ import { type RoleType as UiRoleType } from "../components/common/RoleBadge";
 import { WelcomeScreen } from "../components/common/WelcomeScreen";
 import {
   CHAT_TEXT_SCALE_DEFAULT,
-  CHAT_TEXT_SCALE_MAX,
-  CHAT_TEXT_SCALE_MIN,
   clampChatTextScale,
   createId,
   formatOptionalDateTime,
@@ -93,6 +91,7 @@ import {
   platformDisplayName,
   platformIconGlyph,
 } from "../../utils/chatFormatting";
+import { parseChannelInput } from "../../utils/channelInput";
 
 const hotkeys = {
   focusSearch: "Control+Shift+F",
@@ -2310,8 +2309,6 @@ const MainApp: React.FC = () => {
   const mainMenuOpen = useUIStore((state) => state.mainMenuOpen);
   const setMainMenuOpen = useUIStore((state) => state.setMainMenuOpen);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [mainMenuPanelStyle, setMainMenuPanelStyle] =
-    useState<React.CSSProperties>();
   const [userLogTarget, setUserLogTarget] = useState<UserLogTarget | null>(
     null,
   );
@@ -3310,44 +3307,6 @@ const MainApp: React.FC = () => {
     document.addEventListener("mousedown", onMouseDown);
     return () => {
       document.removeEventListener("mousedown", onMouseDown);
-    };
-  }, [mainMenuOpen]);
-
-  useEffect(() => {
-    if (!mainMenuOpen) {
-      setMainMenuPanelStyle(undefined);
-      return;
-    }
-
-    const updatePosition = () => {
-      const trigger = menuButtonRef.current;
-      if (!trigger) return;
-      const rect = trigger.getBoundingClientRect();
-      const viewportWidth = Math.max(window.innerWidth, 320);
-      const viewportHeight = Math.max(window.innerHeight, 320);
-      const width = Math.min(420, viewportWidth - 20);
-      const left = Math.min(
-        Math.max(10, rect.right - width),
-        viewportWidth - width - 10,
-      );
-      const top = Math.max(10, Math.min(rect.bottom + 8, viewportHeight - 110));
-
-      setMainMenuPanelStyle({
-        position: "fixed",
-        left,
-        top,
-        width,
-        maxWidth: `calc(100vw - 20px)`,
-        maxHeight: `min(calc(100vh - ${Math.round(top) + 20}px), 760px)`,
-      });
-    };
-
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [mainMenuOpen]);
 
@@ -5117,10 +5076,22 @@ const MainApp: React.FC = () => {
     platform?: Platform;
     channel?: string;
   }) => {
-    const selectedPlatform = overrides?.platform ?? platformInput;
-    const selectedChannelInput = overrides?.channel ?? channelInput;
-    const channel = normalizeChannel(selectedChannelInput, selectedPlatform);
+    const fallbackPlatform = overrides?.platform ?? platformInput;
+    const parsedInput = parseChannelInput(
+      overrides?.channel ?? channelInput,
+      fallbackPlatform,
+    );
+    const selectedPlatform = overrides?.platform ?? parsedInput.platform;
+    const channel = normalizeChannel(parsedInput.channel, selectedPlatform);
     if (!channel) return;
+    if (!availablePlatforms.includes(selectedPlatform)) {
+      setAuthMessage(
+        `${platformDisplayName(
+          selectedPlatform,
+        )} is disabled. Enable it in Settings before opening this URL.`,
+      );
+      return;
+    }
 
     let key = `${selectedPlatform}:${channel}`;
     let liveChatId: string | undefined;
@@ -7780,9 +7751,7 @@ const MainApp: React.FC = () => {
       id: "auth.youtube.signout",
       label: "Sign out of YouTube",
       group: "Accounts",
-      disabled: !(
-        settings.youtubeAccessToken && settings.youtubeRefreshToken
-      ),
+      disabled: !(settings.youtubeAccessToken && settings.youtubeRefreshToken),
       run: () => {
         void signOutYouTube();
       },
@@ -7809,8 +7778,7 @@ const MainApp: React.FC = () => {
       run: () => {
         if (tabs.length < 2) return;
         const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
-        const previous =
-          tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+        const previous = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
         if (previous) setActiveTabId(previous.id);
       },
     },
@@ -7871,9 +7839,7 @@ const MainApp: React.FC = () => {
           },
           {
             platform: "kick",
-            signedIn: Boolean(
-              settings.kickAccessToken || settings.kickGuest,
-            ),
+            signedIn: Boolean(settings.kickAccessToken || settings.kickGuest),
             username: settings.kickUsername ?? "",
           },
           ...(youtubeAlphaEnabled
@@ -7881,8 +7847,7 @@ const MainApp: React.FC = () => {
                 {
                   platform: "youtube" as const,
                   signedIn: Boolean(
-                    settings.youtubeAccessToken &&
-                      settings.youtubeRefreshToken,
+                    settings.youtubeAccessToken && settings.youtubeRefreshToken,
                   ),
                   username: settings.youtubeUsername ?? "",
                 },

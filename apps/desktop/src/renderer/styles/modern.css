@@ -102,6 +102,7 @@ body {
 }
 
 .channel-form--shell input,
+.channel-form__detected-platform,
 .channel-form--shell button,
 .platform-picker summary,
 .topbar-shell__refresh,
