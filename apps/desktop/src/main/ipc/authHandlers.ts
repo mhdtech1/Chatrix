@@ -240,8 +240,7 @@ export function createAuthSignInHandlers(
   return {
     [IPC_CHANNELS.AUTH_TWITCH_SIGN_IN]: async () => {
       const clientId = store.get("twitchClientId")?.trim();
-      const clientSecret =
-        process.env.TWITCH_CLIENT_SECRET?.trim() ?? "";
+      const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim() ?? "";
       const redirectUri =
         store.get("twitchRedirectUri")?.trim() || twitchDefaultRedirectUri;
 
@@ -323,11 +322,10 @@ export function createAuthSignInHandlers(
           body: tokenParams,
         });
         if (!tokenResponse.ok) {
-          await throwDetailedHttpError(
-            tokenResponse,
-            "Twitch token exchange",
-            { clientId, redirectUri },
-          );
+          await throwDetailedHttpError(tokenResponse, "Twitch token exchange", {
+            clientId,
+            redirectUri,
+          });
         }
         const tokens = await fetchJsonOrThrow<{
           access_token?: string;

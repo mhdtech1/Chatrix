@@ -1,16 +1,5 @@
 import { useState } from "react";
-import type { RefObject, ReactNode } from "react";
-
-const SETTINGS_CATEGORIES = [
-  { key: "appearance", label: "Appearance" },
-  { key: "layout", label: "Layout" },
-  { key: "moderation", label: "Moderation" },
-  { key: "connections", label: "Accounts" },
-  { key: "search", label: "Search & Filters" },
-  { key: "session", label: "Session" },
-  { key: "updates", label: "Updates" },
-] as const;
-type SettingsCategoryKey = (typeof SETTINGS_CATEGORIES)[number]["key"];
+import type { KeyboardEvent, RefObject, ReactNode } from "react";
 import type {
   AuthHealthSnapshot,
   UIDensity,
@@ -23,6 +12,23 @@ import type {
   MentionInboxEntry,
   ModerationHistoryEntry,
 } from "../../../types/chatSession";
+
+const SETTINGS_CATEGORIES = [
+  { key: "appearance", label: "Appearance" },
+  { key: "layout", label: "Layout" },
+  { key: "moderation", label: "Moderation" },
+  { key: "connections", label: "Accounts" },
+  { key: "search", label: "Search & Filters" },
+  { key: "session", label: "Session" },
+  { key: "updates", label: "Updates" },
+] as const;
+type SettingsCategoryKey = (typeof SETTINGS_CATEGORIES)[number]["key"];
+
+const getSettingsTabId = (categoryKey: SettingsCategoryKey) =>
+  `settings-tab-${categoryKey}`;
+
+const getSettingsPanelId = (categoryKey: SettingsCategoryKey) =>
+  `settings-panel-${categoryKey}`;
 
 type ReplayWindow = 0 | 5 | 10 | 30;
 type TabAlertProfile =
@@ -359,26 +365,83 @@ export function ChatShellMenuContent({
 }: ChatShellMenuContentProps) {
   const [activeCategory, setActiveCategory] =
     useState<SettingsCategoryKey>("appearance");
+  const activePanelId = getSettingsPanelId(activeCategory);
+
+  const handleCategoryKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    categoryKey: SettingsCategoryKey,
+  ) => {
+    if (
+      event.key !== "ArrowDown" &&
+      event.key !== "ArrowRight" &&
+      event.key !== "ArrowUp" &&
+      event.key !== "ArrowLeft" &&
+      event.key !== "Home" &&
+      event.key !== "End"
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const currentIndex = SETTINGS_CATEGORIES.findIndex(
+      (category) => category.key === categoryKey,
+    );
+    const lastIndex = SETTINGS_CATEGORIES.length - 1;
+    let nextIndex = currentIndex;
+
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = lastIndex;
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+      nextIndex = currentIndex === lastIndex ? 0 : currentIndex + 1;
+    }
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      nextIndex = currentIndex <= 0 ? lastIndex : currentIndex - 1;
+    }
+
+    const nextCategory = SETTINGS_CATEGORIES[nextIndex];
+    setActiveCategory(nextCategory.key);
+    window.requestAnimationFrame(() => {
+      document.getElementById(getSettingsTabId(nextCategory.key))?.focus();
+    });
+  };
+
   return (
     <div className="settings-page">
-      <nav className="settings-page__sidebar" aria-label="Settings categories">
+      <nav
+        className="settings-page__sidebar"
+        aria-label="Settings categories"
+        role="tablist"
+        aria-orientation="vertical"
+      >
         {SETTINGS_CATEGORIES.map((category) => (
           <button
             key={category.key}
             type="button"
+            id={getSettingsTabId(category.key)}
+            role="tab"
             className={
               category.key === activeCategory
                 ? "settings-page__nav-item settings-page__nav-item--active"
                 : "settings-page__nav-item"
             }
-            aria-pressed={category.key === activeCategory}
+            aria-selected={category.key === activeCategory}
+            aria-controls={getSettingsPanelId(category.key)}
+            tabIndex={category.key === activeCategory ? 0 : -1}
             onClick={() => setActiveCategory(category.key)}
+            onKeyDown={(event) => handleCategoryKeyDown(event, category.key)}
           >
             {category.label}
           </button>
         ))}
       </nav>
-      <div className="settings-page__content">
+      <div
+        className="settings-page__content"
+        id={activePanelId}
+        role="tabpanel"
+        aria-labelledby={getSettingsTabId(activeCategory)}
+        tabIndex={-1}
+      >
         {activeCategory === "appearance" && (
           <MenuSection
             eyebrow="Appearance"
