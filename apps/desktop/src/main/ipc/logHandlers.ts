@@ -7,6 +7,8 @@ type CreateLogHandlersOptions = {
   writeLog: (message: string) => void;
 };
 
+const MAX_RENDERER_LOG_MESSAGE_LENGTH = 4000;
+
 export function createLogHandlers(
   options: CreateLogHandlersOptions,
 ): IpcHandlerRegistry {
@@ -17,7 +19,7 @@ export function createLogHandlers(
       const text =
         typeof message === "string" ? message : String(message ?? "");
       if (store.get("verboseLogs")) {
-        writeLog(text);
+        writeLog(text.slice(0, MAX_RENDERER_LOG_MESSAGE_LENGTH));
       }
     },
     [IPC_CHANNELS.LOG_TOGGLE]: (_event, enabled: unknown) => {

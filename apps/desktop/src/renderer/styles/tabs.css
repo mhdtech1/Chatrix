@@ -1,13 +1,14 @@
 .nav-strip {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 5px;
-  border-radius: 18px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-elevated);
-  box-shadow: var(--panel-shadow-md);
+  padding: 4px 6px;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: transparent;
+  box-shadow: none;
 }
 
 .nav-strip .tab {
@@ -15,30 +16,21 @@
   min-width: 0;
   align-items: stretch;
   border: 1px solid transparent;
-  border-radius: 14px;
-  background: var(--surface-interactive);
+  border-radius: var(--radius-control);
+  background: transparent;
   transition:
-    border-color 120ms ease,
-    background 120ms ease,
-    transform 120ms ease;
+    border-color var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease);
 }
 
 .nav-strip .tab:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-interactive-strong);
-  transform: translateY(-1px);
+  background: var(--surface-interactive);
 }
 
 .nav-strip .tab.active {
-  background: linear-gradient(
-    180deg,
-    rgba(22, 199, 154, 0.24),
-    rgba(22, 199, 154, 0.08)
-  );
+  background: var(--accent-glow);
   border-color: var(--border-accent);
-  box-shadow:
-    0 0 0 1px rgba(22, 199, 154, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: none;
 }
 
 .nav-strip .tab.muted {
@@ -63,13 +55,13 @@
 
 .tab-close {
   align-self: center;
-  margin-right: 6px;
-  width: 28px;
-  height: 28px;
+  margin-right: 4px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 120ms ease;
+  transition: opacity var(--motion-fast) var(--motion-ease);
 }
 
 .nav-strip .tab:hover .tab-close,

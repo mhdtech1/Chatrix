@@ -44,22 +44,31 @@ Permanent fix (in progress):
 - Local JSON settings storage (local only).
 - Secure IPC (contextIsolation + preload API).
 
-## Requirements
+## Quick Start
 
-- Node.js >= 20
-- pnpm >= 9
-
-## Setup
-
-```bash
-pnpm install
-```
-
-## Development
-
-```bash
-pnpm dev
-```
+1. **Prerequisites**: Node.js >= 20, pnpm >= 9.
+2. **Install dependencies**:
+   ```bash
+   pnpm install
+   ```
+3. **Configure credentials** (optional but needed for sign-in flows):
+   ```bash
+   cp .env.example .env
+   # Fill in YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_API_KEY,
+   # TWITCH_CLIENT_ID, etc. See "Configuration" below for where to get them.
+   ```
+   The `.env` file is loaded automatically at startup. For an installed
+   build, place a `.env` in the app's `userData` directory:
+   - Windows: `%APPDATA%\Chatrix\.env`
+   - macOS: `~/Library/Application Support/Chatrix/.env`
+   - Linux: `~/.config/Chatrix/.env`
+4. **Run the app in dev mode**:
+   ```bash
+   pnpm dev
+   ```
+5. **Sign in**: Use Settings → Connections to sign in to Twitch, Kick, or
+   YouTube. Without credentials, you can still open chats in read-only
+   mode.
 
 ### iOS Development (Expo)
 
@@ -175,8 +184,21 @@ Settings are stored locally in `settings.json` under Electron `userData` (not in
 
 ### YouTube
 
-- Provide a YouTube API key and Live Chat ID.
-- The app will poll the Live Chat API and normalize messages.
+Two paths, depending on what you need:
+
+- **Read-only (no credentials)**: Open a YouTube live URL or `@channel/live`
+  in a tab. Chatrix scrapes the live chat metadata directly. Sending is
+  not available in this mode.
+- **Full access (sign-in)**: Create a Google Cloud project, enable the
+  YouTube Data API v3, then create:
+  - an **OAuth 2.0 Client ID** (application type: *Desktop app*)
+  - an **API key** (restricted to YouTube Data API v3)
+
+  Add `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, and `YOUTUBE_API_KEY`
+  to your `.env`. Click **Sign in YouTube** in Settings → Connections to
+  complete the OAuth flow. While the OAuth consent screen is in
+  *Testing* publishing status, your account email must be allowlisted as
+  a test user in Google Cloud.
 
 ### Kick
 
@@ -215,4 +237,13 @@ Settings are stored locally in `settings.json` under Electron `userData` (not in
 
 ## .env
 
-See `.env.example` for optional environment variables.
+Chatrix reads `.env` at startup from (in order):
+
+1. The first `.env` found by walking upwards from the working directory
+   (so the repo root works in dev).
+2. The app's `userData` directory (Windows: `%APPDATA%\Chatrix\.env`,
+   macOS: `~/Library/Application Support/Chatrix/.env`, Linux:
+   `~/.config/Chatrix/.env`).
+
+Values already present in `process.env` win over file values. See
+`.env.example` for the full list of supported keys.
