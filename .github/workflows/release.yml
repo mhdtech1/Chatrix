@@ -57,6 +57,11 @@ jobs:
             apps/desktop/dist/*.nsis.7z
             apps/desktop/dist/latest*.yml
             apps/desktop/dist/stable*.yml
+            apps/desktop/dist/nsis-web/Chatrix-win*.exe
+            apps/desktop/dist/nsis-web/*Setup*.exe
+            apps/desktop/dist/nsis-web/*.nsis.7z
+            apps/desktop/dist/nsis-web/latest*.yml
+            apps/desktop/dist/nsis-web/stable*.yml
 
   build-macos-universal:
     name: Build macOS (Universal)
