@@ -92,6 +92,11 @@ const TIKTOK_SIGN_IN_REQUIRED_MESSAGE =
 const TIKTOK_SIGN_KEY_REQUIRED_MESSAGE =
   "TikTok sending is not configured in this build.";
 const TIKTOK_AUTH_PARTITION = "persist:chatrix-tiktok-auth";
+// Ephemeral partition for the Kick channel-lookup BrowserWindow. We
+// don't want this hidden window to inherit the user's real kick.com
+// cookies — the lookup endpoint is public, so an isolated session is
+// safer if the page ever gets a redirect or XSS.
+const KICK_LOOKUP_PARTITION = "chatrix-kick-lookup";
 const TIKTOK_AUTH_TIMEOUT_MS = AUTH.TIKTOK_AUTH_TIMEOUT_MS;
 const TIKTOK_LOGIN_URL = "https://www.tiktok.com/login";
 
@@ -2211,6 +2216,7 @@ const resolveKickChannelViaBrowser = async (
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        partition: KICK_LOOKUP_PARTITION,
       },
     });
 
