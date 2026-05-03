@@ -20,6 +20,14 @@ export const generateSecureRandomString = (length = 6): string => {
     .slice(0, length);
 };
 
+export const generateSecureRandomHex = (byteLength = 4): string => {
+  if (!Number.isInteger(byteLength) || byteLength <= 0) {
+    throw new Error("Byte length must be a positive integer.");
+  }
+
+  return generateSecureRandomString(byteLength * 2);
+};
+
 export const generateSecureRandomInt = (max: number): number => {
   if (!Number.isInteger(max) || max <= 0 || max > 0x100000000) {
     throw new Error("Max must be an integer between 1 and 2^32.");

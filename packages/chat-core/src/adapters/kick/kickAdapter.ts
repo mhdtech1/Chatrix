@@ -5,7 +5,7 @@ import type {
   ChatAdapterStatus,
   ChatMessage,
 } from "../../types.js";
-import { generateSecureRandomString } from "../../utils/crypto.js";
+import { generateSecureRandomHex } from "../../utils/crypto.js";
 
 export type KickAuth = {
   accessToken?: string;
@@ -313,7 +313,7 @@ export class KickAdapter implements ChatAdapter {
   private emitLocalEcho(content: string) {
     const username = this.auth.username?.trim() || "you";
     this.emitter.emit("message", {
-      id: `local-${Date.now()}-${generateSecureRandomString(6)}`,
+      id: `local-${Date.now()}-${generateSecureRandomHex(4)}`,
       platform: "kick",
       channel: this.channel,
       username,
@@ -476,7 +476,7 @@ export class KickAdapter implements ChatAdapter {
     }
 
     return {
-      id: `event-${eventKind}-${targetMessageId || Date.now()}-${generateSecureRandomString(6)}`,
+      id: `event-${eventKind}-${targetMessageId || Date.now()}-${generateSecureRandomHex(4)}`,
       platform: "kick",
       channel: this.channel,
       username: "system",

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  generateSecureRandomHex,
   generateSecureRandomInt,
   generateSecureRandomString,
 } from "../../src/utils/crypto";
@@ -23,6 +24,23 @@ describe("crypto utils", () => {
   it("rejects invalid string lengths", () => {
     expect(() => generateSecureRandomString(0)).toThrow(
       "Length must be a positive integer.",
+    );
+  });
+
+  it("generates secure hex by byte length", () => {
+    const getRandomValues = vi.fn((values: Uint8Array) => {
+      values.set([0xab, 0xcd, 0xef, 0x12]);
+      return values;
+    });
+    vi.stubGlobal("crypto", { getRandomValues });
+
+    expect(generateSecureRandomHex(4)).toBe("abcdef12");
+    expect(getRandomValues).toHaveBeenCalledOnce();
+  });
+
+  it("rejects invalid byte lengths", () => {
+    expect(() => generateSecureRandomHex(0)).toThrow(
+      "Byte length must be a positive integer.",
     );
   });
 

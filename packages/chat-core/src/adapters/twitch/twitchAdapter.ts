@@ -6,8 +6,8 @@ import type {
   ChatMessage,
 } from "../../types.js";
 import {
+  generateSecureRandomHex,
   generateSecureRandomInt,
-  generateSecureRandomString,
 } from "../../utils/crypto.js";
 import { parseIrcMessage } from "./ircParser.js";
 import { normalizeTwitchMessage, parseTwitchBadges } from "./normalize.js";
@@ -99,7 +99,7 @@ export class TwitchAdapter implements ChatAdapter {
           this.selfColor = parsed.tags.color || undefined;
           this.selfDisplayName = displayName;
           this.emitter.emit("message", {
-            id: `selfstate-${Date.now()}-${generateSecureRandomString(6)}`,
+            id: `selfstate-${Date.now()}-${generateSecureRandomHex(4)}`,
             platform: "twitch",
             channel,
             username,
@@ -199,7 +199,7 @@ export class TwitchAdapter implements ChatAdapter {
 
     // Local echo so sent messages show immediately even if Twitch does not echo PRIVMSG back.
     this.emitter.emit("message", {
-      id: `local-${Date.now()}-${generateSecureRandomString(6)}`,
+      id: `local-${Date.now()}-${generateSecureRandomHex(4)}`,
       platform: "twitch",
       channel: this.channel,
       username: this.auth.username,
