@@ -32,11 +32,20 @@ describe("ChatShellTabBar", () => {
     expect(screen.getByText("main")).toBeInTheDocument();
     expect(screen.getByText("@2")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "Channel tabs" }),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /mazendahroug/i }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "mazendahroug, twitch, group main, 2 mentions, 12 unread messages",
+      }),
+    );
     expect(onSelect).toHaveBeenCalledWith("tab-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "×" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close tab mazendahroug" }),
+    );
     expect(onClose).toHaveBeenCalledWith("tab-1");
 
     fireEvent.contextMenu(screen.getByText("mazendahroug").closest("div.tab")!);

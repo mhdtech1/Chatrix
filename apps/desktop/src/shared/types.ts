@@ -1,5 +1,8 @@
+import type { ChatMessage } from "@chatrix/chat-core";
 export type WorkspacePreset = "streamer" | "moddesk" | "viewer";
 export type ThemeOption = "dark" | "light" | "classic";
+export type UIMode = "simple" | "advanced";
+export type UIDensity = "compact" | "comfortable";
 export type Platform = "twitch" | "kick" | "youtube" | "tiktok";
 export type UpdateChannel = "stable" | "beta";
 export type ModeratorAction =
@@ -57,6 +60,8 @@ export type ChatTab = {
 
 export type AppSettings = {
   autoWorkspacePreset?: boolean;
+  uiMode?: UIMode;
+  uiDensity?: UIDensity;
   workspacePreset?: WorkspacePreset;
   theme?: ThemeOption;
   chatTextScale?: number;
@@ -167,6 +172,6 @@ export type TikTokRendererEvent = {
   connectionId: string;
   type: "connected" | "disconnected" | "chat" | "error";
   roomId?: string;
-  message?: unknown;
+  message?: ChatMessage;
   error?: string;
 };

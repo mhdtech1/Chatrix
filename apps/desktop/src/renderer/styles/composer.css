@@ -8,11 +8,11 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-elevated);
+  gap: var(--ui-gap);
+  padding: 8px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
   box-shadow: var(--panel-shadow-md);
 }
 
@@ -33,7 +33,7 @@
 button,
 select,
 input {
-  border-radius: 12px;
+  border-radius: var(--radius-control);
 }
 
 .composer-main__target,
@@ -44,9 +44,9 @@ input {
 .menu-group select,
 .guide-modal input,
 .guide-modal select {
-  border: 1px solid var(--border-strong);
-  background: var(--surface-interactive);
-  color: var(--ink-soft);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-app);
+  color: var(--ink-strong);
 }
 
 .composer-main__target,
@@ -56,7 +56,7 @@ input {
 .menu-group select,
 .guide-modal input,
 .guide-modal select {
-  min-height: 44px;
+  min-height: var(--ui-control-height);
   padding: 0 12px;
 }
 
@@ -67,8 +67,8 @@ input {
 }
 
 .composer-main__message {
-  min-height: 48px;
-  padding: 0 14px;
+  min-height: var(--ui-control-height);
+  padding: 0 12px;
 }
 
 .composer-main__meta {

@@ -33,5 +33,21 @@ describe("createLogHandlers", () => {
     await handlers[IPC_CHANNELS.LOG_WRITE]({} as never, "visible log" as never);
     expect(writeLog).toHaveBeenCalledWith("visible log");
   });
+
+  it("limits renderer-provided log message size", async () => {
+    const store = createMockSettingsStore({ verboseLogs: true });
+    const writeLog = vi.fn();
+    const handlers = createLogHandlers({
+      store: store as never,
+      writeLog,
+    });
+
+    await handlers[IPC_CHANNELS.LOG_WRITE](
+      {} as never,
+      "x".repeat(5000) as never,
+    );
+
+    expect(writeLog).toHaveBeenCalledWith("x".repeat(4000));
+  });
 });
 

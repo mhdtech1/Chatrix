@@ -7,8 +7,14 @@ import { fileURLToPath } from "node:url";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
 const appDir = path.join(repoRoot, "apps", "desktop");
+const pnpmCommand = process.env.npm_execpath
+  ? `"${process.execPath}" "${process.env.npm_execpath}"`
+  : "corepack pnpm";
 
-execSync("pnpm --filter @chatrix/desktop build:main", { stdio: "inherit", cwd: repoRoot });
+execSync(`${pnpmCommand} --filter @chatrix/desktop build:main`, {
+  stdio: "inherit",
+  cwd: repoRoot,
+});
 
 const require = createRequire(path.join(appDir, "package.json"));
 const electronPath = require("electron");
@@ -20,9 +26,9 @@ const child = spawn(electronPath, [mainPath], {
   env: {
     ...process.env,
     E2E_SMOKE: "1",
-    VITE_DEV_SERVER_URL: "about:blank"
+    VITE_DEV_SERVER_URL: "about:blank",
   },
-  stdio: "inherit"
+  stdio: "inherit",
 });
 
 const timeout = setTimeout(() => {

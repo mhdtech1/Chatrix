@@ -23,6 +23,7 @@ describe("kick broker config", () => {
     expect(config.maxBodyBytes).toBe(8 * 1024);
     expect(config.rateLimitWindowMs).toBe(60_000);
     expect(config.rateLimitMaxRequests).toBe(60);
+    expect(config.trustProxy).toBe(false);
   });
 
   it("uses hosted defaults when PORT is provided", () => {
@@ -61,6 +62,16 @@ describe("kick broker config", () => {
       "https://app.example.com",
       "http://localhost:3000",
     ]);
+  });
+
+  it("parses explicit proxy trust configuration", () => {
+    const config = loadBrokerConfig({
+      KICK_CLIENT_ID: "kick-client",
+      KICK_CLIENT_SECRET: "kick-secret",
+      KICK_BROKER_TRUST_PROXY: "yes",
+    });
+
+    expect(config.trustProxy).toBe(true);
   });
 
   it("validates exchange requests", () => {

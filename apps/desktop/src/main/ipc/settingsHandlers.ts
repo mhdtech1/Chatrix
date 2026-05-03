@@ -45,8 +45,18 @@ export function createSettingsHandlers(
       delete rawRequestedUpdates.kickClientSecret;
       delete rawRequestedUpdates.youtubeClientSecret;
       const requestedUpdates = rawRequestedUpdates as AppSettings;
+      // Drop legacy uiVisualMode field if a stale renderer sends it.
+      delete rawRequestedUpdates.uiVisualMode;
       const nextUpdates: Partial<AppSettings> = {
         ...requestedUpdates,
+        uiDensity:
+          requestedUpdates.uiDensity === "comfortable"
+            ? "comfortable"
+            : requestedUpdates.uiDensity === "compact"
+              ? "compact"
+              : store.get("uiDensity") === "comfortable"
+                ? "comfortable"
+                : "compact",
         updateChannel:
           requestedUpdates.updateChannel === "beta"
             ? "beta"

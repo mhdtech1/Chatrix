@@ -36,7 +36,11 @@ import {
   storeAuthTokens,
 } from "./services/secureStorage.js";
 import { openAuthInBrowser as openLoopbackAuthInBrowser } from "./services/loopbackOAuth.js";
-import { fetchJsonOrThrow } from "./utils/http.js";
+import {
+  DEFAULT_HTML_MAX_BYTES,
+  fetchJsonOrThrow,
+  readResponseTextCapped,
+} from "./utils/http.js";
 import { registerIpcHandlers } from "./ipc/handlers.js";
 import { cleanupLegacyInstallArtifacts } from "./services/legacyInstallCleanup.js";
 import {
@@ -88,6 +92,11 @@ const TIKTOK_SIGN_IN_REQUIRED_MESSAGE =
 const TIKTOK_SIGN_KEY_REQUIRED_MESSAGE =
   "TikTok sending is not configured in this build.";
 const TIKTOK_AUTH_PARTITION = "persist:chatrix-tiktok-auth";
+// Ephemeral partition for the Kick channel-lookup BrowserWindow. We
+// don't want this hidden window to inherit the user's real kick.com
+// cookies — the lookup endpoint is public, so an isolated session is
+// safer if the page ever gets a redirect or XSS.
+const KICK_LOOKUP_PARTITION = "chatrix-kick-lookup";
 const TIKTOK_AUTH_TIMEOUT_MS = AUTH.TIKTOK_AUTH_TIMEOUT_MS;
 const TIKTOK_LOGIN_URL = "https://www.tiktok.com/login";
 
@@ -782,7 +791,7 @@ const normalizeTikTokChatMessage = (
   const messageId =
     asString(record.msgId).trim() ||
     asString(record.messageId).trim() ||
-    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
   const createdEpochRaw = Number(asString(record.createTime));
   const createdEpochMillis =
@@ -833,7 +842,7 @@ const normalizeTikTokFollowMessage = (
   const messageId =
     asString(record.msgId).trim() ||
     asString(record.messageId).trim() ||
-    `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
   const createdEpochRaw = Number(asString(record.createTime));
   const createdEpochMillis =
     Number.isFinite(createdEpochRaw) && createdEpochRaw > 0
@@ -1296,31 +1305,42 @@ const cleanupYouTubeWebSessions = () => {
 const buildYouTubeLiveUrl = (rawInput: string) => {
   const directVideoId = extractYouTubeVideoId(rawInput);
   if (directVideoId) {
-    return `https://www.youtube.com/watch?v=${directVideoId}`;
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(directVideoId)}`;
   }
   const normalized = normalizeYouTubeInput(rawInput);
   if (!normalized) {
     throw new Error("YouTube channel is required.");
   }
   if (normalized.startsWith("UC")) {
-    return `https://www.youtube.com/channel/${normalized}/live`;
+    return `https://www.youtube.com/channel/${encodeURIComponent(normalized)}/live`;
   }
-  return `https://www.youtube.com/@${normalized}/live`;
+  return `https://www.youtube.com/@${encodeURIComponent(normalized)}/live`;
 };
 
 const fetchYouTubeHtml = async (url: string, source: string) => {
+  const signal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(15_000)
+      : undefined;
   const response = await fetch(url, {
     headers: {
-      Accept: "text/html",
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "en-US,en;q=0.9",
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     },
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) {
     throw new Error(`${source} failed (${response.status}).`);
   }
   return {
-    html: await response.text(),
+    html: await readResponseTextCapped(
+      response,
+      DEFAULT_HTML_MAX_BYTES,
+      source,
+    ),
     finalUrl: response.url,
   };
 };
@@ -1389,34 +1409,94 @@ const resolveYouTubeLiveChatViaWeb = async (rawInput: string) => {
       ? liveHtml
       : (await fetchYouTubeHtml(watchUrl, "YouTube watch page lookup")).html;
 
-  const apiKey = matchFromHtml(watchHtml, /"INNERTUBE_API_KEY":"([^"]+)"/);
-  const clientVersion = matchFromHtml(
-    watchHtml,
-    /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/,
-  );
-  const visitorData = matchFromHtml(watchHtml, /"VISITOR_DATA":"([^"]+)"/);
-  const continuation =
-    matchFromHtml(
-      watchHtml,
-      /"reloadContinuationData":\{"continuation":"([^"]+)"/,
-    ) ||
-    matchFromHtml(
-      watchHtml,
-      /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-    ) ||
-    matchFromHtml(
-      watchHtml,
-      /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-    );
   const channelId = matchFromHtml(watchHtml, /"channelId":"(UC[^"]+)"/);
   const channelTitle =
     matchFromHtml(watchHtml, /"ownerChannelName":"([^"]+)"/) ||
     matchFromHtml(watchHtml, /<meta property="og:title" content="([^"]+)"/) ||
     normalizeYouTubeInput(rawInput);
 
-  if (!apiKey || !clientVersion || !continuation) {
+  const liveChatPopoutUrl = `https://www.youtube.com/live_chat?v=${pageVideoId}&is_popout=1`;
+  let chatHtml = "";
+  try {
+    chatHtml = (
+      await fetchYouTubeHtml(
+        liveChatPopoutUrl,
+        "YouTube live chat popup lookup",
+      )
+    ).html;
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    if (!text.includes("(404)")) {
+      throw error;
+    }
+  }
+
+  // Defensive format validators. The HTML these regexes scrape comes
+  // from a third party we don't control, so the captured strings flow
+  // back into a privileged POST. Reject anything outside the expected
+  // shape before letting it through.
+  const VALID_API_KEY = /^[A-Za-z0-9_-]{20,80}$/;
+  const VALID_CLIENT_VERSION = /^\d+\.\d+\.\d+(?:\.\d+)*$/;
+  const VALID_TOKEN = /^[A-Za-z0-9_%=\-/+.]+$/;
+  const sanitize = (
+    value: string | null | undefined,
+    pattern: RegExp,
+    maxLen = 4096,
+  ) => {
+    if (!value) return "";
+    if (value.length > maxLen) return "";
+    return pattern.test(value) ? value : "";
+  };
+
+  const extractChat = (source: string) => ({
+    apiKey: sanitize(
+      matchFromHtml(source, /"INNERTUBE_API_KEY":"([^"]+)"/),
+      VALID_API_KEY,
+      80,
+    ),
+    clientVersion: sanitize(
+      matchFromHtml(source, /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/),
+      VALID_CLIENT_VERSION,
+      32,
+    ),
+    visitorData: sanitize(
+      matchFromHtml(source, /"VISITOR_DATA":"([^"]+)"/),
+      VALID_TOKEN,
+      512,
+    ),
+    continuation: sanitize(
+      matchFromHtml(
+        source,
+        /"reloadContinuationData":\{"continuation":"([^"]+)"/,
+      ) ||
+        matchFromHtml(
+          source,
+          /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+        ) ||
+        matchFromHtml(
+          source,
+          /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+        ),
+      VALID_TOKEN,
+      4096,
+    ),
+  });
+
+  const fromChat = extractChat(chatHtml);
+  const fromWatch = extractChat(watchHtml);
+  const apiKey = fromChat.apiKey || fromWatch.apiKey;
+  const clientVersion = fromChat.clientVersion || fromWatch.clientVersion;
+  const visitorData = fromChat.visitorData || fromWatch.visitorData;
+  const continuation = fromChat.continuation || fromWatch.continuation;
+
+  if (!apiKey || !clientVersion) {
     throw new Error(
       "YouTube read-only web fallback could not extract live chat metadata for this stream.",
+    );
+  }
+  if (!continuation) {
+    throw new Error(
+      `No active live chat for "${channelTitle}". The stream may not be live, or live chat is disabled or members-only.`,
     );
   }
 
@@ -1446,7 +1526,18 @@ const fetchYouTubeWebLiveMessages = async (payload: {
   pageToken?: string;
 }) => {
   cleanupYouTubeWebSessions();
-  const session = youtubeWebChatSessions.get(payload.liveChatId);
+  let session = youtubeWebChatSessions.get(payload.liveChatId);
+  if (!session && payload.liveChatId.startsWith("web:")) {
+    const videoId = payload.liveChatId.slice(4).trim();
+    if (videoId) {
+      try {
+        await resolveYouTubeLiveChatViaWeb(videoId);
+        session = youtubeWebChatSessions.get(payload.liveChatId);
+      } catch {
+        // fall through to the error below
+      }
+    }
+  }
   if (!session) {
     throw new Error(
       "YouTube web chat session expired. Re-open the YouTube tab.",
@@ -1474,17 +1565,24 @@ const fetchYouTubeWebLiveMessages = async (payload: {
     continuation,
   };
 
+  const pollSignal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(15_000)
+      : undefined;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      "Accept-Language": "en-US,en;q=0.9",
       Origin: "https://www.youtube.com",
       Referer: `https://www.youtube.com/watch?v=${session.videoId}`,
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     },
     body: JSON.stringify(body),
+    ...(pollSignal ? { signal: pollSignal } : {}),
   });
   if (!response.ok) {
     throw new Error(`YouTube web chat polling failed (${response.status}).`);
@@ -2118,6 +2216,7 @@ const resolveKickChannelViaBrowser = async (
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
+        partition: KICK_LOOKUP_PARTITION,
       },
     });
 
@@ -2886,7 +2985,7 @@ const runModerationAction = async (
 
 const writeLog = (message: string) => {
   const formatted = `[${new Date().toISOString()}] ${message}`;
-  console.log(formatted);
+  console.info(formatted);
 };
 
 let mainWindow: BrowserWindow | null = null;
@@ -3735,23 +3834,32 @@ app.whenReady().then(async () => {
     store.set("kickRedirectUri", managedKickRedirectUri);
   }
   if (YOUTUBE_ALPHA_ENABLED) {
-    const managedYouTubeClientId = (
-      process.env.YOUTUBE_CLIENT_ID ?? YOUTUBE_MANAGED_CLIENT_ID
-    ).trim();
-    if (!store.get("youtubeClientId")?.trim() && managedYouTubeClientId) {
-      store.set("youtubeClientId", managedYouTubeClientId);
+    const envYouTubeClientId = process.env.YOUTUBE_CLIENT_ID?.trim() ?? "";
+    const fallbackYouTubeClientId = YOUTUBE_MANAGED_CLIENT_ID.trim();
+    if (envYouTubeClientId) {
+      store.set("youtubeClientId", envYouTubeClientId);
+    } else if (
+      !store.get("youtubeClientId")?.trim() &&
+      fallbackYouTubeClientId
+    ) {
+      store.set("youtubeClientId", fallbackYouTubeClientId);
     }
-    const managedYouTubeRedirectUri = (
-      process.env.YOUTUBE_REDIRECT_URI ?? YOUTUBE_DEFAULT_REDIRECT_URI
-    ).trim();
-    if (!store.get("youtubeRedirectUri")?.trim() && managedYouTubeRedirectUri) {
-      store.set("youtubeRedirectUri", managedYouTubeRedirectUri);
+    const envYouTubeRedirectUri =
+      process.env.YOUTUBE_REDIRECT_URI?.trim() ?? "";
+    if (envYouTubeRedirectUri) {
+      store.set("youtubeRedirectUri", envYouTubeRedirectUri);
+    } else if (
+      !store.get("youtubeRedirectUri")?.trim() &&
+      YOUTUBE_DEFAULT_REDIRECT_URI
+    ) {
+      store.set("youtubeRedirectUri", YOUTUBE_DEFAULT_REDIRECT_URI);
     }
-    const managedYouTubeApiKey = (
-      process.env.YOUTUBE_API_KEY ?? YOUTUBE_MANAGED_API_KEY
-    ).trim();
-    if (!store.get("youtubeApiKey")?.trim() && managedYouTubeApiKey) {
-      store.set("youtubeApiKey", managedYouTubeApiKey);
+    const envYouTubeApiKey = process.env.YOUTUBE_API_KEY?.trim() ?? "";
+    const fallbackYouTubeApiKey = YOUTUBE_MANAGED_API_KEY.trim();
+    if (envYouTubeApiKey) {
+      store.set("youtubeApiKey", envYouTubeApiKey);
+    } else if (!store.get("youtubeApiKey")?.trim() && fallbackYouTubeApiKey) {
+      store.set("youtubeApiKey", fallbackYouTubeApiKey);
     }
   } else {
     store.set({
