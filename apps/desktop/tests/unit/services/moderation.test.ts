@@ -17,7 +17,9 @@ describe("assertModerationPayload", () => {
       channel: "test-channel",
       action: "ban",
     };
-    expect(() => assertModerationPayload(payload)).toThrow("Moderation platform is required.");
+    expect(() => assertModerationPayload(payload)).toThrow(
+      "Moderation platform is required.",
+    );
   });
 
   it("should throw when channel is missing", () => {
@@ -25,7 +27,9 @@ describe("assertModerationPayload", () => {
       platform: "twitch",
       action: "ban",
     };
-    expect(() => assertModerationPayload(payload)).toThrow("Moderation channel is required.");
+    expect(() => assertModerationPayload(payload)).toThrow(
+      "Moderation channel is required.",
+    );
   });
 
   it("should throw when action is missing", () => {
@@ -33,11 +37,15 @@ describe("assertModerationPayload", () => {
       platform: "twitch",
       channel: "test-channel",
     };
-    expect(() => assertModerationPayload(payload)).toThrow("Moderation action is required.");
+    expect(() => assertModerationPayload(payload)).toThrow(
+      "Moderation action is required.",
+    );
   });
 
   it("should throw when payload is empty", () => {
     const payload: ModerationRequest = {};
-    expect(() => assertModerationPayload(payload)).toThrow("Moderation platform is required.");
+    expect(() => assertModerationPayload(payload)).toThrow(
+      "Moderation platform is required.",
+    );
   });
 });
