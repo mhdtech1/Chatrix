@@ -4529,8 +4529,7 @@ const MainApp: React.FC = () => {
             }),
           onEvent: (handler) =>
             window.electronAPI.onTikTokEvent((event) => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              handler(event as any);
+              handler(event);
             }),
         },
         logger,
