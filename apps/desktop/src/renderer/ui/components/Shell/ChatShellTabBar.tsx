@@ -45,6 +45,8 @@ export function ChatShellTabBar({
   onClose,
   onContextMenu,
 }: ChatShellTabBarProps) {
+  if (items.length === 0) return null;
+
   return (
     <nav className="tabbar nav-strip" aria-label="Channel tabs">
       {items.map((item) => (

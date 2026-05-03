@@ -1,6 +1,7 @@
 .topbar-shell {
   display: grid;
   grid-template-columns: auto minmax(320px, 1fr) auto;
+  grid-template-areas: "brand form actions";
   align-items: center;
   gap: var(--ui-gap);
   padding: 6px 10px;
@@ -15,6 +16,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.topbar-shell__brand-zone {
+  grid-area: brand;
+}
+
+.topbar-shell__actions {
+  grid-area: actions;
+  justify-self: end;
 }
 
 .topbar-shell__wordmark {
@@ -123,6 +133,7 @@
 }
 
 .channel-form--shell {
+  grid-area: form;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;

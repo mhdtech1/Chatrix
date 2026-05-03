@@ -71,8 +71,22 @@ body {
 
 .topbar-shell {
   grid-template-columns: minmax(180px, auto) minmax(280px, 1fr) auto;
+  grid-template-areas: "brand form actions";
   padding: var(--ui-pad);
   backdrop-filter: none;
+}
+
+.topbar-shell__brand-zone {
+  grid-area: brand;
+}
+
+.channel-form--shell {
+  grid-area: form;
+}
+
+.topbar-shell__actions {
+  grid-area: actions;
+  justify-self: end;
 }
 
 .brand-block--broadcast h1 {
@@ -99,6 +113,10 @@ body {
 .channel-form--shell {
   border-radius: var(--panel-radius-lg);
   background: var(--surface-base);
+}
+
+.chat-shell .topbar-shell .channel-form--shell {
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
 .channel-form--shell input,
@@ -146,6 +164,75 @@ body {
 .chat-main {
   background: var(--surface-base);
   overflow: hidden;
+}
+
+.chat-main > .welcome-screen {
+  min-height: 0;
+}
+
+.chat-shell.simple .welcome-screen {
+  align-items: center;
+  overflow-y: auto;
+  padding: clamp(16px, 3vh, 28px) 20px;
+}
+
+.chat-shell.simple .welcome-screen__content {
+  width: min(760px, 100%);
+}
+
+.chat-shell.simple .welcome-screen__hero {
+  margin-bottom: 22px;
+}
+
+.chat-shell.simple .welcome-screen__logo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-panel);
+  font-size: 32px;
+}
+
+.chat-shell.simple .welcome-screen__title {
+  margin-bottom: 8px;
+  font-size: clamp(28px, 4vw, 34px);
+}
+
+.chat-shell.simple .welcome-screen__subtitle {
+  font-size: 15px;
+}
+
+.chat-shell.simple .welcome-screen__platforms {
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.chat-shell.simple .welcome-screen__actions {
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.chat-shell.simple .welcome-screen__features {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.chat-shell.simple .feature-card {
+  padding: 18px 16px;
+  border-radius: var(--radius-panel);
+}
+
+.chat-shell.simple .feature-card__icon {
+  font-size: 28px;
+}
+
+.chat-shell.simple .feature-card__title {
+  margin-bottom: 6px;
+}
+
+.chat-shell.simple .feature-card__description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .chat-main > .message-list,
@@ -361,11 +448,19 @@ body {
 
 @media (max-width: 920px) {
   .topbar-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand actions"
+      "form form";
   }
 
   .topbar-shell__actions {
-    justify-content: space-between;
+    justify-content: flex-end;
+    justify-self: end;
+  }
+
+  .chat-shell.simple .welcome-screen__features {
+    grid-template-columns: 1fr;
   }
 
   .chat-line--legacy .chat-line__content {
@@ -383,5 +478,29 @@ body {
 
   .composer--main {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "form"
+      "actions";
+  }
+
+  .topbar-shell__actions {
+    justify-content: flex-start;
+    justify-self: stretch;
+  }
+
+  .chat-shell .topbar-shell .channel-form--shell {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .chat-shell .topbar-shell .channel-form__detected-platform,
+  .chat-shell .topbar-shell .platform-picker--fallback {
+    grid-column: 1 / -1;
   }
 }

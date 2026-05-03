@@ -3,6 +3,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ChatShellTabBar } from "../../../src/renderer/ui/components/Shell/ChatShellTabBar";
 
 describe("ChatShellTabBar", () => {
+  it("does not render an empty tab strip", () => {
+    const { container } = render(
+      <ChatShellTabBar
+        items={[]}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+        onContextMenu={vi.fn()}
+      />,
+    );
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("renders unread and mention badges and emits tab actions", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
