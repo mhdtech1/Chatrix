@@ -36,8 +36,15 @@ const findEnvFileUpwards = (start: string) => {
   return null;
 };
 
-const upwardEnv = findEnvFileUpwards(process.cwd());
-if (upwardEnv) loadEnvFile(upwardEnv);
+// In a packaged install the cwd can be a writable directory shared
+// with other users (e.g. a Downloads folder), so a planted .env there
+// could override broker URLs and steal future tokens. Limit the
+// cwd-walk to dev / unpackaged runs only. Installed builds always
+// read from the per-user `userData` directory instead.
+if (!app.isPackaged) {
+  const upwardEnv = findEnvFileUpwards(process.cwd());
+  if (upwardEnv) loadEnvFile(upwardEnv);
+}
 try {
   loadEnvFile(path.join(app.getPath("userData"), ".env"));
 } catch {

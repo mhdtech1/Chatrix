@@ -79,24 +79,110 @@ export function createChatHandlers(
 
   return {
     [IPC_CHANNELS.MODERATION_ACT]: async (_event, payload: unknown) => {
-      const input = (payload ?? {}) as ModerationRequest;
-      const platform = input.platform;
-      const channel = normalizeLogin(input.channel ?? "");
-      const action = input.action;
-      if (!platform || !CHANNEL_PLATFORMS.has(platform)) {
+      // Strict per-field validation. The renderer is trusted code but
+      // a buggy/compromised renderer must not be able to issue
+      // malformed moderation calls against the signed-in account.
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Moderation request payload is required.");
+      }
+      const input = payload as Record<string, unknown>;
+      const rawPlatform = input.platform;
+      const rawAction = input.action;
+      const rawChannel = input.channel;
+      if (
+        typeof rawPlatform !== "string" ||
+        !CHANNEL_PLATFORMS.has(rawPlatform as ChannelPlatform)
+      ) {
         throw new Error("Moderation platform is required.");
       }
+      const platform = rawPlatform as ChannelPlatform;
+      if (typeof rawChannel !== "string" || !rawChannel.trim()) {
+        throw new Error("Moderation channel is required.");
+      }
+      const channel = normalizeLogin(rawChannel);
       if (!channel) {
         throw new Error("Moderation channel is required.");
       }
-      if (!action || !MODERATION_ACTIONS.has(action)) {
+      if (
+        typeof rawAction !== "string" ||
+        !MODERATION_ACTIONS.has(rawAction as ModerationRequest["action"])
+      ) {
         throw new Error("Moderation action is required.");
       }
+      const action = rawAction as ModerationRequest["action"];
+
+      const optionalString = (
+        value: unknown,
+        field: string,
+        maxLen = 200,
+      ): string | undefined => {
+        if (value === undefined || value === null) return undefined;
+        if (typeof value !== "string") {
+          throw new Error(`Moderation field "${field}" must be a string.`);
+        }
+        const trimmed = value.trim();
+        if (!trimmed) return undefined;
+        if (trimmed.length > maxLen) {
+          throw new Error(
+            `Moderation field "${field}" exceeds ${maxLen} characters.`,
+          );
+        }
+        return trimmed;
+      };
+      const optionalSafeString = (
+        value: unknown,
+        field: string,
+        maxLen = 200,
+      ): string | undefined => {
+        const trimmed = optionalString(value, field, maxLen);
+        if (trimmed === undefined) return undefined;
+        // Allow URL-safe + chat ID characters; reject control / quoting.
+        if (!/^[A-Za-z0-9._\-:/=+@%]+$/.test(trimmed)) {
+          throw new Error(
+            `Moderation field "${field}" contains unsupported characters.`,
+          );
+        }
+        return trimmed;
+      };
+      const optionalUserId = (
+        value: unknown,
+        field: string,
+      ): number | undefined => {
+        if (value === undefined || value === null) return undefined;
+        if (typeof value !== "number" || !Number.isFinite(value)) {
+          throw new Error(`Moderation field "${field}" must be a number.`);
+        }
+        if (!Number.isInteger(value) || value <= 0 || value > 1e15) {
+          throw new Error(
+            `Moderation field "${field}" is out of allowed range.`,
+          );
+        }
+        return value;
+      };
+
+      const username = optionalString(input.username, "username", 100);
+      const messageId = optionalSafeString(input.messageId, "messageId", 200);
+      const targetUserId = optionalUserId(input.targetUserId, "targetUserId");
+      const liveChatId = optionalSafeString(
+        input.liveChatId,
+        "liveChatId",
+        300,
+      );
+      const targetChannelId = optionalSafeString(
+        input.targetChannelId,
+        "targetChannelId",
+        100,
+      );
+
       await runModerationAction({
-        ...input,
         platform,
         channel,
         action,
+        ...(username !== undefined ? { username } : {}),
+        ...(messageId !== undefined ? { messageId } : {}),
+        ...(targetUserId !== undefined ? { targetUserId } : {}),
+        ...(liveChatId !== undefined ? { liveChatId } : {}),
+        ...(targetChannelId !== undefined ? { targetChannelId } : {}),
       });
     },
     [IPC_CHANNELS.MODERATION_CAN_MODERATE]: async (

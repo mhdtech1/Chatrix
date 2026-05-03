@@ -240,6 +240,7 @@ export function createAuthSignInHandlers(
   return {
     [IPC_CHANNELS.AUTH_TWITCH_SIGN_IN]: async () => {
       const clientId = store.get("twitchClientId")?.trim();
+      const clientSecret = process.env.TWITCH_CLIENT_SECRET?.trim() ?? "";
       const redirectUri =
         store.get("twitchRedirectUri")?.trim() || twitchDefaultRedirectUri;
 
@@ -254,7 +255,120 @@ export function createAuthSignInHandlers(
         return store.store;
       }
 
+      // Twitch's "authorization code" flow requires client_secret at
+      // the token-exchange step (PKCE alone isn't accepted), so we use
+      // it whenever TWITCH_CLIENT_SECRET is configured. When it isn't,
+      // fall back to the legacy implicit-grant flow so existing users
+      // keep working. The implicit fallback is the original code path
+      // and is the only one that exposes the access token in the
+      // loopback URL fragment — clearly less secure but unchanged from
+      // pre-1.0.23 behavior.
       const state = randomToken(24);
+
+      if (clientSecret) {
+        const codeVerifier = randomToken(48);
+        const codeChallenge = crypto
+          .createHash("sha256")
+          .update(codeVerifier)
+          .digest("base64url");
+
+        const authUrl = new URL("https://id.twitch.tv/oauth2/authorize");
+        authUrl.searchParams.set("client_id", clientId);
+        authUrl.searchParams.set("redirect_uri", redirectUri);
+        authUrl.searchParams.set("response_type", "code");
+        authUrl.searchParams.set("scope", twitchScopes.join(" "));
+        authUrl.searchParams.set("state", state);
+        // PKCE adds defence-in-depth even though Twitch won't enforce
+        // it without the dev-console toggle. Costs nothing.
+        authUrl.searchParams.set("code_challenge", codeChallenge);
+        authUrl.searchParams.set("code_challenge_method", "S256");
+        authUrl.searchParams.set("force_verify", "true");
+
+        const callbackUrl = await openAuthInBrowser(
+          authUrl.toString(),
+          redirectUri,
+          state,
+        );
+        const callback = new URL(callbackUrl);
+        const error = callback.searchParams.get("error");
+        if (error) {
+          const description =
+            callback.searchParams.get("error_description") ??
+            "Twitch sign-in failed.";
+          throw new Error(description);
+        }
+        if (callback.searchParams.get("state") !== state) {
+          throw new Error("Twitch sign-in was rejected (state mismatch).");
+        }
+        const code = callback.searchParams.get("code");
+        if (!code) {
+          throw new Error("Twitch did not return an authorization code.");
+        }
+
+        const tokenParams = new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          grant_type: "authorization_code",
+          redirect_uri: redirectUri,
+          code_verifier: codeVerifier,
+        });
+        const tokenResponse = await fetch("https://id.twitch.tv/oauth2/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+          },
+          body: tokenParams,
+        });
+        if (!tokenResponse.ok) {
+          await throwDetailedHttpError(tokenResponse, "Twitch token exchange", {
+            clientId,
+            redirectUri,
+          });
+        }
+        const tokens = await fetchJsonOrThrow<{
+          access_token?: string;
+          refresh_token?: string;
+          expires_in?: number;
+          scope?: string[] | string;
+          token_type?: string;
+        }>(tokenResponse, "Twitch token exchange");
+        const accessToken = tokens.access_token;
+        if (!accessToken) {
+          throw new Error(
+            "Twitch token exchange did not return an access token.",
+          );
+        }
+
+        const validateResponse = await fetch(
+          "https://id.twitch.tv/oauth2/validate",
+          { headers: { Authorization: `OAuth ${accessToken}` } },
+        );
+        const validated = await fetchJsonOrThrow<TwitchValidateResponse>(
+          validateResponse,
+          "Twitch token validation",
+        );
+        if (!validated.login) {
+          throw new Error(
+            "Twitch token validation did not include a username.",
+          );
+        }
+
+        store.set({
+          twitchToken: accessToken,
+          twitchUsername: validated.login,
+          twitchGuest: false,
+          twitchScopeVersion,
+          twitchRedirectUri: redirectUri,
+        });
+        await storeAuthTokens("twitch", { accessToken });
+        return store.store;
+      }
+
+      // Legacy implicit-grant fallback (still required when no
+      // TWITCH_CLIENT_SECRET is configured). Token arrives in the URL
+      // fragment via the loopback bridge page.
       const authUrl = new URL("https://id.twitch.tv/oauth2/authorize");
       authUrl.searchParams.set("client_id", clientId);
       authUrl.searchParams.set("redirect_uri", redirectUri);
@@ -291,11 +405,7 @@ export function createAuthSignInHandlers(
 
       const validateResponse = await fetch(
         "https://id.twitch.tv/oauth2/validate",
-        {
-          headers: {
-            Authorization: `OAuth ${accessToken}`,
-          },
-        },
+        { headers: { Authorization: `OAuth ${accessToken}` } },
       );
       const validated = await fetchJsonOrThrow<TwitchValidateResponse>(
         validateResponse,

@@ -1,6 +1,53 @@
 import { describe, expect, it } from "vitest";
-import { normalizeTwitchMessage } from "../../../src/adapters/twitch/normalize";
+import {
+  normalizeTwitchMessage,
+  parseTwitchBadges,
+} from "../../../src/adapters/twitch/normalize";
 import { parseIrcMessage } from "../../../src/adapters/twitch/ircParser";
+
+describe("parseTwitchBadges", () => {
+  it("parses valid badges array", () => {
+    const result = parseTwitchBadges(["admin/1", "subscriber/3000"]);
+    expect(result).toEqual([
+      { setId: "admin", versionId: "1", key: "admin/1" },
+      { setId: "subscriber", versionId: "3000", key: "subscriber/3000" },
+    ]);
+  });
+
+  it("handles raw badges string", () => {
+    const result = parseTwitchBadges([], "moderator/1,premium/1");
+    expect(result).toEqual([
+      { setId: "moderator", versionId: "1", key: "moderator/1" },
+      { setId: "premium", versionId: "1", key: "premium/1" },
+    ]);
+  });
+
+  it("deduplicates badges from array and string", () => {
+    const result = parseTwitchBadges(["admin/1"], "admin/1,subscriber/12");
+    expect(result).toEqual([
+      { setId: "admin", versionId: "1", key: "admin/1" },
+      { setId: "subscriber", versionId: "12", key: "subscriber/12" },
+    ]);
+  });
+
+  it("handles malformed badges", () => {
+    const result = parseTwitchBadges(["admin", "subscriber/", "/1", ""]);
+    expect(result).toEqual([]);
+  });
+
+  it("trims whitespace and normalizes case for setId", () => {
+    const result = parseTwitchBadges([" Admin / 1 "]);
+    expect(result).toEqual([
+      { setId: "admin", versionId: "1", key: "admin/1" },
+    ]);
+  });
+
+  it("handles non-string inputs safely", () => {
+    // @ts-expect-error Testing invalid input
+    const result = parseTwitchBadges([null, undefined, 123]);
+    expect(result).toEqual([]);
+  });
+});
 
 describe("normalizeTwitchMessage", () => {
   describe("PRIVMSG", () => {

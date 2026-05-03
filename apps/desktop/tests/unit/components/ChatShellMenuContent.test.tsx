@@ -177,7 +177,8 @@ describe("ChatShellMenuContent", () => {
     ).map((node) => node.textContent?.trim());
 
     expect(navLabels).toEqual([
-      "Workspace",
+      "Appearance",
+      "Layout",
       "Moderation",
       "Accounts",
       "Search & Filters",
@@ -185,7 +186,13 @@ describe("ChatShellMenuContent", () => {
       "Updates",
     ]);
 
-    // Workspace is active by default; its workspace-preset radio is rendered.
+    expect(screen.getByRole("tab", { name: "Appearance" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Appearance");
+
+    // Appearance is active by default; its workspace-preset radio is rendered.
     expect(screen.getByLabelText("Workspace")).toBeDisabled();
     expect(
       screen.getByText((content) => content.includes("Moderator -> Mod Desk")),
@@ -195,16 +202,30 @@ describe("ChatShellMenuContent", () => {
   it("switches sidebar categories and reveals their controls", () => {
     render(<ChatShellMenuContent {...baseProps} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Moderation" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Moderation" }));
     const autoBanButton = screen.getByRole("button", { name: "Auto Ban: ON" });
     expect(autoBanButton).toBeInTheDocument();
     fireEvent.click(autoBanButton);
     expect(baseProps.onToggleAutoBan).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Accounts" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Accounts" }));
     expect(
       screen.getByRole("button", { name: "Sign in Twitch" }),
     ).toBeInTheDocument();
+  });
+
+  it("moves between settings categories with arrow keys", () => {
+    render(<ChatShellMenuContent {...baseProps} />);
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Appearance" }), {
+      key: "ArrowDown",
+    });
+
+    expect(screen.getByRole("tab", { name: "Layout" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tabpanel")).toHaveAccessibleName("Layout");
   });
 
   it("lets the user disable auto desk switching", () => {
