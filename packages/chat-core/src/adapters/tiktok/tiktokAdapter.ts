@@ -6,7 +6,7 @@ import type {
   ChatMessage,
 } from "../../types.js";
 
-type TikTokTransportEvent = {
+export type TikTokTransportEvent = {
   connectionId: string;
   type: "connected" | "disconnected" | "chat" | "error";
   roomId?: string;

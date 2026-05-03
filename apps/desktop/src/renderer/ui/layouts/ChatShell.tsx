@@ -4529,8 +4529,7 @@ const MainApp: React.FC = () => {
             }),
           onEvent: (handler) =>
             window.electronAPI.onTikTokEvent((event) => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              handler(event as any);
+              handler(event);
             }),
         },
         logger,
@@ -7147,30 +7146,24 @@ const MainApp: React.FC = () => {
             <div className="onboarding-card__header">
               <h1>Welcome to Chatrix</h1>
               <p>
-                Connect a streaming account to read and moderate your chat.
-                You can add more platforms later from Settings.
+                Connect a streaming account to read and moderate your chat. You
+                can add more platforms later from Settings.
               </p>
             </div>
             <div className="onboarding-providers">
               <article
                 className={
                   "onboarding-provider onboarding-provider--twitch" +
-                  (authBusy === "twitch"
-                    ? " onboarding-provider--busy"
-                    : "")
+                  (authBusy === "twitch" ? " onboarding-provider--busy" : "")
                 }
               >
                 <div className="onboarding-provider__body">
-                  <PlatformIcon
-                    platform="twitch"
-                    size="md"
-                    showBackground
-                  />
+                  <PlatformIcon platform="twitch" size="md" showBackground />
                   <div className="onboarding-provider__copy">
                     <strong>Twitch</strong>
                     <span>
-                      Read chat, send messages, ban / timeout / unban as
-                      a moderator.
+                      Read chat, send messages, ban / timeout / unban as a
+                      moderator.
                     </span>
                   </div>
                 </div>
@@ -7192,11 +7185,7 @@ const MainApp: React.FC = () => {
                 }
               >
                 <div className="onboarding-provider__body">
-                  <PlatformIcon
-                    platform="kick"
-                    size="md"
-                    showBackground
-                  />
+                  <PlatformIcon platform="kick" size="md" showBackground />
                   <div className="onboarding-provider__copy">
                     <strong>Kick</strong>
                     <span>
@@ -7223,27 +7212,18 @@ const MainApp: React.FC = () => {
                 <article
                   className={
                     "onboarding-provider onboarding-provider--youtube" +
-                    (authBusy === "youtube"
-                      ? " onboarding-provider--busy"
-                      : "")
+                    (authBusy === "youtube" ? " onboarding-provider--busy" : "")
                   }
                 >
                   <div className="onboarding-provider__body">
-                    <PlatformIcon
-                      platform="youtube"
-                      size="md"
-                      showBackground
-                    />
+                    <PlatformIcon platform="youtube" size="md" showBackground />
                     <div className="onboarding-provider__copy">
                       <strong>
                         YouTube{" "}
-                        <span className="onboarding-provider__chip">
-                          alpha
-                        </span>
+                        <span className="onboarding-provider__chip">alpha</span>
                       </strong>
                       <span>
-                        Read live chat. Sign in to send messages and
-                        moderate.
+                        Read live chat. Sign in to send messages and moderate.
                       </span>
                     </div>
                   </div>
