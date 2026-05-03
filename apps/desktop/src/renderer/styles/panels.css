@@ -5,8 +5,8 @@
 .update-lock-card,
 .floating-status {
   border: 1px solid var(--border-strong);
-  border-radius: 18px;
-  background: var(--surface-elevated);
+  border-radius: var(--radius-overlay);
+  background: var(--surface-overlay);
   box-shadow: var(--panel-shadow-lg);
 }
 
@@ -57,8 +57,8 @@
   display: grid;
   gap: 8px;
   padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
   background: var(--surface-interactive);
 }
 

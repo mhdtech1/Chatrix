@@ -24,6 +24,8 @@ import type {
   AppSettings,
   ChatSource,
   ChatTab,
+  UIDensity,
+  UIMode,
   LocalTabPoll,
   ModeratorAction,
   Platform,
@@ -74,16 +76,30 @@ import {
   ChatShellTabBar,
   ChatShellTopBar,
   ChatWorkspace,
+  CommandPalette,
+  type CommandPaletteCommand,
 } from "../components/Shell";
 import { type RoleType as UiRoleType } from "../components/common/RoleBadge";
 import { WelcomeScreen } from "../components/common/WelcomeScreen";
+import {
+  CHAT_TEXT_SCALE_DEFAULT,
+  clampChatTextScale,
+  createId,
+  formatOptionalDateTime,
+  formatOptionalExpiry,
+  normalizeUserKey,
+  platformDisplayName,
+  platformIconGlyph,
+} from "../../utils/chatFormatting";
+import { parseChannelInput } from "../../utils/channelInput";
 
 const hotkeys = {
   focusSearch: "Control+Shift+F",
 };
 
 type Settings = AppSettings & {
-  uiMode?: "simple" | "advanced";
+  uiMode?: UIMode;
+  uiDensity?: UIDensity;
   collaborationMode?: boolean;
   chatDeckMode?: boolean;
   dockedPanels?: {
@@ -180,6 +196,7 @@ type DisplayBadge =
 const defaultSettings: Settings = {
   autoWorkspacePreset: true,
   uiMode: "simple",
+  uiDensity: "compact",
   workspacePreset: "streamer",
   theme: "dark",
   chatTextScale: 100,
@@ -250,7 +267,6 @@ const defaultSettings: Settings = {
 const KICK_READ_ONLY_SETUP_MESSAGE =
   "Kick sign-in is temporarily unavailable. You can still open Kick chats in read-only mode.";
 
-const normalizeUserKey = (value: string) => value.trim().toLowerCase();
 const SCAM_PATTERN =
   /(t\.me\/|bit\.ly|tinyurl|free (gift|nitro|sub)|claim reward|steamcommunity\.com\/gift|crypto giveaway|double your)/i;
 const COMMAND_SNIPPETS = [
@@ -295,36 +311,7 @@ const TAB_ALERT_PROFILES: Record<
     mentionNotify: true,
   },
 };
-const CHAT_TEXT_SCALE_DEFAULT = 100;
-const CHAT_TEXT_SCALE_MIN = 80;
-const CHAT_TEXT_SCALE_MAX = 175;
-
-const clampChatTextScale = (value: number) => {
-  if (!Number.isFinite(value)) return CHAT_TEXT_SCALE_DEFAULT;
-  return Math.max(
-    CHAT_TEXT_SCALE_MIN,
-    Math.min(CHAT_TEXT_SCALE_MAX, Math.round(value)),
-  );
-};
-
-const formatOptionalDateTime = (value?: string) => {
-  if (!value) return "n/a";
-  const asDate = new Date(value);
-  if (Number.isNaN(asDate.getTime())) return "n/a";
-  return asDate.toLocaleString();
-};
-
-const formatOptionalExpiry = (value: number | null | undefined) => {
-  if (!value) return "unknown";
-  const asDate = new Date(value);
-  if (Number.isNaN(asDate.getTime())) return "unknown";
-  const minutes = Math.round((value - Date.now()) / 60_000);
-  if (minutes <= 0) return `${asDate.toLocaleString()} (expired)`;
-  return `${asDate.toLocaleString()} (${minutes}m left)`;
-};
-
-const createId = () =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+// Pure formatters/constants moved to ../../utils/chatFormatting.ts
 
 const normalizeChannel = (input: string, platform: Platform = "twitch") => {
   const trimmed = input.trim().replace(/^#/, "");
@@ -388,27 +375,7 @@ const tabLabel = (tab: ChatTab, sourceById: Map<string, ChatSource>) => {
   return `${first.platform}/${first.channel} +${sources.length - 1}`;
 };
 
-const platformIconGlyph = (platform: string) => {
-  const value = platform.trim().toLowerCase();
-  if (value === "twitch") return "TW";
-  if (value === "kick") return "KI";
-  if (value === "youtube") return "YT";
-  if (value === "tiktok") return "TT";
-  return "?";
-};
-
-const platformDisplayName = (platform: string) => {
-  const normalized = platform.trim().toLowerCase();
-  if (
-    normalized === "twitch" ||
-    normalized === "kick" ||
-    normalized === "youtube" ||
-    normalized === "tiktok"
-  ) {
-    return normalized[0].toUpperCase() + normalized.slice(1);
-  }
-  return platform;
-};
+// platformIconGlyph + platformDisplayName moved to ../../utils/chatFormatting.ts
 
 const buildModerationCommand = (
   _platform: Platform,
@@ -2341,8 +2308,7 @@ const MainApp: React.FC = () => {
   const [messageMenu, setMessageMenu] = useState<MessageMenuState | null>(null);
   const mainMenuOpen = useUIStore((state) => state.mainMenuOpen);
   const setMainMenuOpen = useUIStore((state) => state.setMainMenuOpen);
-  const [mainMenuPanelStyle, setMainMenuPanelStyle] =
-    useState<React.CSSProperties>();
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [userLogTarget, setUserLogTarget] = useState<UserLogTarget | null>(
     null,
   );
@@ -2489,6 +2455,8 @@ const MainApp: React.FC = () => {
       : settings.theme === "classic"
         ? "classic"
         : "dark";
+  const uiDensity: UIDensity =
+    settings.uiDensity === "comfortable" ? "comfortable" : "compact";
   const chatTextScale = clampChatTextScale(
     Number(settings.chatTextScale ?? CHAT_TEXT_SCALE_DEFAULT),
   );
@@ -2545,11 +2513,12 @@ const MainApp: React.FC = () => {
   useEffect(() => {
     const root = document.documentElement;
     root.setAttribute("data-theme", theme);
+    root.setAttribute("data-ui-density", uiDensity);
     root.style.setProperty(
       "color-scheme",
       theme === "light" ? "light" : "dark",
     );
-  }, [theme]);
+  }, [theme, uiDensity]);
 
   useEffect(() => {
     try {
@@ -3300,6 +3269,21 @@ const MainApp: React.FC = () => {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.key === ",") {
+        event.preventDefault();
+        setMainMenuOpen(!mainMenuOpen);
+      } else if (event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [mainMenuOpen, setMainMenuOpen]);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       closeAllOpenDetailsMenus();
       setMainMenuOpen(false);
@@ -3323,44 +3307,6 @@ const MainApp: React.FC = () => {
     document.addEventListener("mousedown", onMouseDown);
     return () => {
       document.removeEventListener("mousedown", onMouseDown);
-    };
-  }, [mainMenuOpen]);
-
-  useEffect(() => {
-    if (!mainMenuOpen) {
-      setMainMenuPanelStyle(undefined);
-      return;
-    }
-
-    const updatePosition = () => {
-      const trigger = menuButtonRef.current;
-      if (!trigger) return;
-      const rect = trigger.getBoundingClientRect();
-      const viewportWidth = Math.max(window.innerWidth, 320);
-      const viewportHeight = Math.max(window.innerHeight, 320);
-      const width = Math.min(420, viewportWidth - 20);
-      const left = Math.min(
-        Math.max(10, rect.right - width),
-        viewportWidth - width - 10,
-      );
-      const top = Math.max(10, Math.min(rect.bottom + 8, viewportHeight - 110));
-
-      setMainMenuPanelStyle({
-        position: "fixed",
-        left,
-        top,
-        width,
-        maxWidth: `calc(100vw - 20px)`,
-        maxHeight: `min(calc(100vh - ${Math.round(top) + 20}px), 760px)`,
-      });
-    };
-
-    updatePosition();
-    window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
     };
   }, [mainMenuOpen]);
 
@@ -5130,10 +5076,22 @@ const MainApp: React.FC = () => {
     platform?: Platform;
     channel?: string;
   }) => {
-    const selectedPlatform = overrides?.platform ?? platformInput;
-    const selectedChannelInput = overrides?.channel ?? channelInput;
-    const channel = normalizeChannel(selectedChannelInput, selectedPlatform);
+    const fallbackPlatform = overrides?.platform ?? platformInput;
+    const parsedInput = parseChannelInput(
+      overrides?.channel ?? channelInput,
+      fallbackPlatform,
+    );
+    const selectedPlatform = overrides?.platform ?? parsedInput.platform;
+    const channel = normalizeChannel(parsedInput.channel, selectedPlatform);
     if (!channel) return;
+    if (!availablePlatforms.includes(selectedPlatform)) {
+      setAuthMessage(
+        `${platformDisplayName(
+          selectedPlatform,
+        )} is disabled. Enable it in Settings before opening this URL.`,
+      );
+      return;
+    }
 
     let key = `${selectedPlatform}:${channel}`;
     let liveChatId: string | undefined;
@@ -6466,6 +6424,29 @@ const MainApp: React.FC = () => {
     void refreshAuthHealth(false);
   };
 
+  const signInYouTube = async () => {
+    setAuthBusy("youtube");
+    setAuthMessage("");
+    try {
+      const next = await window.electronAPI.signInYouTube();
+      setSettings({ ...defaultSettings, ...next });
+      setAuthMessage(
+        `Signed in to YouTube as ${next.youtubeUsername ?? "unknown channel"}.`,
+      );
+      void refreshAuthHealth(false);
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAuthBusy(null);
+    }
+  };
+
+  const signOutYouTube = async () => {
+    const next = await window.electronAPI.signOutYouTube();
+    setSettings({ ...defaultSettings, ...next });
+    void refreshAuthHealth(false);
+  };
+
   const enterReadOnlyGuide = async (
     message = "Read-only mode enabled. You can open Twitch, Kick, YouTube, and TikTok without signing in.",
   ) => {
@@ -7394,7 +7375,6 @@ const MainApp: React.FC = () => {
     ? createPortal(
         <ChatShellMenu
           panelRef={mainMenuPanelRef}
-          style={mainMenuPanelStyle}
           onClose={() => setMainMenuOpen(false)}
         >
           <ChatShellMenuContent
@@ -7416,6 +7396,10 @@ const MainApp: React.FC = () => {
             theme={theme}
             onThemeChange={(nextTheme) => {
               void persistSettings({ theme: nextTheme });
+            }}
+            uiDensity={uiDensity}
+            onUIDensityChange={(nextDensity) => {
+              void persistSettings({ uiDensity: nextDensity });
             }}
             chatTextScale={chatTextScale}
             onChatTextScaleChange={updateChatTextScale}
@@ -7551,6 +7535,16 @@ const MainApp: React.FC = () => {
             onSignOutKick={() => {
               void signOutKick();
             }}
+            onSignInYouTube={() => {
+              void signInYouTube();
+            }}
+            onSignOutYouTube={() => {
+              void signOutYouTube();
+            }}
+            youtubeSignedIn={Boolean(
+              settings.youtubeAccessToken && settings.youtubeRefreshToken,
+            )}
+            youtubeAlphaEnabled={Boolean(settings.youtubeAlphaEnabled)}
             authBusy={authBusy}
             kickWriteAuthConfigured={kickWriteAuthConfigured}
             newAccountProfileName={newAccountProfileName}
@@ -7641,9 +7635,165 @@ const MainApp: React.FC = () => {
       )
     : null;
 
+  const paletteCommands: CommandPaletteCommand[] = [
+    {
+      id: "settings.open",
+      label: "Open settings",
+      hint: "Workspace, accounts, filters, updates",
+      group: "App",
+      shortcut: "Ctrl+,",
+      run: () => setMainMenuOpen(true),
+    },
+    {
+      id: "mode.simple",
+      label: "Switch to simple mode",
+      hint: "Hide advanced panels",
+      group: "Appearance",
+      disabled: isSimpleMode,
+      run: () => {
+        void persistSettings({ uiMode: "simple" });
+      },
+    },
+    {
+      id: "mode.advanced",
+      label: "Switch to advanced mode",
+      hint: "Show every panel and control",
+      group: "Appearance",
+      disabled: isAdvancedMode,
+      run: () => {
+        void persistSettings({ uiMode: "advanced" });
+      },
+    },
+    {
+      id: "theme.dark",
+      label: "Theme: dark",
+      group: "Appearance",
+      disabled: theme === "dark",
+      run: () => {
+        void persistSettings({ theme: "dark" });
+      },
+    },
+    {
+      id: "theme.light",
+      label: "Theme: light",
+      group: "Appearance",
+      disabled: theme === "light",
+      run: () => {
+        void persistSettings({ theme: "light" });
+      },
+    },
+    {
+      id: "density.compact",
+      label: "Density: compact",
+      group: "Appearance",
+      disabled: uiDensity === "compact",
+      run: () => {
+        void persistSettings({ uiDensity: "compact" });
+      },
+    },
+    {
+      id: "density.comfortable",
+      label: "Density: comfortable",
+      group: "Appearance",
+      disabled: uiDensity === "comfortable",
+      run: () => {
+        void persistSettings({ uiDensity: "comfortable" });
+      },
+    },
+    {
+      id: "auth.twitch.signin",
+      label: "Sign in to Twitch",
+      group: "Accounts",
+      disabled: Boolean(settings.twitchToken || settings.twitchGuest),
+      run: () => {
+        void signInTwitch();
+      },
+    },
+    {
+      id: "auth.twitch.signout",
+      label: "Sign out of Twitch",
+      group: "Accounts",
+      disabled: !(settings.twitchToken || settings.twitchGuest),
+      run: () => {
+        void signOutTwitch();
+      },
+    },
+    {
+      id: "auth.kick.signin",
+      label: "Sign in to Kick",
+      group: "Accounts",
+      disabled: Boolean(settings.kickAccessToken || settings.kickGuest),
+      run: () => {
+        void signInKick();
+      },
+    },
+    {
+      id: "auth.kick.signout",
+      label: "Sign out of Kick",
+      group: "Accounts",
+      disabled: !(settings.kickAccessToken || settings.kickGuest),
+      run: () => {
+        void signOutKick();
+      },
+    },
+    {
+      id: "auth.youtube.signin",
+      label: "Sign in to YouTube",
+      group: "Accounts",
+      disabled: Boolean(
+        settings.youtubeAccessToken && settings.youtubeRefreshToken,
+      ),
+      run: () => {
+        void signInYouTube();
+      },
+    },
+    {
+      id: "auth.youtube.signout",
+      label: "Sign out of YouTube",
+      group: "Accounts",
+      disabled: !(settings.youtubeAccessToken && settings.youtubeRefreshToken),
+      run: () => {
+        void signOutYouTube();
+      },
+    },
+    {
+      id: "tab.next",
+      label: "Next tab",
+      group: "Navigation",
+      shortcut: "Ctrl+Tab",
+      disabled: tabs.length < 2,
+      run: () => {
+        if (tabs.length < 2) return;
+        const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+        const next = tabs[(currentIndex + 1 + tabs.length) % tabs.length];
+        if (next) setActiveTabId(next.id);
+      },
+    },
+    {
+      id: "tab.previous",
+      label: "Previous tab",
+      group: "Navigation",
+      shortcut: "Ctrl+Shift+Tab",
+      disabled: tabs.length < 2,
+      run: () => {
+        if (tabs.length < 2) return;
+        const currentIndex = tabs.findIndex((tab) => tab.id === activeTabId);
+        const previous = tabs[(currentIndex - 1 + tabs.length) % tabs.length];
+        if (previous) setActiveTabId(previous.id);
+      },
+    },
+    {
+      id: "search.focus",
+      label: "Focus search",
+      group: "Navigation",
+      run: () => searchRef.current?.focus(),
+    },
+  ];
+
   return (
     <div
-      className={isSimpleMode ? "chat-shell simple" : "chat-shell"}
+      className={`chat-shell ${isSimpleMode ? "simple " : ""}density-${uiDensity}`}
+      data-ui-density={uiDensity}
       style={
         {
           "--chat-text-scale": (chatTextScale / 100).toFixed(2),
@@ -7681,6 +7831,29 @@ const MainApp: React.FC = () => {
         }}
         menuPanel={mainMenuPanel}
         mentionPillCount={mentionInboxCount}
+        authDots={[
+          {
+            platform: "twitch",
+            signedIn: Boolean(settings.twitchToken || settings.twitchGuest),
+            username: settings.twitchUsername ?? "",
+          },
+          {
+            platform: "kick",
+            signedIn: Boolean(settings.kickAccessToken || settings.kickGuest),
+            username: settings.kickUsername ?? "",
+          },
+          ...(youtubeAlphaEnabled
+            ? [
+                {
+                  platform: "youtube" as const,
+                  signedIn: Boolean(
+                    settings.youtubeAccessToken && settings.youtubeRefreshToken,
+                  ),
+                  username: settings.youtubeUsername ?? "",
+                },
+              ]
+            : []),
+        ]}
       />
 
       <ChatShellAccountStrip
@@ -8166,6 +8339,12 @@ const MainApp: React.FC = () => {
         completeSetupWizard={completeSetupWizard}
         quickTourOpen={quickTourOpen}
         setQuickTourOpen={setQuickTourOpen}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={paletteCommands}
+        placeholder="Type a command or search..."
       />
       <ChatShellOverlayLayer
         tabMenu={tabMenu}

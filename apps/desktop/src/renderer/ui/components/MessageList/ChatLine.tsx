@@ -35,36 +35,34 @@ const formatTime = (timestamp: number | string) =>
     minute: "2-digit",
   });
 
-const roleFromBadge = (badge: string): RoleType | null => {
-  const key = badge.trim().toLowerCase().split(/[/:]/)[0] ?? "";
-  if (key === "broadcaster" || key === "streamer" || key === "owner")
-    return "broadcaster";
-  if (key === "moderator" || key === "mod") return "moderator";
-  if (key === "vip") return "vip";
-  if (key === "subscriber" || key === "sub") return "subscriber";
-  if (key === "founder") return "founder";
-  if (key === "prime") return "prime";
-  if (key === "staff" || key === "admin") return "staff";
-  if (key === "verified" || key === "partner") return "verified";
-  return null;
+const badgeCache = new Map<string, { setId: string; role: RoleType | null }>();
+
+const parseBadge = (
+  badge: string,
+): { setId: string; role: RoleType | null } => {
+  let cached = badgeCache.get(badge);
+  if (cached) return cached;
+
+  const setId = badge.trim().toLowerCase().split(/[/:]/)[0] ?? "";
+  let role: RoleType | null = null;
+  if (setId === "broadcaster" || setId === "streamer" || setId === "owner")
+    role = "broadcaster";
+  else if (setId === "moderator" || setId === "mod") role = "moderator";
+  else if (setId === "vip") role = "vip";
+  else if (setId === "subscriber" || setId === "sub") role = "subscriber";
+  else if (setId === "founder") role = "founder";
+  else if (setId === "prime") role = "prime";
+  else if (setId === "staff" || setId === "admin") role = "staff";
+  else if (setId === "verified" || setId === "partner") role = "verified";
+
+  cached = { setId, role };
+  badgeCache.set(badge, cached);
+  return cached;
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== "object") return null;
   return value as Record<string, unknown>;
-};
-
-const addTwitchBadgeEntry = (
-  target: Map<string, { setId: string; versionId: string; key: string }>,
-  badge: string,
-) => {
-  const [rawSetId, rawVersionId] = badge.split("/", 2);
-  const setId = (rawSetId ?? "").trim().toLowerCase();
-  const versionId = (rawVersionId ?? "").trim();
-  if (!setId || !versionId) return;
-  const key = `${setId}/${versionId}`;
-  if (target.has(key)) return;
-  target.set(key, { setId, versionId, key });
 };
 
 const extractTwitchRoomId = (message: ChatMessage): string | null => {
@@ -74,25 +72,18 @@ const extractTwitchRoomId = (message: ChatMessage): string | null => {
   return roomId.trim() || null;
 };
 
-const getTwitchBadgeEntries = (message: ChatMessage) => {
-  const badges = new Map<
-    string,
-    { setId: string; versionId: string; key: string }
-  >();
-  if (Array.isArray(message.badges)) {
-    for (const badge of message.badges) {
-      if (typeof badge === "string") {
-        addTwitchBadgeEntry(badges, badge);
-      }
-    }
-  }
+const getTwitchBadgeEntries = (
+  message: ChatMessage,
+): { setId: string; versionId: string; key: string }[] => {
   const raw = asRecord(message.raw);
-  if (typeof raw?.badges === "string") {
-    for (const badge of raw.badges.split(",")) {
-      addTwitchBadgeEntry(badges, badge);
-    }
+  if (Array.isArray(raw?.parsedBadges)) {
+    return raw.parsedBadges as {
+      setId: string;
+      versionId: string;
+      key: string;
+    }[];
   }
-  return Array.from(badges.values());
+  return [];
 };
 
 const splitTrailingLinkText = (value: string) => {
@@ -236,9 +227,8 @@ export function ChatLine({
                 );
               })}
               {fallbackBadgeValues.map((badge) => {
-                const setId = badge.trim().toLowerCase().split(/[/:]/)[0] ?? "";
+                const { setId, role } = parseBadge(badge);
                 if (renderedTwitchSetIds.has(setId)) return null;
-                const role = roleFromBadge(badge);
                 return role ? (
                   <RoleBadge
                     key={`${message.id}-${badge}`}

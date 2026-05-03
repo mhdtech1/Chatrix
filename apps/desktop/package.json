@@ -1,7 +1,18 @@
 {
   "name": "@chatrix/desktop",
-  "version": "1.0.9",
+  "version": "1.0.19",
   "private": true,
+  "description": "A desktop chat companion for live streams.",
+  "homepage": "https://github.com/mhdtech1/Chatrix",
+  "author": {
+    "name": "mhdtech1",
+    "email": "mhdtech1@users.noreply.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mhdtech1/Chatrix.git",
+    "directory": "apps/desktop"
+  },
   "type": "module",
   "main": "dist/main/main.js",
   "scripts": {
@@ -10,10 +21,15 @@
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json",
     "package": "pnpm run package:mac",
-    "package:mac": "pnpm run package:mac:arm64",
+    "package:mac": "pnpm run package:mac:universal",
+    "package:mac:universal": "electron-builder --config electron-builder.yml --mac dir --universal && MAC_BUILD_ARCH=universal node ../../scripts/prepare-mac-update-artifacts.mjs",
     "package:mac:arm64": "electron-builder --config electron-builder.yml --mac dir --arm64 && MAC_BUILD_ARCH=arm64 node ../../scripts/prepare-mac-update-artifacts.mjs",
     "package:mac:x64": "electron-builder --config electron-builder.yml --mac dir --x64 && MAC_BUILD_ARCH=x64 MAC_ARTIFACT_SUFFIX=x64 node ../../scripts/prepare-mac-update-artifacts.mjs",
-    "package:win": "electron-builder --config electron-builder.yml --win nsis --x64 && node ../../scripts/prepare-win-update-artifacts.mjs",
+    "package:win": "pnpm run package:win:web",
+    "package:win:web": "electron-builder --config electron-builder.yml --win nsis-web --x64 --arm64 && node ../../scripts/prepare-win-update-artifacts.mjs",
+    "package:win:x64": "electron-builder --config electron-builder.yml --win nsis --x64 && node ../../scripts/prepare-win-update-artifacts.mjs",
+    "package:win:arm64": "electron-builder --config electron-builder.yml --win nsis --arm64 && node ../../scripts/prepare-win-update-artifacts.mjs",
+    "package:linux": "electron-builder --config electron-builder.yml --linux AppImage deb --x64",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

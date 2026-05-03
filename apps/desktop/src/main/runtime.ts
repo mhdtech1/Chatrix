@@ -1309,12 +1309,19 @@ const buildYouTubeLiveUrl = (rawInput: string) => {
 };
 
 const fetchYouTubeHtml = async (url: string, source: string) => {
+  const signal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(15_000)
+      : undefined;
   const response = await fetch(url, {
     headers: {
-      Accept: "text/html",
+      Accept: "text/html,application/xhtml+xml",
+      "Accept-Language": "en-US,en;q=0.9",
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     },
+    ...(signal ? { signal } : {}),
   });
   if (!response.ok) {
     throw new Error(`${source} failed (${response.status}).`);
@@ -1389,34 +1396,65 @@ const resolveYouTubeLiveChatViaWeb = async (rawInput: string) => {
       ? liveHtml
       : (await fetchYouTubeHtml(watchUrl, "YouTube watch page lookup")).html;
 
-  const apiKey = matchFromHtml(watchHtml, /"INNERTUBE_API_KEY":"([^"]+)"/);
-  const clientVersion = matchFromHtml(
-    watchHtml,
-    /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/,
-  );
-  const visitorData = matchFromHtml(watchHtml, /"VISITOR_DATA":"([^"]+)"/);
-  const continuation =
-    matchFromHtml(
-      watchHtml,
-      /"reloadContinuationData":\{"continuation":"([^"]+)"/,
-    ) ||
-    matchFromHtml(
-      watchHtml,
-      /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-    ) ||
-    matchFromHtml(
-      watchHtml,
-      /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-    );
   const channelId = matchFromHtml(watchHtml, /"channelId":"(UC[^"]+)"/);
   const channelTitle =
     matchFromHtml(watchHtml, /"ownerChannelName":"([^"]+)"/) ||
     matchFromHtml(watchHtml, /<meta property="og:title" content="([^"]+)"/) ||
     normalizeYouTubeInput(rawInput);
 
-  if (!apiKey || !clientVersion || !continuation) {
+  const liveChatPopoutUrl = `https://www.youtube.com/live_chat?v=${pageVideoId}&is_popout=1`;
+  let chatHtml = "";
+  try {
+    chatHtml = (
+      await fetchYouTubeHtml(
+        liveChatPopoutUrl,
+        "YouTube live chat popup lookup",
+      )
+    ).html;
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    if (!text.includes("(404)")) {
+      throw error;
+    }
+  }
+
+  const extractChat = (source: string) => ({
+    apiKey: matchFromHtml(source, /"INNERTUBE_API_KEY":"([^"]+)"/),
+    clientVersion: matchFromHtml(
+      source,
+      /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/,
+    ),
+    visitorData: matchFromHtml(source, /"VISITOR_DATA":"([^"]+)"/),
+    continuation:
+      matchFromHtml(
+        source,
+        /"reloadContinuationData":\{"continuation":"([^"]+)"/,
+      ) ||
+      matchFromHtml(
+        source,
+        /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+      ) ||
+      matchFromHtml(
+        source,
+        /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+      ),
+  });
+
+  const fromChat = extractChat(chatHtml);
+  const fromWatch = extractChat(watchHtml);
+  const apiKey = fromChat.apiKey || fromWatch.apiKey;
+  const clientVersion = fromChat.clientVersion || fromWatch.clientVersion;
+  const visitorData = fromChat.visitorData || fromWatch.visitorData;
+  const continuation = fromChat.continuation || fromWatch.continuation;
+
+  if (!apiKey || !clientVersion) {
     throw new Error(
       "YouTube read-only web fallback could not extract live chat metadata for this stream.",
+    );
+  }
+  if (!continuation) {
+    throw new Error(
+      `No active live chat for "${channelTitle}". The stream may not be live, or live chat is disabled or members-only.`,
     );
   }
 
@@ -1446,7 +1484,18 @@ const fetchYouTubeWebLiveMessages = async (payload: {
   pageToken?: string;
 }) => {
   cleanupYouTubeWebSessions();
-  const session = youtubeWebChatSessions.get(payload.liveChatId);
+  let session = youtubeWebChatSessions.get(payload.liveChatId);
+  if (!session && payload.liveChatId.startsWith("web:")) {
+    const videoId = payload.liveChatId.slice(4).trim();
+    if (videoId) {
+      try {
+        await resolveYouTubeLiveChatViaWeb(videoId);
+        session = youtubeWebChatSessions.get(payload.liveChatId);
+      } catch {
+        // fall through to the error below
+      }
+    }
+  }
   if (!session) {
     throw new Error(
       "YouTube web chat session expired. Re-open the YouTube tab.",
@@ -1474,17 +1523,24 @@ const fetchYouTubeWebLiveMessages = async (payload: {
     continuation,
   };
 
+  const pollSignal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(15_000)
+      : undefined;
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      "Accept-Language": "en-US,en;q=0.9",
       Origin: "https://www.youtube.com",
       Referer: `https://www.youtube.com/watch?v=${session.videoId}`,
       "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     },
     body: JSON.stringify(body),
+    ...(pollSignal ? { signal: pollSignal } : {}),
   });
   if (!response.ok) {
     throw new Error(`YouTube web chat polling failed (${response.status}).`);
@@ -3508,7 +3564,7 @@ const setupAutoUpdater = () => {
       disableWebInstaller?: boolean;
     };
     windowsUpdater.autoRunAppAfterInstall = true;
-    windowsUpdater.disableWebInstaller = true;
+    windowsUpdater.disableWebInstaller = false;
   }
 
   autoUpdater.on("checking-for-update", () => {
@@ -3618,6 +3674,21 @@ const createMainWindow = () => {
   });
 };
 
+app.on("web-contents-created", (_event, webContents) => {
+  webContents.on("will-navigate", (event, navigationUrl) => {
+    const parsedUrl = new URL(navigationUrl);
+    if (
+      parsedUrl.origin !== process.env.VITE_DEV_SERVER_URL &&
+      parsedUrl.protocol !== "file:"
+    ) {
+      event.preventDefault();
+      if (isSafeExternalUrl(navigationUrl)) {
+        void shell.openExternal(navigationUrl);
+      }
+    }
+  });
+});
+
 app.whenReady().then(async () => {
   store = new JsonSettingsStore({
     workspacePreset: "streamer",
@@ -3720,23 +3791,32 @@ app.whenReady().then(async () => {
     store.set("kickRedirectUri", managedKickRedirectUri);
   }
   if (YOUTUBE_ALPHA_ENABLED) {
-    const managedYouTubeClientId = (
-      process.env.YOUTUBE_CLIENT_ID ?? YOUTUBE_MANAGED_CLIENT_ID
-    ).trim();
-    if (!store.get("youtubeClientId")?.trim() && managedYouTubeClientId) {
-      store.set("youtubeClientId", managedYouTubeClientId);
+    const envYouTubeClientId = process.env.YOUTUBE_CLIENT_ID?.trim() ?? "";
+    const fallbackYouTubeClientId = YOUTUBE_MANAGED_CLIENT_ID.trim();
+    if (envYouTubeClientId) {
+      store.set("youtubeClientId", envYouTubeClientId);
+    } else if (
+      !store.get("youtubeClientId")?.trim() &&
+      fallbackYouTubeClientId
+    ) {
+      store.set("youtubeClientId", fallbackYouTubeClientId);
     }
-    const managedYouTubeRedirectUri = (
-      process.env.YOUTUBE_REDIRECT_URI ?? YOUTUBE_DEFAULT_REDIRECT_URI
-    ).trim();
-    if (!store.get("youtubeRedirectUri")?.trim() && managedYouTubeRedirectUri) {
-      store.set("youtubeRedirectUri", managedYouTubeRedirectUri);
+    const envYouTubeRedirectUri =
+      process.env.YOUTUBE_REDIRECT_URI?.trim() ?? "";
+    if (envYouTubeRedirectUri) {
+      store.set("youtubeRedirectUri", envYouTubeRedirectUri);
+    } else if (
+      !store.get("youtubeRedirectUri")?.trim() &&
+      YOUTUBE_DEFAULT_REDIRECT_URI
+    ) {
+      store.set("youtubeRedirectUri", YOUTUBE_DEFAULT_REDIRECT_URI);
     }
-    const managedYouTubeApiKey = (
-      process.env.YOUTUBE_API_KEY ?? YOUTUBE_MANAGED_API_KEY
-    ).trim();
-    if (!store.get("youtubeApiKey")?.trim() && managedYouTubeApiKey) {
-      store.set("youtubeApiKey", managedYouTubeApiKey);
+    const envYouTubeApiKey = process.env.YOUTUBE_API_KEY?.trim() ?? "";
+    const fallbackYouTubeApiKey = YOUTUBE_MANAGED_API_KEY.trim();
+    if (envYouTubeApiKey) {
+      store.set("youtubeApiKey", envYouTubeApiKey);
+    } else if (!store.get("youtubeApiKey")?.trim() && fallbackYouTubeApiKey) {
+      store.set("youtubeApiKey", fallbackYouTubeApiKey);
     }
   } else {
     store.set({
