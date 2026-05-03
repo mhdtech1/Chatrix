@@ -1,5 +1,6 @@
 @import "../styles.css";
 @import "./variables.css";
+@import "./motion.css";
 @import "./shell.css";
 @import "./topbar.css";
 @import "./tabs.css";

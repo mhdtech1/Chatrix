@@ -2,15 +2,12 @@
   display: grid;
   grid-template-columns: auto minmax(320px, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)),
-    var(--surface-elevated);
-  box-shadow: var(--panel-shadow-lg);
-  backdrop-filter: blur(16px);
+  gap: var(--ui-gap);
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-panel);
+  background: var(--surface-panel);
+  box-shadow: var(--panel-shadow-md);
 }
 
 .topbar-shell__brand-zone,
@@ -47,11 +44,11 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--border-strong);
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--radius-panel);
+  background: var(--surface-app);
+  border: 1px solid var(--border-soft);
 }
 
 .channel-form--shell input,
@@ -60,8 +57,8 @@
 .topbar-shell__refresh,
 .topbar-shell__submit,
 .topbar-shell__menu-trigger {
-  min-height: 46px;
-  border-radius: 14px;
+  min-height: var(--ui-control-height);
+  border-radius: var(--radius-control);
 }
 
 .channel-form--shell input {
@@ -86,12 +83,9 @@
 
 .topbar-shell__submit,
 .topbar-shell__menu-trigger {
-  background: linear-gradient(
-    180deg,
-    rgba(22, 199, 154, 0.18),
-    rgba(22, 199, 154, 0.08)
-  );
+  background: var(--accent-glow);
   border-color: var(--border-accent);
+  color: var(--ink-strong);
 }
 
 .topbar-shell__refresh:hover,
