@@ -7143,43 +7143,136 @@ const MainApp: React.FC = () => {
     return (
       <>
         <div className="login-gate">
-          <div className="login-card">
-            <h1>Chatrix</h1>
-            <p>Sign in to Twitch or Kick to unlock full app features.</p>
-            <div className="login-buttons">
-              <button
-                type="button"
-                onClick={() => void signInTwitch()}
-                disabled={authBusy !== null}
-              >
-                {authBusy === "twitch"
-                  ? "Signing in Twitch..."
-                  : "Sign in Twitch"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void signInKick()}
-                disabled={authBusy !== null}
-              >
-                {kickWriteAuthConfigured
-                  ? authBusy === "kick"
-                    ? "Signing in Kick..."
-                    : "Sign in Kick"
-                  : "Use Kick Read-Only"}
-              </button>
+          <div className="login-card onboarding-card">
+            <div className="onboarding-card__header">
+              <h1>Welcome to Chatrix</h1>
+              <p>
+                Connect a streaming account to read and moderate your chat.
+                You can add more platforms later from Settings.
+              </p>
             </div>
-            <div className="login-buttons">
+            <div className="onboarding-providers">
+              <article
+                className={
+                  "onboarding-provider onboarding-provider--twitch" +
+                  (authBusy === "twitch"
+                    ? " onboarding-provider--busy"
+                    : "")
+                }
+              >
+                <div className="onboarding-provider__body">
+                  <PlatformIcon
+                    platform="twitch"
+                    size="md"
+                    showBackground
+                  />
+                  <div className="onboarding-provider__copy">
+                    <strong>Twitch</strong>
+                    <span>
+                      Read chat, send messages, ban / timeout / unban as
+                      a moderator.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="onboarding-provider__action"
+                  onClick={() => void signInTwitch()}
+                  disabled={authBusy !== null}
+                >
+                  {authBusy === "twitch"
+                    ? "Signing in..."
+                    : "Sign in with Twitch"}
+                </button>
+              </article>
+              <article
+                className={
+                  "onboarding-provider onboarding-provider--kick" +
+                  (authBusy === "kick" ? " onboarding-provider--busy" : "")
+                }
+              >
+                <div className="onboarding-provider__body">
+                  <PlatformIcon
+                    platform="kick"
+                    size="md"
+                    showBackground
+                  />
+                  <div className="onboarding-provider__copy">
+                    <strong>Kick</strong>
+                    <span>
+                      {kickWriteAuthConfigured
+                        ? "Read chat, send messages, run moderator actions."
+                        : "Read-only mode while sending is being set up."}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="onboarding-provider__action"
+                  onClick={() => void signInKick()}
+                  disabled={authBusy !== null}
+                >
+                  {kickWriteAuthConfigured
+                    ? authBusy === "kick"
+                      ? "Signing in..."
+                      : "Sign in with Kick"
+                    : "Use Kick read-only"}
+                </button>
+              </article>
+              {youtubeAlphaEnabled ? (
+                <article
+                  className={
+                    "onboarding-provider onboarding-provider--youtube" +
+                    (authBusy === "youtube"
+                      ? " onboarding-provider--busy"
+                      : "")
+                  }
+                >
+                  <div className="onboarding-provider__body">
+                    <PlatformIcon
+                      platform="youtube"
+                      size="md"
+                      showBackground
+                    />
+                    <div className="onboarding-provider__copy">
+                      <strong>
+                        YouTube{" "}
+                        <span className="onboarding-provider__chip">
+                          alpha
+                        </span>
+                      </strong>
+                      <span>
+                        Read live chat. Sign in to send messages and
+                        moderate.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="onboarding-provider__action"
+                    onClick={() => void signInYouTube()}
+                    disabled={authBusy !== null}
+                  >
+                    {authBusy === "youtube"
+                      ? "Signing in..."
+                      : "Sign in with YouTube"}
+                  </button>
+                </article>
+              ) : null}
+            </div>
+            <div className="onboarding-card__footer">
               <button
                 type="button"
+                className="onboarding-secondary"
                 onClick={() => void enterReadOnlyGuide()}
                 disabled={authBusy !== null}
               >
-                Continue in Read-Only Mode
+                Skip — continue in read-only mode
               </button>
+              {authMessage ? (
+                <p className="login-message">{authMessage}</p>
+              ) : null}
             </div>
-            {authMessage ? (
-              <p className="login-message">{authMessage}</p>
-            ) : null}
           </div>
         </div>
         {updateLockActive ? (

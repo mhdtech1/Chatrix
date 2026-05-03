@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { RefObject, ReactNode } from "react";
 
 const SETTINGS_CATEGORIES = [
-  { key: "workspace", label: "Workspace" },
+  { key: "appearance", label: "Appearance" },
+  { key: "layout", label: "Layout" },
   { key: "moderation", label: "Moderation" },
   { key: "connections", label: "Accounts" },
   { key: "search", label: "Search & Filters" },
@@ -357,7 +358,7 @@ export function ChatShellMenuContent({
   onConfirmSendAllChange,
 }: ChatShellMenuContentProps) {
   const [activeCategory, setActiveCategory] =
-    useState<SettingsCategoryKey>("workspace");
+    useState<SettingsCategoryKey>("appearance");
   return (
     <div className="settings-page">
       <nav className="settings-page__sidebar" aria-label="Settings categories">
@@ -378,10 +379,10 @@ export function ChatShellMenuContent({
         ))}
       </nav>
       <div className="settings-page__content">
-        {activeCategory === "workspace" && (
+        {activeCategory === "appearance" && (
           <MenuSection
-            eyebrow="Workspace"
-            title="Experience, layout, and panel flow"
+            eyebrow="Appearance"
+            title="Theme, density, and chat readability"
           >
             <div className="menu-group">
               <strong>Experience</strong>
@@ -534,7 +535,13 @@ export function ChatShellMenuContent({
                 </label>
               ) : null}
             </div>
-
+          </MenuSection>
+        )}
+        {activeCategory === "layout" && (
+          <MenuSection
+            eyebrow="Layout"
+            title="Panels, tab groups, presets, and stream sync"
+          >
             {isAdvancedMode ? (
               <div className="menu-group">
                 <strong>Panels</strong>

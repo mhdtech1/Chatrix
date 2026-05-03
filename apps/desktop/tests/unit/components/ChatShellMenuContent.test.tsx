@@ -177,7 +177,8 @@ describe("ChatShellMenuContent", () => {
     ).map((node) => node.textContent?.trim());
 
     expect(navLabels).toEqual([
-      "Workspace",
+      "Appearance",
+      "Layout",
       "Moderation",
       "Accounts",
       "Search & Filters",
@@ -185,7 +186,7 @@ describe("ChatShellMenuContent", () => {
       "Updates",
     ]);
 
-    // Workspace is active by default; its workspace-preset radio is rendered.
+    // Appearance is active by default; its workspace-preset radio is rendered.
     expect(screen.getByLabelText("Workspace")).toBeDisabled();
     expect(
       screen.getByText((content) => content.includes("Moderator -> Mod Desk")),
