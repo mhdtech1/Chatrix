@@ -14,6 +14,7 @@ const baseConfig: BrokerConfig = {
   maxBodyBytes: 8 * 1024,
   rateLimitWindowMs: 60_000,
   rateLimitMaxRequests: 60,
+  trustProxy: false,
 };
 
 const activeServers = new Set<Server>();
@@ -116,5 +117,57 @@ describe("kick broker server", () => {
     await expect(second.json()).resolves.toEqual({
       error: "rate_limit_exceeded",
     });
+  });
+
+  it("ignores X-Forwarded-For by default (trustProxy: false)", async () => {
+    const { baseUrl } = await startServer({
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
+      trustProxy: false,
+    });
+
+    const requestInit = (ip: string) => ({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-For": ip,
+      },
+      body: JSON.stringify({
+        clientId: "kick-client",
+      }),
+    }) satisfies RequestInit;
+
+    // Both requests use the same remote address (127.0.0.1) but different X-Forwarded-For
+    const first = await fetch(`${baseUrl}/kick/refresh`, requestInit("1.1.1.1"));
+    expect(first.status).toBe(400);
+
+    const second = await fetch(`${baseUrl}/kick/refresh`, requestInit("2.2.2.2"));
+    expect(second.status).toBe(429); // Should still hit rate limit because X-Forwarded-For is ignored
+  });
+
+  it("respects X-Forwarded-For when trustProxy is true", async () => {
+    const { baseUrl } = await startServer({
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
+      trustProxy: true,
+    });
+
+    const requestInit = (ip: string) => ({
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-For": ip,
+      },
+      body: JSON.stringify({
+        clientId: "kick-client",
+      }),
+    }) satisfies RequestInit;
+
+    // Different X-Forwarded-For IPs should count as different buckets
+    const first = await fetch(`${baseUrl}/kick/refresh`, requestInit("1.1.1.1"));
+    expect(first.status).toBe(400);
+
+    const second = await fetch(`${baseUrl}/kick/refresh`, requestInit("2.2.2.2"));
+    expect(second.status).toBe(400); // Should NOT hit rate limit because X-Forwarded-For is trusted
   });
 });
