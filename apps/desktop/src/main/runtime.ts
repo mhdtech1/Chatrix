@@ -2983,9 +2983,9 @@ const runModerationAction = async (
   throw new Error("Unsupported moderation platform.");
 };
 
-const writeLog = (message: string) => {
-  const formatted = `[${new Date().toISOString()}] ${message}`;
-  console.info(formatted);
+const writeLog = (_message: string) => {
+  // TODO: Implement proper logging library integration here.
+  // For now, logging to the main runtime console is disabled.
 };
 
 let mainWindow: BrowserWindow | null = null;
