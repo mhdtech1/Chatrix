@@ -323,7 +323,7 @@ if (isMainModule) {
   const server = createKickBrokerServer(config);
 
   server.listen(config.port, config.host, () => {
-    console.log(
+    console.info(
       `[kick-broker] listening on http://${config.host}:${config.port}`,
     );
   });
