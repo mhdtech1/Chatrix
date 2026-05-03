@@ -36,7 +36,11 @@ import {
   storeAuthTokens,
 } from "./services/secureStorage.js";
 import { openAuthInBrowser as openLoopbackAuthInBrowser } from "./services/loopbackOAuth.js";
-import { fetchJsonOrThrow } from "./utils/http.js";
+import {
+  DEFAULT_HTML_MAX_BYTES,
+  fetchJsonOrThrow,
+  readResponseTextCapped,
+} from "./utils/http.js";
 import { registerIpcHandlers } from "./ipc/handlers.js";
 import { cleanupLegacyInstallArtifacts } from "./services/legacyInstallCleanup.js";
 import {
@@ -1296,16 +1300,16 @@ const cleanupYouTubeWebSessions = () => {
 const buildYouTubeLiveUrl = (rawInput: string) => {
   const directVideoId = extractYouTubeVideoId(rawInput);
   if (directVideoId) {
-    return `https://www.youtube.com/watch?v=${directVideoId}`;
+    return `https://www.youtube.com/watch?v=${encodeURIComponent(directVideoId)}`;
   }
   const normalized = normalizeYouTubeInput(rawInput);
   if (!normalized) {
     throw new Error("YouTube channel is required.");
   }
   if (normalized.startsWith("UC")) {
-    return `https://www.youtube.com/channel/${normalized}/live`;
+    return `https://www.youtube.com/channel/${encodeURIComponent(normalized)}/live`;
   }
-  return `https://www.youtube.com/@${normalized}/live`;
+  return `https://www.youtube.com/@${encodeURIComponent(normalized)}/live`;
 };
 
 const fetchYouTubeHtml = async (url: string, source: string) => {
@@ -1327,7 +1331,11 @@ const fetchYouTubeHtml = async (url: string, source: string) => {
     throw new Error(`${source} failed (${response.status}).`);
   }
   return {
-    html: await response.text(),
+    html: await readResponseTextCapped(
+      response,
+      DEFAULT_HTML_MAX_BYTES,
+      source,
+    ),
     finalUrl: response.url,
   };
 };
@@ -1418,26 +1426,55 @@ const resolveYouTubeLiveChatViaWeb = async (rawInput: string) => {
     }
   }
 
+  // Defensive format validators. The HTML these regexes scrape comes
+  // from a third party we don't control, so the captured strings flow
+  // back into a privileged POST. Reject anything outside the expected
+  // shape before letting it through.
+  const VALID_API_KEY = /^[A-Za-z0-9_-]{20,80}$/;
+  const VALID_CLIENT_VERSION = /^\d+\.\d+\.\d+(?:\.\d+)*$/;
+  const VALID_TOKEN = /^[A-Za-z0-9_%=\-/+.]+$/;
+  const sanitize = (
+    value: string | null | undefined,
+    pattern: RegExp,
+    maxLen = 4096,
+  ) => {
+    if (!value) return "";
+    if (value.length > maxLen) return "";
+    return pattern.test(value) ? value : "";
+  };
+
   const extractChat = (source: string) => ({
-    apiKey: matchFromHtml(source, /"INNERTUBE_API_KEY":"([^"]+)"/),
-    clientVersion: matchFromHtml(
-      source,
-      /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/,
+    apiKey: sanitize(
+      matchFromHtml(source, /"INNERTUBE_API_KEY":"([^"]+)"/),
+      VALID_API_KEY,
+      80,
     ),
-    visitorData: matchFromHtml(source, /"VISITOR_DATA":"([^"]+)"/),
-    continuation:
+    clientVersion: sanitize(
+      matchFromHtml(source, /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/),
+      VALID_CLIENT_VERSION,
+      32,
+    ),
+    visitorData: sanitize(
+      matchFromHtml(source, /"VISITOR_DATA":"([^"]+)"/),
+      VALID_TOKEN,
+      512,
+    ),
+    continuation: sanitize(
       matchFromHtml(
         source,
         /"reloadContinuationData":\{"continuation":"([^"]+)"/,
       ) ||
-      matchFromHtml(
-        source,
-        /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-      ) ||
-      matchFromHtml(
-        source,
-        /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
-      ),
+        matchFromHtml(
+          source,
+          /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+        ) ||
+        matchFromHtml(
+          source,
+          /"invalidationContinuationData":\{"invalidationId":"[^"]+","invalidationTimeoutMs":[0-9]+,"continuation":"([^"]+)"/,
+        ),
+      VALID_TOKEN,
+      4096,
+    ),
   });
 
   const fromChat = extractChat(chatHtml);

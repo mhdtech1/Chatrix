@@ -1,8 +1,60 @@
+/**
+ * Read a response body as text with a hard byte cap, so a hostile or
+ * mis-redirected endpoint cannot balloon main-process memory.
+ */
+export async function readResponseTextCapped(
+  response: Response,
+  maxBytes: number,
+  source: string,
+): Promise<string> {
+  if (!response.body) return await response.text();
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      received += value.byteLength;
+      if (received > maxBytes) {
+        try {
+          await reader.cancel();
+        } catch {
+          /* ignore */
+        }
+        throw new Error(
+          `${source} response exceeded ${maxBytes} bytes; aborted.`,
+        );
+      }
+      chunks.push(value);
+    }
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      /* ignore */
+    }
+  }
+  const buffer = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    buffer.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder("utf-8").decode(buffer);
+}
+
+export const DEFAULT_JSON_MAX_BYTES = 2 * 1024 * 1024; // 2 MiB
+export const DEFAULT_HTML_MAX_BYTES = 5 * 1024 * 1024; // 5 MiB
+
 export async function fetchJsonOrThrow<T>(
   response: Response,
   source: string,
+  options?: { maxBytes?: number },
 ): Promise<T> {
-  const text = await response.text();
+  const maxBytes = options?.maxBytes ?? DEFAULT_JSON_MAX_BYTES;
+  const text = await readResponseTextCapped(response, maxBytes, source);
   let parsed: unknown = {};
 
   if (text) {
