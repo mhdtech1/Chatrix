@@ -1,59 +1,156 @@
+/*
+ * Chatrix design tokens (Phase 1 of UI overhaul).
+ *
+ * One accent (mint), three surface levels, two border weights, three
+ * radii, three motion durations. Anything outside this set is drift —
+ * call it out before adding more variables.
+ *
+ * Density (compact / comfortable) and theme (dark / light) override
+ * a small subset below.
+ */
+
 :root {
-  --surface-base: rgba(10, 14, 18, 0.9);
-  --surface-elevated: rgba(17, 22, 28, 0.92);
-  --surface-overlay: rgba(19, 25, 31, 0.97);
-  --surface-interactive: rgba(255, 255, 255, 0.04);
-  --surface-interactive-strong: rgba(255, 255, 255, 0.08);
+  /* Surfaces */
+  --surface-app: #0b0e13;
+  --surface-panel: #11151b;
+  --surface-overlay: #161b22;
+
+  /* Interactive surface tints (used for hover/active states) */
+  --surface-interactive: rgba(255, 255, 255, 0.05);
+  --surface-interactive-strong: rgba(255, 255, 255, 0.09);
   --surface-danger: rgba(255, 111, 97, 0.16);
   --surface-danger-strong: rgba(255, 111, 97, 0.28);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --border-accent: rgba(22, 199, 154, 0.45);
-  --ink-soft: rgba(242, 244, 247, 0.88);
-  --ink-muted: rgba(166, 173, 183, 0.88);
-  --ink-faint: rgba(166, 173, 183, 0.6);
+
+  /* Borders — only two weights */
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-accent: rgba(36, 208, 162, 0.45);
+
+  /* Ink (text) */
+  --ink-strong: #eef2f6;
+  --ink-soft: #c5ccd6;
+  --ink-muted: #9aa4b2;
+  --ink-faint: rgba(154, 164, 178, 0.6);
+
+  /* Single accent */
+  --accent: #24d0a2;
   --accent-strong: #20e7b1;
-  --accent-glow: rgba(32, 231, 177, 0.2);
+  --accent-glow: rgba(36, 208, 162, 0.18);
   --warm-glow: rgba(255, 142, 84, 0.18);
+  --danger: #ff6f61;
   --danger-glow: rgba(255, 111, 97, 0.24);
-  --panel-radius-lg: 20px;
-  --panel-radius-md: 14px;
-  --panel-radius-sm: 10px;
-  --panel-shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.28);
-  --panel-shadow-md: 0 14px 36px rgba(0, 0, 0, 0.18);
+
+  /* Radii */
+  --radius-control: 4px;
+  --radius-panel: 8px;
+  --radius-overlay: 12px;
+  /* Back-compat aliases (older sheets reference these names) */
+  --panel-radius-sm: var(--radius-control);
+  --panel-radius-md: var(--radius-panel);
+  --panel-radius-lg: var(--radius-overlay);
+
+  /* Shadows */
+  --panel-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.18);
+  --panel-shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.28);
+
+  /* Spacing */
+  --ui-gap: 8px;
+  --ui-pad: 12px;
+  --ui-control-height: 34px;
+  --chat-row-pad-y: 6px;
+  --chat-row-pad-x: 10px;
+  --chat-row-gap: 6px;
+  --chat-meta-size: 11px;
+  --chat-body-line-height: 1.5;
+  --chat-body-size: 13px;
+
+  /* Type scale */
+  --font-stack:
+    -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, Menlo, monospace;
+
+  /* --- Back-compat aliases ----------------------------------------
+   * The legacy styles.css (3.7k LOC) references the names below.
+   * Keep the aliases so the canonical tokens above are the single
+   * source of truth — old sheets resolve through these. As we migrate
+   * sheets, drop aliases.
+   */
+  --bg-main: var(--surface-app);
+  --bg-panel: var(--surface-panel);
+  --bg-panel-alt: var(--surface-overlay);
+  --bg-soft: var(--surface-app);
+  --bg-pill: var(--surface-panel);
+  --bg-hover: var(--surface-interactive);
+  --surface-base: var(--surface-app);
+  --surface-elevated: var(--surface-panel);
+  --surface-gradient: var(--surface-app);
+  --panel-gradient: var(--surface-panel);
+  --border-medium: var(--border-strong);
+  --text-main: var(--ink-strong);
+  --text-dim: var(--ink-muted);
+  --text-secondary: var(--ink-soft);
+  --accent-blue: var(--accent);
+  --accent-hover: var(--accent-strong);
+  --accent-warm: #ff8e54;
+  --accent-gradient: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    var(--accent-strong) 100%
+  );
+  --btn-solid-bg: var(--surface-interactive);
+  --btn-solid-bg-hover: var(--surface-interactive-strong);
+  --btn-emphasis-bg: var(--accent-glow);
+  --btn-emphasis-bg-hover: var(--accent-glow);
+  --success: var(--accent);
 }
 
+/* --- Density ----------------------------------------------------- */
+:root[data-ui-density="comfortable"] {
+  --ui-gap: 12px;
+  --ui-pad: 16px;
+  --ui-control-height: 40px;
+  --chat-row-pad-y: 10px;
+  --chat-row-pad-x: 14px;
+  --chat-row-gap: 8px;
+  --chat-meta-size: 12px;
+  --chat-body-size: 14px;
+  --chat-body-line-height: 1.55;
+}
+
+/* --- Theme: light ------------------------------------------------ */
 :root[data-theme="light"] {
-  --surface-base: rgba(255, 255, 255, 0.92);
-  --surface-elevated: rgba(247, 250, 253, 0.96);
-  --surface-overlay: rgba(255, 255, 255, 0.98);
+  --surface-app: #f3f6fa;
+  --surface-panel: #ffffff;
+  --surface-overlay: #ffffff;
   --surface-interactive: rgba(16, 33, 49, 0.05);
   --surface-interactive-strong: rgba(16, 33, 49, 0.09);
-  --surface-danger: rgba(215, 77, 67, 0.12);
-  --surface-danger-strong: rgba(215, 77, 67, 0.2);
-  --border-strong: rgba(16, 33, 49, 0.12);
-  --border-accent: rgba(14, 163, 123, 0.3);
-  --ink-soft: rgba(16, 33, 49, 0.92);
-  --ink-muted: rgba(90, 113, 132, 0.88);
-  --ink-faint: rgba(90, 113, 132, 0.62);
-  --accent-strong: #0ea37b;
-  --accent-glow: rgba(14, 163, 123, 0.15);
+  --border-soft: rgba(16, 33, 49, 0.08);
+  --border-strong: rgba(16, 33, 49, 0.14);
+  --border-accent: rgba(14, 163, 123, 0.35);
+  --ink-strong: #102131;
+  --ink-soft: #39495b;
+  --ink-muted: #637285;
+  --ink-faint: rgba(99, 114, 133, 0.7);
+  --accent: #0ea37b;
+  --accent-strong: #0bbb8c;
+  --accent-glow: rgba(14, 163, 123, 0.16);
   --warm-glow: rgba(219, 111, 63, 0.12);
   --danger-glow: rgba(215, 77, 67, 0.18);
-  --panel-shadow-lg: 0 22px 48px rgba(30, 52, 70, 0.14);
-  --panel-shadow-md: 0 12px 30px rgba(30, 52, 70, 0.12);
+  --panel-shadow-md: 0 8px 22px rgba(30, 52, 70, 0.1);
+  --panel-shadow-lg: 0 18px 42px rgba(30, 52, 70, 0.14);
 }
 
+/*
+ * "classic" theme is retained for back-compat with older user
+ * settings; it now resolves to the same dark surfaces with a
+ * slightly warmer ink. Toggle slated for removal in Phase 4.
+ */
 :root[data-theme="classic"] {
-  --surface-base: rgba(17, 29, 35, 0.9);
-  --surface-elevated: rgba(24, 41, 49, 0.92);
-  --surface-overlay: rgba(20, 34, 41, 0.97);
-  --surface-interactive: rgba(232, 243, 249, 0.05);
-  --surface-interactive-strong: rgba(232, 243, 249, 0.1);
-  --surface-danger: rgba(255, 111, 97, 0.14);
-  --surface-danger-strong: rgba(255, 111, 97, 0.22);
-  --border-strong: rgba(146, 173, 187, 0.18);
-  --border-accent: rgba(22, 199, 154, 0.35);
-  --ink-soft: rgba(232, 243, 249, 0.92);
-  --ink-muted: rgba(146, 173, 187, 0.86);
-  --ink-faint: rgba(146, 173, 187, 0.64);
+  --surface-app: #0e1418;
+  --surface-panel: #131b21;
+  --surface-overlay: #18222a;
+  --ink-strong: #e8f3f9;
+  --ink-soft: #c8d6df;
+  --ink-muted: #92adbb;
 }

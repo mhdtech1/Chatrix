@@ -8,3 +8,4 @@ export * from "./ChatShellMenuContent";
 export * from "./ChatShellTabBar";
 export * from "./ChatShellTopBar";
 export * from "./ChatWorkspace";
+export * from "./CommandPalette";

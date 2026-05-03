@@ -1,3 +1,4 @@
+import { connect } from "node:net";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
@@ -14,6 +15,7 @@ const baseConfig: BrokerConfig = {
   maxBodyBytes: 8 * 1024,
   rateLimitWindowMs: 60_000,
   rateLimitMaxRequests: 60,
+  trustProxy: false,
 };
 
 const activeServers = new Set<Server>();
@@ -36,15 +38,42 @@ const startServer = async (overrides: Partial<BrokerConfig> = {}) => {
   const address = server.address() as AddressInfo;
   return {
     server,
+    port: address.port,
     baseUrl: `http://127.0.0.1:${address.port}`,
   };
 };
+
+const sendRawHttpRequest = async (
+  port: number,
+  requestText: string,
+): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const socket = connect(port, "127.0.0.1");
+    let responseText = "";
+
+    socket.setEncoding("utf8");
+    socket.setTimeout(5000, () => {
+      socket.destroy(new Error("Timed out waiting for raw HTTP response."));
+    });
+    socket.on("connect", () => {
+      socket.end(requestText);
+    });
+    socket.on("data", (chunk) => {
+      responseText += chunk;
+    });
+    socket.on("end", () => {
+      resolve(responseText);
+    });
+    socket.on("error", reject);
+  });
 
 afterEach(async () => {
   await Promise.all(
     [...activeServers].map(
       (server) =>
         new Promise<void>((resolve) => {
+          server.closeIdleConnections?.();
+          server.closeAllConnections?.();
           server.close(() => resolve());
         }),
     ),
@@ -73,6 +102,28 @@ describe("kick broker server", () => {
     await expect(response.json()).resolves.toEqual({
       error: "request_body_too_large",
     });
+  });
+
+  it("rejects declared oversized content length before reading the body", async () => {
+    const { port } = await startServer({
+      maxBodyBytes: 64,
+    });
+
+    const responseText = await sendRawHttpRequest(
+      port,
+      [
+        "POST /kick/refresh HTTP/1.1",
+        `Host: 127.0.0.1:${port}`,
+        "Content-Type: application/json",
+        "Content-Length: 65",
+        "Connection: close",
+        "",
+        "",
+      ].join("\r\n"),
+    );
+
+    expect(responseText).toContain("HTTP/1.1 413");
+    expect(responseText).toContain("request_body_too_large");
   });
 
   it("rejects browser origins that are not explicitly allowed", async () => {
@@ -110,11 +161,82 @@ describe("kick broker server", () => {
 
     const first = await fetch(`${baseUrl}/kick/refresh`, requestInit);
     expect(first.status).toBe(400);
+    await first.text();
 
     const second = await fetch(`${baseUrl}/kick/refresh`, requestInit);
     expect(second.status).toBe(429);
     await expect(second.json()).resolves.toEqual({
       error: "rate_limit_exceeded",
     });
+  });
+
+  it("ignores X-Forwarded-For by default", async () => {
+    const { baseUrl } = await startServer({
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
+      trustProxy: false,
+    });
+
+    const requestInit = (ip: string) =>
+      ({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Forwarded-For": ip,
+        },
+        body: JSON.stringify({
+          clientId: "kick-client",
+        }),
+      }) satisfies RequestInit;
+
+    const first = await fetch(
+      `${baseUrl}/kick/refresh`,
+      requestInit("1.1.1.1"),
+    );
+    expect(first.status).toBe(400);
+    await first.text();
+
+    const second = await fetch(
+      `${baseUrl}/kick/refresh`,
+      requestInit("2.2.2.2"),
+    );
+    expect(second.status).toBe(429);
+    await expect(second.json()).resolves.toEqual({
+      error: "rate_limit_exceeded",
+    });
+  });
+
+  it("respects X-Forwarded-For when trustProxy is true", async () => {
+    const { baseUrl } = await startServer({
+      rateLimitMaxRequests: 1,
+      rateLimitWindowMs: 60_000,
+      trustProxy: true,
+    });
+
+    const requestInit = (ip: string) =>
+      ({
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Forwarded-For": ip,
+        },
+        body: JSON.stringify({
+          clientId: "kick-client",
+        }),
+      }) satisfies RequestInit;
+
+    const first = await fetch(
+      `${baseUrl}/kick/refresh`,
+      requestInit("1.1.1.1"),
+    );
+    expect(first.status).toBe(400);
+    await first.text();
+
+    const second = await fetch(
+      `${baseUrl}/kick/refresh`,
+      requestInit("2.2.2.2"),
+    );
+    expect(second.status).toBe(400);
+    await second.text();
   });
 });

@@ -1,12 +1,55 @@
+.settings-page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(8px);
+  animation: settings-page-fade var(--motion-fast) var(--motion-ease);
+}
+
+@keyframes settings-page-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .menu-dropdown-panel--portal {
-  width: min(1120px, calc(100vw - 40px));
-  max-height: min(82vh, 920px);
+  /* Reset legacy popover positioning from styles.css */
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  bottom: auto;
+  margin: 0;
+  width: min(1080px, calc(100vw - 48px));
+  max-width: 100%;
+  height: min(82vh, 880px);
+  max-height: none;
+  display: grid;
+  grid-template-rows: auto 1fr;
   padding: 16px;
-  border-radius: 22px;
+  border-radius: var(--radius-overlay);
   border: 1px solid var(--border-strong);
   background: var(--surface-overlay);
   box-shadow: var(--panel-shadow-lg);
-  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+/* Make sure the body fills the panel and lets the inner sidebar
+   layout grid actually shrink to fit. */
+.menu-dropdown-panel--portal .menu-panel-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.menu-dropdown-panel--portal .settings-page__content {
+  overflow-y: auto;
 }
 
 .menu-panel-header {
@@ -77,9 +120,9 @@
   align-content: start;
   gap: 10px;
   padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--border-strong);
-  background: rgba(255, 255, 255, 0.025);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-interactive);
 }
 
 .menu-group > strong,
@@ -126,8 +169,8 @@
   display: grid;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
   background: var(--surface-interactive);
 }
 
@@ -148,14 +191,66 @@
   color: #ff9187;
 }
 
+.settings-page {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--ui-gap);
+  min-height: 0;
+}
+
+.settings-page__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-app);
+  align-self: start;
+  position: sticky;
+  top: 0;
+}
+
+.settings-page__nav-item {
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.settings-page__nav-item:hover {
+  background: var(--surface-interactive);
+  color: var(--ink-strong);
+}
+
+.settings-page__nav-item--active {
+  background: var(--accent-glow);
+  color: var(--ink-strong);
+}
+
+.settings-page__content {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  align-content: start;
+}
+
 .release-notes-preview {
   margin: 0;
   max-height: 180px;
   overflow: auto;
   padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-strong);
-  background: rgba(0, 0, 0, 0.16);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-app);
   color: var(--ink-muted);
   white-space: pre-wrap;
 }

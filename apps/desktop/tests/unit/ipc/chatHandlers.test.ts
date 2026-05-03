@@ -90,5 +90,48 @@ describe("createChatHandlers", () => {
       pageToken: "pt",
     });
   });
+
+  it("rejects invalid moderation payloads before dispatch", async () => {
+    const runModerationAction = vi.fn();
+    const handlers = createChatHandlers({
+      store: createMockSettingsStore() as never,
+      normalizeLogin: (value) => value.trim().toLowerCase(),
+      runModerationAction,
+      canModerateTwitchChannel: vi.fn(),
+      canModerateYouTubeChannel: vi.fn(),
+      canModerateKickChannel: vi.fn(),
+      resolveKickChannelLookup: vi.fn(),
+      parseKickChatroomId: vi.fn(),
+      assertYouTubeAlphaEnabled: vi.fn(),
+      resolveYouTubeLiveChat: vi.fn(),
+      fetchYouTubeWebLiveMessages: vi.fn(),
+      youtubeFetchReadOnly: vi.fn(),
+      youtubeFetchWithAuth: vi.fn(),
+      fetchJsonOrThrow: vi.fn(),
+    });
+
+    await expect(
+      handlers[IPC_CHANNELS.MODERATION_ACT](
+        {} as never,
+        {
+          platform: "browser",
+          channel: "mazen",
+          action: "delete",
+        } as never,
+      ),
+    ).rejects.toThrow("Moderation platform is required.");
+
+    await expect(
+      handlers[IPC_CHANNELS.MODERATION_ACT](
+        {} as never,
+        {
+          platform: "twitch",
+          channel: "mazen",
+          action: "wave",
+        } as never,
+      ),
+    ).rejects.toThrow("Moderation action is required.");
+    expect(runModerationAction).not.toHaveBeenCalled();
+  });
 });
 

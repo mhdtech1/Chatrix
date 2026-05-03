@@ -1,0 +1,387 @@
+/*
+ * modern.css — component-level visual refinements layered on top of
+ * the canonical token system in variables.css.
+ *
+ * This file used to redefine all the design tokens itself; tokens now
+ * live in variables.css so themes/density/back-compat aliases stay in
+ * one place. Keep this file scoped to component styling only.
+ */
+
+body {
+  background: var(--bg-main);
+  letter-spacing: 0;
+}
+
+/*
+ * Simple mode: hide always-visible chrome that overwhelms new users.
+ * The Cmd-K command palette and the in-tab menus replace the missing
+ * affordances; advanced users can flip back via Settings -> Workspace.
+ */
+.chat-shell.simple .account-strip,
+.chat-shell.simple .analytics-strip,
+.chat-shell.simple .quick-actions-row,
+.chat-shell.simple .quick-mod-panel--action-rail,
+.chat-shell.simple .dock-sidebar {
+  display: none !important;
+}
+
+/*
+ * Compact stack: topbar + tab bar render as one continuous chrome
+ * unit instead of two separate panels with their own borders.
+ */
+.chat-shell {
+  gap: 0;
+}
+
+.main-layout,
+.main-layout-primary {
+  gap: 0;
+}
+
+.nav-strip {
+  margin-top: 0;
+}
+
+.chat-shell {
+  gap: var(--ui-gap);
+  padding: var(--ui-gap);
+  background: var(--bg-main);
+}
+
+.main-layout,
+.main-layout-primary {
+  gap: var(--ui-gap);
+}
+
+.topbar-shell,
+.nav-strip,
+.chat-main,
+.composer--main,
+.dock-sidebar,
+.toolbar,
+.active-tab-meta,
+.analytics-strip,
+.quick-actions-row,
+.account-strip {
+  border-radius: var(--panel-radius-lg);
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
+  box-shadow: var(--panel-shadow-md);
+}
+
+.topbar-shell {
+  grid-template-columns: minmax(180px, auto) minmax(280px, 1fr) auto;
+  padding: var(--ui-pad);
+  backdrop-filter: none;
+}
+
+.brand-block--broadcast h1 {
+  font-size: 1.08rem;
+  letter-spacing: 0;
+}
+
+.brand-block--broadcast p {
+  display: none;
+}
+
+.brand-block__eyebrow,
+.menu-section-eyebrow,
+.quick-mod-panel__label {
+  letter-spacing: 0.08em;
+}
+
+.channel-form--shell,
+.nav-strip,
+.composer--main {
+  padding: 6px;
+}
+
+.channel-form--shell {
+  border-radius: var(--panel-radius-lg);
+  background: var(--surface-base);
+}
+
+.channel-form--shell input,
+.channel-form__detected-platform,
+.channel-form--shell button,
+.platform-picker summary,
+.topbar-shell__refresh,
+.topbar-shell__submit,
+.topbar-shell__menu-trigger,
+.composer-main__target,
+.composer-main__snippets,
+.composer-main__message,
+.composer-main__send,
+.quick-action-button,
+.menu-group button,
+.menu-submenu button,
+.menu-group input,
+.menu-group select {
+  min-height: var(--ui-control-height);
+  border-radius: var(--panel-radius-sm);
+}
+
+.topbar-shell__submit,
+.topbar-shell__menu-trigger,
+.composer-main__send {
+  background: var(--btn-emphasis-bg);
+  border-color: var(--border-accent);
+  color: var(--ink-soft);
+}
+
+.nav-strip .tab {
+  border-radius: var(--panel-radius-sm);
+}
+
+.tab-select {
+  min-height: var(--ui-control-height);
+  padding: 0 10px;
+}
+
+.tab-close {
+  width: 26px;
+  height: 26px;
+}
+
+.chat-main {
+  background: var(--surface-base);
+  overflow: hidden;
+}
+
+.chat-main > .message-list,
+.message-list,
+.message-list.virtualized {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px;
+  scrollbar-gutter: stable;
+}
+
+.message-list-container {
+  flex: 1;
+  min-height: 0;
+}
+
+.message-list .chat-line,
+.message-list .chat-line--legacy {
+  --chat-line-accent: transparent;
+  margin: 0;
+  padding: var(--chat-row-pad-y) var(--chat-row-pad-x);
+  border: 0;
+  border-radius: var(--panel-radius-sm);
+  background: transparent;
+  box-shadow: inset 2px 0 0
+    color-mix(in srgb, var(--chat-line-accent), transparent 42%);
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.message-list .chat-line:hover,
+.message-list .chat-line--legacy:hover {
+  background: var(--bg-hover);
+  transform: none;
+}
+
+.message-list .chat-line:nth-child(even),
+.message-list .chat-line--legacy:nth-child(even) {
+  background: transparent;
+}
+
+.message-list .chat-line.highlight,
+.message-list .chat-line--highlighted {
+  border: 0;
+  background: color-mix(in srgb, var(--accent-warm), transparent 86%);
+  box-shadow:
+    inset 2px 0 0 var(--accent-warm),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent-warm), transparent 76%);
+}
+
+.chat-line--legacy .chat-line__content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "author meta"
+    "message message";
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.chat-line--legacy .line-meta {
+  grid-area: meta;
+  justify-content: end;
+  min-width: 0;
+  color: var(--ink-faint);
+  font-size: calc(var(--chat-meta-size) * var(--chat-text-scale));
+  white-space: nowrap;
+}
+
+.chat-line--legacy .line-author {
+  grid-area: author;
+  min-width: 0;
+  gap: var(--chat-row-gap);
+}
+
+.chat-line--legacy .line-message {
+  grid-area: message;
+  min-width: 0;
+  color: var(--ink-soft);
+  line-height: var(--chat-body-line-height);
+  overflow-wrap: anywhere;
+}
+
+.chat-line:not(.chat-line--legacy) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.chat-line__header {
+  min-height: 18px;
+  margin-bottom: 2px;
+}
+
+.chat-line__author,
+.username-button {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line-message,
+.chat-line__message {
+  line-height: var(--chat-body-line-height);
+}
+
+.chat-line__time {
+  font-size: calc(var(--chat-meta-size) * var(--chat-text-scale));
+}
+
+.platform,
+.source-chip,
+.analytics-chip,
+.account-pill,
+.top-mention-pill,
+.tab-badge {
+  border-radius: 999px;
+}
+
+.message-badge-image,
+.chat-line__badge-image {
+  width: 17px;
+  height: 17px;
+}
+
+.inline-emote {
+  height: 1.4em;
+  border-radius: 4px;
+  vertical-align: -0.25em;
+}
+
+.chat-message-link {
+  color: #8fc7ff;
+  text-decoration-thickness: 1px;
+}
+
+.chat-unread-marker {
+  margin: 8px 0;
+  border: 0;
+  color: var(--accent-strong);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.go-newest-button {
+  min-width: min(100%, 300px);
+  min-height: 34px;
+  margin: 0 auto 8px;
+  border-radius: 999px;
+  background: var(--btn-emphasis-bg);
+  border-color: var(--border-accent);
+  box-shadow: var(--panel-shadow-md);
+}
+
+.composer--main {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  padding: 8px;
+}
+
+.menu-dropdown-panel--portal {
+  border-radius: var(--panel-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.menu-group {
+  border-radius: var(--panel-radius-lg);
+  background: var(--surface-base);
+}
+
+.menu-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--panel-radius-sm);
+  background: var(--surface-interactive);
+}
+
+.menu-group .menu-segmented__option {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.menu-group .menu-segmented__option.active {
+  border-color: var(--border-accent);
+  background: var(--btn-emphasis-bg);
+  color: var(--ink-soft);
+}
+
+/*
+ * `data-ui-visual-mode="command"` is deprecated and will be removed
+ * in Phase 4. The toggle still writes the attribute but it no longer
+ * produces a distinct look; both modes resolve to the same canonical
+ * theme tokens.
+ */
+
+:root[data-ui-density="comfortable"] .chat-line--legacy .chat-line__content {
+  gap: 5px 12px;
+}
+
+@media (max-width: 920px) {
+  .topbar-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar-shell__actions {
+    justify-content: space-between;
+  }
+
+  .chat-line--legacy .chat-line__content {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "author"
+      "meta"
+      "message";
+  }
+
+  .chat-line--legacy .line-meta {
+    justify-content: start;
+    white-space: normal;
+  }
+
+  .composer--main {
+    grid-template-columns: 1fr;
+  }
+}

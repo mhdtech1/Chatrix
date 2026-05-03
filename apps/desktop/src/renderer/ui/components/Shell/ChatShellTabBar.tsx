@@ -20,6 +20,25 @@ export type ChatShellTabBarProps = {
   onContextMenu: (tabId: string, position: { x: number; y: number }) => void;
 };
 
+const pluralize = (count: number, singular: string) =>
+  `${count} ${singular}${count === 1 ? "" : "s"}`;
+
+const getTabLabel = (item: ChatShellTabItem) => {
+  const parts = [item.label];
+
+  if (item.platform) parts.push(item.platform);
+  if (item.group) parts.push(`group ${item.group}`);
+  if (item.groupMuted) parts.push("muted group");
+  if (item.mentionCount > 0) {
+    parts.push(pluralize(item.mentionCount, "mention"));
+  }
+  if (item.unreadCount > 0) {
+    parts.push(pluralize(item.unreadCount, "unread message"));
+  }
+
+  return parts.join(", ");
+};
+
 export function ChatShellTabBar({
   items,
   onSelect,
@@ -27,7 +46,7 @@ export function ChatShellTabBar({
   onContextMenu,
 }: ChatShellTabBarProps) {
   return (
-    <nav className="tabbar nav-strip">
+    <nav className="tabbar nav-strip" aria-label="Channel tabs">
       {items.map((item) => (
         <div
           key={item.id}
@@ -47,6 +66,8 @@ export function ChatShellTabBar({
           <button
             type="button"
             className="tab-select"
+            aria-label={getTabLabel(item)}
+            aria-current={item.active ? "page" : undefined}
             onClick={() => onSelect(item.id)}
           >
             {item.platform ? (
@@ -80,12 +101,14 @@ export function ChatShellTabBar({
           <button
             type="button"
             className="tab-close"
+            aria-label={`Close tab ${item.label}`}
+            title={`Close ${item.label}`}
             onClick={(event) => {
               event.stopPropagation();
               onClose(item.id);
             }}
           >
-            ×
+            <span aria-hidden="true">x</span>
           </button>
         </div>
       ))}
