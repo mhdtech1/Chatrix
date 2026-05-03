@@ -1406,7 +1406,10 @@ const resolveYouTubeLiveChatViaWeb = async (rawInput: string) => {
   let chatHtml = "";
   try {
     chatHtml = (
-      await fetchYouTubeHtml(liveChatPopoutUrl, "YouTube live chat popup lookup")
+      await fetchYouTubeHtml(
+        liveChatPopoutUrl,
+        "YouTube live chat popup lookup",
+      )
     ).html;
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
@@ -1417,10 +1420,16 @@ const resolveYouTubeLiveChatViaWeb = async (rawInput: string) => {
 
   const extractChat = (source: string) => ({
     apiKey: matchFromHtml(source, /"INNERTUBE_API_KEY":"([^"]+)"/),
-    clientVersion: matchFromHtml(source, /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/),
+    clientVersion: matchFromHtml(
+      source,
+      /"INNERTUBE_CLIENT_VERSION":"([^"]+)"/,
+    ),
     visitorData: matchFromHtml(source, /"VISITOR_DATA":"([^"]+)"/),
     continuation:
-      matchFromHtml(source, /"reloadContinuationData":\{"continuation":"([^"]+)"/) ||
+      matchFromHtml(
+        source,
+        /"reloadContinuationData":\{"continuation":"([^"]+)"/,
+      ) ||
       matchFromHtml(
         source,
         /"timedContinuationData":\{"timeoutMs":[0-9]+,"continuation":"([^"]+)"/,
@@ -3792,7 +3801,8 @@ app.whenReady().then(async () => {
     ) {
       store.set("youtubeClientId", fallbackYouTubeClientId);
     }
-    const envYouTubeRedirectUri = process.env.YOUTUBE_REDIRECT_URI?.trim() ?? "";
+    const envYouTubeRedirectUri =
+      process.env.YOUTUBE_REDIRECT_URI?.trim() ?? "";
     if (envYouTubeRedirectUri) {
       store.set("youtubeRedirectUri", envYouTubeRedirectUri);
     } else if (
@@ -3805,10 +3815,7 @@ app.whenReady().then(async () => {
     const fallbackYouTubeApiKey = YOUTUBE_MANAGED_API_KEY.trim();
     if (envYouTubeApiKey) {
       store.set("youtubeApiKey", envYouTubeApiKey);
-    } else if (
-      !store.get("youtubeApiKey")?.trim() &&
-      fallbackYouTubeApiKey
-    ) {
+    } else if (!store.get("youtubeApiKey")?.trim() && fallbackYouTubeApiKey) {
       store.set("youtubeApiKey", fallbackYouTubeApiKey);
     }
   } else {
