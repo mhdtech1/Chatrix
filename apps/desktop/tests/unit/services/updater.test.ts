@@ -10,7 +10,7 @@ describe("updater service", () => {
         state: "idle",
         message: "Checking for updates shortly...",
         channel: "stable",
-        currentVersion: "1.0.0"
+        currentVersion: "1.0.0",
       });
     });
 
@@ -21,7 +21,7 @@ describe("updater service", () => {
         state: "idle",
         message: "Checking for updates shortly...",
         channel: "beta",
-        currentVersion: "2.0.0-beta.1"
+        currentVersion: "2.0.0-beta.1",
       });
     });
   });

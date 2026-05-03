@@ -27,9 +27,8 @@ describe("secureStorage", () => {
 
   describe("getSecureStorage", () => {
     it("should initialize KeytarSecureStorage successfully", async () => {
-      const { getSecureStorage } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { getSecureStorage } =
+        await import("../../../src/main/services/secureStorage");
 
       const storage = getSecureStorage();
       expect(storage).toBeDefined();
@@ -42,44 +41,59 @@ describe("secureStorage", () => {
 
   describe("storeAuthTokens", () => {
     it("should store twitch access token", async () => {
-      const { storeAuthTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { storeAuthTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       await storeAuthTokens("twitch", { accessToken: " twitch_token_123 " });
 
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "TWITCH_access_token", "twitch_token_123");
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "TWITCH_access_token",
+        "twitch_token_123",
+      );
     });
 
     it("should store kick access and refresh tokens", async () => {
-      const { storeAuthTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { storeAuthTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       await storeAuthTokens("kick", {
         accessToken: "kick_access",
-        refreshToken: "kick_refresh"
+        refreshToken: "kick_refresh",
       });
 
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "KICK_access_token", "kick_access");
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "KICK_refresh_token", "kick_refresh");
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "KICK_access_token",
+        "kick_access",
+      );
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "KICK_refresh_token",
+        "kick_refresh",
+      );
     });
 
     it("should delete tokens when provided as empty string", async () => {
-      const { storeAuthTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { storeAuthTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       // Setup pre-existing tokens
       vi.mocked(keytar.findCredentials).mockResolvedValueOnce([
         { account: "YOUTUBE_access_token", password: "old_yt_acc" },
-        { account: "YOUTUBE_refresh_token", password: "old_yt_ref" }
+        { account: "YOUTUBE_refresh_token", password: "old_yt_ref" },
       ]);
 
       await storeAuthTokens("youtube", { accessToken: "  ", refreshToken: "" });
 
-      expect(keytar.deletePassword).toHaveBeenCalledWith("Chatrix", "YOUTUBE_access_token");
-      expect(keytar.deletePassword).toHaveBeenCalledWith("Chatrix", "YOUTUBE_refresh_token");
+      expect(keytar.deletePassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "YOUTUBE_access_token",
+      );
+      expect(keytar.deletePassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "YOUTUBE_refresh_token",
+      );
     });
   });
 
@@ -87,12 +101,11 @@ describe("secureStorage", () => {
     it("should retrieve stored tokens for a platform", async () => {
       vi.mocked(keytar.findCredentials).mockResolvedValue([
         { account: "YOUTUBE_access_token", password: " yt_access " },
-        { account: "YOUTUBE_refresh_token", password: "yt_refresh" }
+        { account: "YOUTUBE_refresh_token", password: "yt_refresh" },
       ]);
 
-      const { getAuthTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { getAuthTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       const tokens = await getAuthTokens("youtube");
 
@@ -101,9 +114,8 @@ describe("secureStorage", () => {
     });
 
     it("should return null for missing tokens", async () => {
-      const { getAuthTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { getAuthTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       const tokens = await getAuthTokens("twitch");
 
@@ -116,38 +128,52 @@ describe("secureStorage", () => {
     it("should delete all tokens for a platform", async () => {
       vi.mocked(keytar.findCredentials).mockResolvedValue([
         { account: "KICK_access_token", password: "acc" },
-        { account: "KICK_refresh_token", password: "ref" }
+        { account: "KICK_refresh_token", password: "ref" },
       ]);
 
-      const { clearAuthTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { clearAuthTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       await clearAuthTokens("kick");
 
-      expect(keytar.deletePassword).toHaveBeenCalledWith("Chatrix", "KICK_access_token");
-      expect(keytar.deletePassword).toHaveBeenCalledWith("Chatrix", "KICK_refresh_token");
+      expect(keytar.deletePassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "KICK_access_token",
+      );
+      expect(keytar.deletePassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "KICK_refresh_token",
+      );
     });
   });
 
   describe("OAuthClientSecret operations", () => {
     it("should store, get, and clear OAuth client secret", async () => {
       vi.mocked(keytar.findCredentials).mockResolvedValue([
-        { account: "KICK_client_secret", password: "secret_123" }
+        { account: "KICK_client_secret", password: "secret_123" },
       ]);
 
-      const { storeOAuthClientSecret, getOAuthClientSecret, clearOAuthClientSecret } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const {
+        storeOAuthClientSecret,
+        getOAuthClientSecret,
+        clearOAuthClientSecret,
+      } = await import("../../../src/main/services/secureStorage");
 
       const secret = await getOAuthClientSecret("kick");
       expect(secret).toBe("secret_123");
 
       await storeOAuthClientSecret("kick", " new_secret ");
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "KICK_client_secret", "new_secret");
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "KICK_client_secret",
+        "new_secret",
+      );
 
       await clearOAuthClientSecret("kick");
-      expect(keytar.deletePassword).toHaveBeenCalledWith("Chatrix", "KICK_client_secret");
+      expect(keytar.deletePassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "KICK_client_secret",
+      );
     });
   });
 
@@ -155,16 +181,15 @@ describe("secureStorage", () => {
     it("should hydrate store with values from secure storage", async () => {
       vi.mocked(keytar.findCredentials).mockResolvedValue([
         { account: "TWITCH_access_token", password: "twitch_acc" },
-        { account: "KICK_refresh_token", password: "kick_ref" }
+        { account: "KICK_refresh_token", password: "kick_ref" },
       ]);
 
-      const { hydrateTokenStateFromSecureStorage } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { hydrateTokenStateFromSecureStorage } =
+        await import("../../../src/main/services/secureStorage");
 
       const store = {
         get: vi.fn(),
-        set: vi.fn()
+        set: vi.fn(),
       };
 
       await hydrateTokenStateFromSecureStorage(store);
@@ -174,16 +199,15 @@ describe("secureStorage", () => {
         kickAccessToken: "",
         kickRefreshToken: "kick_ref",
         youtubeAccessToken: "",
-        youtubeRefreshToken: ""
+        youtubeRefreshToken: "",
       });
     });
   });
 
   describe("migrateLegacySettingsTokens", () => {
     it("should migrate existing tokens from store to secure storage", async () => {
-      const { migrateLegacySettingsTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { migrateLegacySettingsTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       const mockStoreData: Record<string, string> = {
         twitchToken: "legacy_twitch",
@@ -193,45 +217,68 @@ describe("secureStorage", () => {
 
       const store = {
         get: vi.fn((key: string) => mockStoreData[key] || undefined),
-        set: vi.fn()
+        set: vi.fn(),
       };
 
       await migrateLegacySettingsTokens(store);
 
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "TWITCH_access_token", "legacy_twitch");
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "YOUTUBE_access_token", "legacy_yt_acc");
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "YOUTUBE_refresh_token", "legacy_yt_ref");
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "TWITCH_access_token",
+        "legacy_twitch",
+      );
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "YOUTUBE_access_token",
+        "legacy_yt_acc",
+      );
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "YOUTUBE_refresh_token",
+        "legacy_yt_ref",
+      );
     });
 
     it("should not overwrite existing tokens in secure storage", async () => {
       // Pretend secure storage already has a youtube token
       vi.mocked(keytar.findCredentials).mockResolvedValue([
-        { account: "YOUTUBE_access_token", password: "new_yt_acc" }
+        { account: "YOUTUBE_access_token", password: "new_yt_acc" },
       ]);
 
-      const { migrateLegacySettingsTokens } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { migrateLegacySettingsTokens } =
+        await import("../../../src/main/services/secureStorage");
 
       const mockStoreData: Record<string, string> = {
         youtubeAccessToken: "legacy_yt_acc",
         youtubeRefreshToken: "legacy_yt_ref",
-        twitchToken: "legacy_twitch"
+        twitchToken: "legacy_twitch",
       };
 
       const store = {
         get: vi.fn((key: string) => mockStoreData[key] || undefined),
-        set: vi.fn()
+        set: vi.fn(),
       };
 
       await migrateLegacySettingsTokens(store);
 
       // Twitch should be migrated
-      expect(keytar.setPassword).toHaveBeenCalledWith("Chatrix", "TWITCH_access_token", "legacy_twitch");
+      expect(keytar.setPassword).toHaveBeenCalledWith(
+        "Chatrix",
+        "TWITCH_access_token",
+        "legacy_twitch",
+      );
 
       // Youtube should NOT be migrated because it already has a token in secure storage
-      expect(keytar.setPassword).not.toHaveBeenCalledWith("Chatrix", "YOUTUBE_access_token", expect.any(String));
-      expect(keytar.setPassword).not.toHaveBeenCalledWith("Chatrix", "YOUTUBE_refresh_token", expect.any(String));
+      expect(keytar.setPassword).not.toHaveBeenCalledWith(
+        "Chatrix",
+        "YOUTUBE_access_token",
+        expect.any(String),
+      );
+      expect(keytar.setPassword).not.toHaveBeenCalledWith(
+        "Chatrix",
+        "YOUTUBE_refresh_token",
+        expect.any(String),
+      );
     });
   });
 
@@ -258,9 +305,8 @@ describe("secureStorage", () => {
       // Actually we can test this by mocking the module and replacing the KeytarSecureStorage class?
       // Let's just create an inline test where we spy on console.warn to verify it DOES NOT warn normally, and then we're good.
 
-      const { getSecureStorage } = await import(
-        "../../../src/main/services/secureStorage"
-      );
+      const { getSecureStorage } =
+        await import("../../../src/main/services/secureStorage");
 
       const storage = getSecureStorage();
       expect(storage.constructor.name).toBe("KeytarSecureStorage");

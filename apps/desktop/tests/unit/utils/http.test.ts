@@ -33,9 +33,12 @@ describe("fetchJsonOrThrow", () => {
 
   describe("when response is not ok", () => {
     it("throws with payload.message if available", async () => {
-      const response = createMockResponse('{"message":"custom error message"}', {
-        ok: false,
-      });
+      const response = createMockResponse(
+        '{"message":"custom error message"}',
+        {
+          ok: false,
+        },
+      );
       await expect(fetchJsonOrThrow(response, "test")).rejects.toThrow(
         "custom error message",
       );

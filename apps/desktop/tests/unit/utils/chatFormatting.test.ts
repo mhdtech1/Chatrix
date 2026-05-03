@@ -9,7 +9,7 @@ import {
   CHAT_TEXT_SCALE_MAX,
   createId,
   platformIconGlyph,
-  platformDisplayName
+  platformDisplayName,
 } from "../../../src/renderer/utils/chatFormatting";
 
 describe("chatFormatting utilities", () => {
@@ -51,20 +51,26 @@ describe("chatFormatting utilities", () => {
     it("returns expired text for times in the past", () => {
       const pastTime = new Date("2023-01-01T11:00:00Z").getTime();
       const pastDate = new Date(pastTime);
-      expect(formatOptionalExpiry(pastTime)).toBe(`${pastDate.toLocaleString()} (expired)`);
+      expect(formatOptionalExpiry(pastTime)).toBe(
+        `${pastDate.toLocaleString()} (expired)`,
+      );
     });
 
     it("returns time left for times in the future", () => {
       // 5 minutes in the future
       const futureTime = new Date("2023-01-01T12:05:00Z").getTime();
       const futureDate = new Date(futureTime);
-      expect(formatOptionalExpiry(futureTime)).toBe(`${futureDate.toLocaleString()} (5m left)`);
+      expect(formatOptionalExpiry(futureTime)).toBe(
+        `${futureDate.toLocaleString()} (5m left)`,
+      );
     });
 
     it("returns expired for exactly current time", () => {
       const now = Date.now();
       const nowDate = new Date(now);
-      expect(formatOptionalExpiry(now)).toBe(`${nowDate.toLocaleString()} (expired)`);
+      expect(formatOptionalExpiry(now)).toBe(
+        `${nowDate.toLocaleString()} (expired)`,
+      );
     });
   });
 
@@ -105,7 +111,7 @@ describe("chatFormatting utilities", () => {
               arr[i] = Math.floor(Math.random() * 256);
             }
             return arr;
-          }
+          },
         } as any;
       }
     });
