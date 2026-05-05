@@ -105,6 +105,7 @@ export type AppSettings = {
   autoBanOnMessage?: boolean;
   confirmSendAll?: boolean;
   updateChannel?: UpdateChannel;
+  autoDownloadUpdates?: boolean;
   tabAlertRules?: Record<string, TabAlertRule>;
   columns?: number;
   hideCommands?: boolean;
