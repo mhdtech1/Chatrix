@@ -92,6 +92,29 @@ import {
   platformIconGlyph,
 } from "../../utils/chatFormatting";
 import { parseChannelInput } from "../../utils/channelInput";
+import {
+  RECENT_CHAT_SAVE_DEBOUNCE_MS,
+  TWITCH_REMOTE_HISTORY_LIMIT,
+  TWITCH_REMOTE_HISTORY_URL,
+  TwitchRemoteHistoryPayload,
+  isHistoryPlatform,
+  normalizeRecentHistoryMessage,
+  pruneRecentHistoryMessages,
+  readRecentHistoryPayload,
+  writeRecentHistoryPayload,
+} from "../utils/history";
+import { fetchJsonSafe } from "../utils/history";
+import {
+  EmoteMap,
+  fetchBttvGlobalEmotes,
+  fetchSevenTvGlobalEmotes,
+  fetchKickGlobalEmotes,
+  fetchTwitchThirdPartyEmotesByUserId,
+  fetchTwitchThirdPartyEmotes,
+  hasAnyEmotes,
+  buildMessageChunks,
+} from "../utils/emotes";
+import { MESSAGE_LINK_REGEX } from "../utils/history";
 
 const hotkeys = {
   focusSearch: "Control+Shift+F",
@@ -827,7 +850,7 @@ const sanitizeSessionTabs = (
   return restored;
 };
 
-const asRecord = (value: unknown): Record<string, unknown> | null => {
+export const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== "object") return null;
   return value as Record<string, unknown>;
 };
@@ -1121,39 +1144,6 @@ const collapseFanoutLocalEchoes = (messages: ChatMessage[]): ChatMessage[] => {
 
   return collapsed;
 };
-
-type EmoteMap = Record<string, string>;
-type EmoteResolver = (token: string) => string | undefined;
-
-type MessageChunk =
-  | {
-      type: "text";
-      value: string;
-    }
-  | {
-      type: "emote";
-      name: string;
-      url: string;
-    };
-
-type TwitchNativeRange = {
-  start: number;
-  end: number;
-  emoteId: string;
-  name: string;
-};
-
-const TWITCH_EMOTE_URL = (id: string) =>
-  `https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/1.0`;
-const BTTV_EMOTE_URL = (id: string) =>
-  `https://cdn.betterttv.net/emote/${id}/1x`;
-const SEVENTV_EMOTE_URL = (id: string) =>
-  `https://cdn.7tv.app/emote/${id}/1x.webp`;
-const KICK_EMOTE_URL = (id: string) =>
-  `https://files.kick.com/emotes/${id}/fullsize`;
-const KICK_GLOBAL_EMOTE_URL = "https://kick.com/emotes/eddie";
-const MESSAGE_LINK_REGEX = /(?:https?:\/\/|www\.)[^\s<]+/gi;
-const KICK_NATIVE_EMOTE_REGEX = /\[emote:(\d+):([^\[\]]+)\]/g;
 const AUTO_SCROLL_BOTTOM_THRESHOLD_PX = 220;
 const COMPOSER_MESSAGE_LIMIT = 500;
 const COMPOSER_HISTORY_LIMIT = 20;
@@ -1164,39 +1154,6 @@ const TIKTOK_OFFLINE_RETRY_MS = 2 * 60 * 1000;
 const SETUP_WIZARD_VERSION = 2;
 const REBRAND_ANNOUNCEMENT_STORAGE_KEY =
   "chatrix:rebrand-announcement:dismissed:v1";
-const RECENT_CHAT_HISTORY_STORAGE_KEY = "chatrix:recent-history:v1";
-const LEGACY_RECENT_CHAT_HISTORY_STORAGE_KEY = "multichat:recent-history:v1";
-const RECENT_CHAT_LOOKBACK_MS = 60 * 60 * 1000;
-const RECENT_CHAT_MAX_MESSAGES_PER_SOURCE = 4000;
-const RECENT_CHAT_SAVE_DEBOUNCE_MS = 1200;
-const TWITCH_REMOTE_HISTORY_LIMIT = 200;
-const TWITCH_REMOTE_HISTORY_URL =
-  "https://recent-messages.robotty.de/api/v2/recent-messages";
-
-type HistoryPlatform = "twitch" | "kick";
-type TwitchRemoteHistoryPayload = {
-  messages?: string[];
-  error_code?: string;
-};
-
-type PersistedRecentHistoryMessage = {
-  id: string;
-  platform: HistoryPlatform;
-  channel: string;
-  username: string;
-  displayName: string;
-  message: string;
-  timestamp: string;
-  badges?: string[];
-  color?: string;
-};
-
-type PersistedRecentHistoryPayload = {
-  version: 1;
-  savedAt: number;
-  bySourceKey: Record<string, PersistedRecentHistoryMessage[]>;
-};
-
 const ARABIC_SCRIPT_REGEX = /[\u0600-\u06FF]/;
 const ARABIC_DIACRITICS_REGEX =
   /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
@@ -1257,150 +1214,6 @@ const ARABIC_CHAR_TO_EGYPTIAN_FRANCO: Record<string, string> = {
   "،": ",",
   "؛": ";",
 };
-
-const isHistoryPlatform = (platform: Platform): platform is HistoryPlatform =>
-  platform === "twitch" || platform === "kick";
-
-const normalizeRecentHistoryMessage = (message: ChatMessage): ChatMessage => ({
-  ...message,
-  raw: undefined,
-  badges: Array.isArray(message.badges) ? [...message.badges] : undefined,
-});
-
-const toPersistedRecentHistoryMessage = (
-  message: ChatMessage,
-): PersistedRecentHistoryMessage => ({
-  id: message.id,
-  platform: message.platform as HistoryPlatform,
-  channel: message.channel,
-  username: message.username,
-  displayName: message.displayName,
-  message: message.message,
-  timestamp: message.timestamp,
-  badges: Array.isArray(message.badges) ? [...message.badges] : undefined,
-  color: message.color,
-});
-
-const pruneRecentHistoryMessages = (
-  messages: ChatMessage[],
-  now = Date.now(),
-) => {
-  const cutoff = now - RECENT_CHAT_LOOKBACK_MS;
-  return messages
-    .filter((entry) => {
-      const at = Date.parse(entry.timestamp);
-      return Number.isFinite(at) && at >= cutoff && at <= now + 120_000;
-    })
-    .slice(-RECENT_CHAT_MAX_MESSAGES_PER_SOURCE);
-};
-
-const readRecentHistoryPayload = () => {
-  try {
-    const raw =
-      window.localStorage.getItem(RECENT_CHAT_HISTORY_STORAGE_KEY) ??
-      window.localStorage.getItem(LEGACY_RECENT_CHAT_HISTORY_STORAGE_KEY);
-    if (!raw) return {} as Record<string, ChatMessage[]>;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object")
-      return {} as Record<string, ChatMessage[]>;
-    const record = parsed as Partial<PersistedRecentHistoryPayload>;
-    if (
-      record.version !== 1 ||
-      !record.bySourceKey ||
-      typeof record.bySourceKey !== "object"
-    ) {
-      return {} as Record<string, ChatMessage[]>;
-    }
-
-    const now = Date.now();
-    const bySourceKey: Record<string, ChatMessage[]> = {};
-    for (const [sourceKey, entries] of Object.entries(record.bySourceKey)) {
-      if (!sourceKey || !Array.isArray(entries)) continue;
-      const normalized = entries
-        .map((entry) => {
-          if (!entry || typeof entry !== "object") return null;
-          const item = entry as Partial<PersistedRecentHistoryMessage>;
-          if (
-            (item.platform !== "twitch" && item.platform !== "kick") ||
-            !item.timestamp
-          )
-            return null;
-          const id =
-            typeof item.id === "string" && item.id.trim()
-              ? item.id.trim()
-              : `${item.platform}-${createId()}`;
-          const channel =
-            typeof item.channel === "string" ? item.channel.trim() : "";
-          const username =
-            typeof item.username === "string" ? item.username.trim() : "";
-          const displayName =
-            typeof item.displayName === "string"
-              ? item.displayName.trim()
-              : username;
-          const content =
-            typeof item.message === "string"
-              ? transliterateArabicToEgyptianFranco(item.message)
-              : "";
-          if (!channel || !displayName || !content) return null;
-          return {
-            id,
-            platform: item.platform,
-            channel,
-            username: username || displayName,
-            displayName,
-            message: content,
-            timestamp: item.timestamp,
-            badges: Array.isArray(item.badges)
-              ? item.badges.filter(
-                  (badge): badge is string => typeof badge === "string",
-                )
-              : undefined,
-            color: typeof item.color === "string" ? item.color : undefined,
-          } satisfies ChatMessage;
-        })
-        .filter((message): message is ChatMessage => message !== null);
-      const pruned = pruneRecentHistoryMessages(normalized, now);
-      if (pruned.length > 0) {
-        bySourceKey[sourceKey] = pruned;
-      }
-    }
-    return bySourceKey;
-  } catch {
-    return {} as Record<string, ChatMessage[]>;
-  }
-};
-
-const writeRecentHistoryPayload = (
-  historyBySourceKey: Record<string, ChatMessage[]>,
-) => {
-  try {
-    const now = Date.now();
-    const bySourceKey: Record<string, PersistedRecentHistoryMessage[]> = {};
-    for (const [sourceKey, entries] of Object.entries(historyBySourceKey)) {
-      if (!sourceKey || !Array.isArray(entries) || entries.length === 0)
-        continue;
-      const normalized = pruneRecentHistoryMessages(entries, now)
-        .filter((entry) => isHistoryPlatform(entry.platform))
-        .map((entry) => toPersistedRecentHistoryMessage(entry));
-      if (normalized.length > 0) {
-        bySourceKey[sourceKey] = normalized;
-      }
-    }
-
-    const payload: PersistedRecentHistoryPayload = {
-      version: 1,
-      savedAt: now,
-      bySourceKey,
-    };
-    window.localStorage.setItem(
-      RECENT_CHAT_HISTORY_STORAGE_KEY,
-      JSON.stringify(payload),
-    );
-  } catch {
-    // no-op: local storage can fail due to quota or user privacy settings.
-  }
-};
-
 const transliterateArabicToEgyptianFranco = (input: string) => {
   if (!input || !ARABIC_SCRIPT_REGEX.test(input)) return input;
   const normalized = input
@@ -1519,7 +1332,7 @@ const clampContextMenuPosition = (
   };
 };
 
-const normalizeOauthToken = (token?: string) =>
+export const normalizeOauthToken = (token?: string) =>
   (token ?? "").trim().replace(/^oauth:/i, "");
 
 const closeAllOpenDetailsMenus = () => {
@@ -1552,20 +1365,6 @@ const isLikelyTikTokOfflineError = (value: string) => {
     text.includes("channel is offline")
   );
 };
-
-const fetchJsonSafe = async (
-  url: string,
-  init?: RequestInit,
-): Promise<unknown | null> => {
-  try {
-    const response = await fetch(url, init);
-    if (!response.ok) return null;
-    return (await response.json()) as unknown;
-  } catch {
-    return null;
-  }
-};
-
 const messageIdentityKey = (message: ChatMessage) => {
   const raw = asRecord(message.raw);
   const rawId = readRawFirstString(raw, [
@@ -1601,46 +1400,6 @@ const mergeMessagesChronologically = (
   });
   return merged;
 };
-
-const pushBttvList = (target: EmoteMap, list: unknown) => {
-  if (!Array.isArray(list)) return;
-  for (const item of list) {
-    const record = asRecord(item);
-    const id = typeof record?.id === "string" ? record.id : "";
-    const code = typeof record?.code === "string" ? record.code : "";
-    if (!id || !code) continue;
-    target[code] = BTTV_EMOTE_URL(id);
-  }
-};
-
-const pushSevenTvList = (target: EmoteMap, list: unknown) => {
-  if (!Array.isArray(list)) return;
-  for (const item of list) {
-    const record = asRecord(item);
-    const data = asRecord(record?.data);
-    const id =
-      typeof record?.id === "string"
-        ? record.id
-        : typeof data?.id === "string"
-          ? data.id
-          : "";
-    const name = typeof record?.name === "string" ? record.name : "";
-    if (!id || !name) continue;
-    target[name] = SEVENTV_EMOTE_URL(id);
-  }
-};
-
-const extractTwitchUserId = (payload: unknown): string | null => {
-  const record = asRecord(payload);
-  if (!record?.data || !Array.isArray(record.data) || record.data.length === 0)
-    return null;
-  const first = asRecord(record.data[0]);
-  const id = typeof first?.id === "string" ? first.id : "";
-  return id || null;
-};
-
-const hasAnyEmotes = (map: EmoteMap) => Object.keys(map).length > 0;
-
 const extractTwitchRoomId = (message: ChatMessage): string | null => {
   if (message.platform !== "twitch") return null;
   const raw = asRecord(message.raw);
@@ -1771,111 +1530,6 @@ const fetchTwitchChannelBadgeCatalog = async (
     twitchToken,
   );
 };
-
-const fetchBttvGlobalEmotes = async (): Promise<EmoteMap> => {
-  const payload = await fetchJsonSafe(
-    "https://api.betterttv.net/3/cached/emotes/global",
-  );
-  const map: EmoteMap = {};
-  pushBttvList(map, payload);
-  return map;
-};
-
-const fetchSevenTvGlobalEmotes = async (): Promise<EmoteMap> => {
-  const payload = await fetchJsonSafe("https://7tv.io/v3/emote-sets/global");
-  const map: EmoteMap = {};
-  const record = asRecord(payload);
-  pushSevenTvList(map, record?.emotes);
-  return map;
-};
-
-const pushKickList = (target: EmoteMap, value: unknown) => {
-  if (!Array.isArray(value)) return;
-  for (const item of value) {
-    const record = asRecord(item);
-    const name = typeof record?.name === "string" ? record.name.trim() : "";
-    const id = record?.id;
-    const emoteId =
-      typeof id === "string"
-        ? id.trim()
-        : typeof id === "number"
-          ? String(id)
-          : "";
-    if (!name || !emoteId || target[name]) continue;
-    target[name] = KICK_EMOTE_URL(emoteId);
-  }
-};
-
-const fetchKickGlobalEmotes = async (): Promise<EmoteMap> => {
-  const payload = await fetchJsonSafe(KICK_GLOBAL_EMOTE_URL);
-  const map: EmoteMap = {};
-
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const record = asRecord(item);
-      pushKickList(map, record?.emotes);
-    }
-    return map;
-  }
-
-  const record = asRecord(payload);
-  pushKickList(map, record?.emotes);
-  if (Array.isArray(record?.data)) {
-    for (const item of record.data) {
-      const nestedRecord = asRecord(item);
-      pushKickList(map, nestedRecord?.emotes);
-    }
-  }
-  return map;
-};
-
-const fetchTwitchThirdPartyEmotesByUserId = async (
-  userId: string,
-): Promise<EmoteMap> => {
-  if (!userId.trim()) return {};
-  const [bttvPayload, sevenTvPayload] = await Promise.all([
-    fetchJsonSafe(
-      `https://api.betterttv.net/3/cached/users/twitch/${encodeURIComponent(userId)}`,
-    ),
-    fetchJsonSafe(
-      `https://7tv.io/v3/users/twitch/${encodeURIComponent(userId)}`,
-    ),
-  ]);
-
-  const map: EmoteMap = {};
-  const bttvRecord = asRecord(bttvPayload);
-  pushBttvList(map, bttvRecord?.channelEmotes);
-  pushBttvList(map, bttvRecord?.sharedEmotes);
-
-  const sevenTvRecord = asRecord(sevenTvPayload);
-  const sevenTvSet = asRecord(sevenTvRecord?.emote_set);
-  pushSevenTvList(map, sevenTvSet?.emotes);
-  return map;
-};
-
-const fetchTwitchThirdPartyEmotes = async (
-  channel: string,
-  twitchClientId?: string,
-  twitchToken?: string,
-): Promise<EmoteMap> => {
-  const clientId = (twitchClientId ?? "").trim();
-  const token = normalizeOauthToken(twitchToken);
-  if (!clientId || !token || !channel) return {};
-
-  const headers = {
-    "Client-ID": clientId,
-    Authorization: `Bearer ${token}`,
-  };
-
-  const usersPayload = await fetchJsonSafe(
-    `https://api.twitch.tv/helix/users?login=${encodeURIComponent(channel)}`,
-    { headers },
-  );
-  const userId = extractTwitchUserId(usersPayload);
-  if (!userId) return {};
-  return fetchTwitchThirdPartyEmotesByUserId(userId);
-};
-
 const checkTwitchModeratorStatus = async (
   channel: string,
   username: string,
@@ -1911,191 +1565,6 @@ const checkKickModeratorStatus = async (
     return null;
   }
 };
-
-const compactMessageChunks = (chunks: MessageChunk[]): MessageChunk[] => {
-  const compacted: MessageChunk[] = [];
-  for (const chunk of chunks) {
-    const previous = compacted[compacted.length - 1];
-    if (chunk.type === "text" && previous?.type === "text") {
-      previous.value += chunk.value;
-      continue;
-    }
-    compacted.push(chunk);
-  }
-  return compacted;
-};
-
-const tokenizeTextWithExternalEmotes = (
-  text: string,
-  resolveEmote: EmoteResolver,
-): MessageChunk[] => {
-  if (!text) return [];
-  const tokens = text.split(/(\s+)/);
-  const chunks: MessageChunk[] = [];
-
-  for (const token of tokens) {
-    if (!token) continue;
-    if (/^\s+$/.test(token)) {
-      chunks.push({ type: "text", value: token });
-      continue;
-    }
-
-    const directUrl = resolveEmote(token);
-    if (directUrl) {
-      chunks.push({ type: "emote", name: token, url: directUrl });
-      continue;
-    }
-
-    const punctuationMatch = token.match(
-      /^([(\[{'"`]*)(.+?)([)\]}.,!?;:'"`]*)$/,
-    );
-    if (punctuationMatch) {
-      const [, prefix, core, suffix] = punctuationMatch;
-      const coreUrl = resolveEmote(core);
-      if (coreUrl) {
-        if (prefix) chunks.push({ type: "text", value: prefix });
-        chunks.push({ type: "emote", name: core, url: coreUrl });
-        if (suffix) chunks.push({ type: "text", value: suffix });
-        continue;
-      }
-    }
-
-    chunks.push({ type: "text", value: token });
-  }
-
-  return compactMessageChunks(chunks);
-};
-
-const parseTwitchNativeRanges = (message: ChatMessage): TwitchNativeRange[] => {
-  const raw = asRecord(message.raw);
-  const emotesTag = typeof raw?.emotes === "string" ? raw.emotes : "";
-  if (!emotesTag || emotesTag === "") return [];
-
-  const ranges: TwitchNativeRange[] = [];
-  for (const item of emotesTag.split("/")) {
-    const [emoteId, positions] = item.split(":");
-    if (!emoteId || !positions) continue;
-
-    for (const position of positions.split(",")) {
-      const [startText, endText] = position.split("-");
-      const start = Number(startText);
-      const end = Number(endText);
-      if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
-      if (start < 0 || end < start || end >= message.message.length) continue;
-      ranges.push({
-        start,
-        end,
-        emoteId,
-        name: message.message.slice(start, end + 1),
-      });
-    }
-  }
-
-  ranges.sort((a, b) => a.start - b.start || a.end - b.end);
-  const cleaned: TwitchNativeRange[] = [];
-  let lastEnd = -1;
-  for (const range of ranges) {
-    if (range.start <= lastEnd) continue;
-    cleaned.push(range);
-    lastEnd = range.end;
-  }
-  return cleaned;
-};
-
-const parseKickNativeChunks = (
-  rawContent: string,
-  resolveEmote: EmoteResolver,
-): MessageChunk[] => {
-  if (!rawContent) return [];
-  const chunks: MessageChunk[] = [];
-  let lastIndex = 0;
-  let matched = false;
-
-  KICK_NATIVE_EMOTE_REGEX.lastIndex = 0;
-
-  while (true) {
-    const match = KICK_NATIVE_EMOTE_REGEX.exec(rawContent);
-    if (!match) break;
-    matched = true;
-
-    const [full, emoteId, emoteName] = match;
-    if (match.index > lastIndex) {
-      chunks.push(
-        ...tokenizeTextWithExternalEmotes(
-          rawContent.slice(lastIndex, match.index),
-          resolveEmote,
-        ),
-      );
-    }
-
-    chunks.push({
-      type: "emote",
-      name: emoteName,
-      url: KICK_EMOTE_URL(emoteId),
-    });
-
-    lastIndex = match.index + full.length;
-  }
-
-  if (!matched) return [];
-  if (lastIndex < rawContent.length) {
-    chunks.push(
-      ...tokenizeTextWithExternalEmotes(
-        rawContent.slice(lastIndex),
-        resolveEmote,
-      ),
-    );
-  }
-  return compactMessageChunks(chunks);
-};
-
-const buildMessageChunks = (
-  message: ChatMessage,
-  resolveEmote: EmoteResolver,
-): MessageChunk[] => {
-  if (message.platform === "twitch") {
-    const ranges = parseTwitchNativeRanges(message);
-    if (ranges.length > 0) {
-      const chunks: MessageChunk[] = [];
-      let cursor = 0;
-      for (const range of ranges) {
-        if (range.start > cursor) {
-          chunks.push(
-            ...tokenizeTextWithExternalEmotes(
-              message.message.slice(cursor, range.start),
-              resolveEmote,
-            ),
-          );
-        }
-        chunks.push({
-          type: "emote",
-          name: range.name,
-          url: TWITCH_EMOTE_URL(range.emoteId),
-        });
-        cursor = range.end + 1;
-      }
-      if (cursor < message.message.length) {
-        chunks.push(
-          ...tokenizeTextWithExternalEmotes(
-            message.message.slice(cursor),
-            resolveEmote,
-          ),
-        );
-      }
-      return compactMessageChunks(chunks);
-    }
-  }
-
-  if (message.platform === "kick") {
-    const raw = asRecord(message.raw);
-    const rawContent = typeof raw?.content === "string" ? raw.content : "";
-    const kickChunks = parseKickNativeChunks(rawContent, resolveEmote);
-    if (kickChunks.length > 0) return kickChunks;
-  }
-
-  return tokenizeTextWithExternalEmotes(message.message, resolveEmote);
-};
-
 const isNearBottom = (element: HTMLElement) =>
   element.scrollHeight - element.scrollTop - element.clientHeight <=
   AUTO_SCROLL_BOTTOM_THRESHOLD_PX;
