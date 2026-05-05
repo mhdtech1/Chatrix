@@ -39,6 +39,7 @@ import {
 } from "./utils/http.js";
 import { registerIpcHandlers } from "./ipc/handlers.js";
 import { cleanupLegacyInstallArtifacts } from "./services/legacyInstallCleanup.js";
+import { createKickBrokerWarmupScheduler } from "./services/kickBrokerWarmup.js";
 import {
   createAuthHealthHandlers,
   createAuthSignInHandlers,
@@ -96,7 +97,6 @@ const KICK_MANAGED_BROKER_REFRESH_URL =
 const KICK_BROKER_HEALTH_TIMEOUT_MS = 10_000;
 const KICK_BROKER_WAKE_TIMEOUT_MS = 75_000;
 const KICK_BROKER_WAKE_RETRY_MS = 2_500;
-const KICK_BROKER_KEEPALIVE_INTERVAL_MS = 10 * 60 * 1000;
 const YOUTUBE_MANAGED_CLIENT_ID =
   "1008732662207-rufcsa7rafob02h29docduk7pboim0s8.apps.googleusercontent.com";
 const YOUTUBE_MANAGED_CLIENT_SECRET = "";
@@ -185,7 +185,6 @@ const getKickTokenBrokerConfig = (): KickTokenBrokerConfig | null => {
 };
 
 let kickBrokerWarmupPromise: Promise<void> | null = null;
-let kickBrokerKeepAliveTimer: NodeJS.Timeout | null = null;
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -272,23 +271,10 @@ const warmKickTokenBrokerInBackground = (): void => {
   });
 };
 
-const startKickTokenBrokerKeepAlive = (): void => {
-  if (kickBrokerKeepAliveTimer || !getKickTokenBrokerConfig()) {
-    return;
-  }
-  warmKickTokenBrokerInBackground();
-  kickBrokerKeepAliveTimer = setInterval(() => {
-    warmKickTokenBrokerInBackground();
-  }, KICK_BROKER_KEEPALIVE_INTERVAL_MS);
-};
-
-const stopKickTokenBrokerKeepAlive = (): void => {
-  if (!kickBrokerKeepAliveTimer) {
-    return;
-  }
-  clearInterval(kickBrokerKeepAliveTimer);
-  kickBrokerKeepAliveTimer = null;
-};
+const kickBrokerWarmupScheduler = createKickBrokerWarmupScheduler({
+  isEnabled: () => Boolean(getKickTokenBrokerConfig()),
+  warm: warmKickTokenBrokerInBackground,
+});
 
 export function bringAppToFrontAfterOAuth() {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3344,7 +3330,7 @@ app.whenReady().then(async () => {
       logger: (message) => console.info(message),
     });
   }
-  startKickTokenBrokerKeepAlive();
+  kickBrokerWarmupScheduler.start();
   createMainWindow();
   setupAppMenu();
   setupAutoUpdater();
@@ -3487,7 +3473,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   appIsQuitting = true;
   clearPendingAutoInstallTimer();
-  stopKickTokenBrokerKeepAlive();
+  kickBrokerWarmupScheduler.stop();
   void disconnectAllTikTokConnections();
 });
 
