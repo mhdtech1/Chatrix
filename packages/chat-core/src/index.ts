@@ -5,3 +5,4 @@ export * from "./adapters/youtube/youtubeAdapter.js";
 export * from "./adapters/tiktok/tiktokAdapter.js";
 export * from "./adapters/twitch/ircParser.js";
 export * from "./adapters/twitch/normalize.js";
+export * from "./utils/crypto.js";

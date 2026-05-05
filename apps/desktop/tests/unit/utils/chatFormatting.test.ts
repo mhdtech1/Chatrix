@@ -119,7 +119,7 @@ describe("chatFormatting utilities", () => {
     it("returns a string with correct format", () => {
       const id = createId();
       expect(typeof id).toBe("string");
-      expect(id).toMatch(/^[0-9a-z]+-[0-9a-f]{6}$/);
+      expect(id).toMatch(/^[0-9a-z]+-[0-9a-f]{8}$/);
     });
   });
 

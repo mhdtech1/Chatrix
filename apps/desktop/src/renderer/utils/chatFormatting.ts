@@ -47,7 +47,7 @@ const secureRandomHex = (length: number) => {
 };
 
 export const createId = () =>
-  `${Date.now().toString(36)}-${secureRandomHex(6)}`;
+  `${Date.now().toString(36)}-${secureRandomHex(8)}`;
 
 export const platformIconGlyph = (platform: string) => {
   const value = platform.trim().toLowerCase();
