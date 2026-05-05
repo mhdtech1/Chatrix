@@ -595,11 +595,8 @@ export function createAuthSignInHandlers(
           ? channelPayload.items[0]
           : undefined;
         username = first?.snippet?.title?.trim() ?? username;
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        console.warn(
-          `[youtube] profile lookup skipped after sign-in: ${detail}`,
-        );
+      } catch {
+        // profile lookup skipped after sign-in
       }
 
       store.set({
