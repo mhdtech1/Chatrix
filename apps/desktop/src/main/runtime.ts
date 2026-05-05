@@ -8,6 +8,8 @@ import {
   type MenuItemConstructorOptions,
   type MessageBoxOptions,
 } from "electron";
+import electronUpdater from "electron-updater";
+export const { autoUpdater } = electronUpdater;
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
@@ -121,7 +123,7 @@ export const TIKTOK_ALPHA_ENABLED = true;
 const DEFAULT_UPDATE_CHANNEL: UpdateChannel = "stable";
 const FORCE_APP_RESET_VERSION = "0.1.35";
 
-const randomToken = (bytes = 32) =>
+export const randomToken = (bytes = 32) =>
   crypto.randomBytes(bytes).toString("base64url");
 
 const AUTH_CALLBACK_TIMEOUT_MS = AUTH.OAUTH_CALLBACK_TIMEOUT_MS;
@@ -288,7 +290,7 @@ const stopKickTokenBrokerKeepAlive = (): void => {
   kickBrokerKeepAliveTimer = null;
 };
 
-function bringAppToFrontAfterOAuth() {
+export function bringAppToFrontAfterOAuth() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) {
       mainWindow.restore();
@@ -2579,7 +2581,7 @@ const writeLog = (message: string) => {
 };
 
 export let mainWindow: BrowserWindow | null = null;
-let store!: JsonSettingsStore;
+export let store: JsonSettingsStore;
 let updaterInitialized = false;
 const youtubeWebChatSessions = new Map<string, YouTubeWebChatSession>();
 const youtubeBanIdsByTarget = new Map<string, string>();

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { shell } from "electron";
 import { IPC_CHANNELS } from "../../shared/constants.js";
 import { mainWindow, store, bringAppToFrontAfterOAuth } from "../runtime.js";
@@ -633,15 +634,15 @@ export const signOutTikTok = async () => {
   return store.store;
 };
 export const attemptTikTokBrowserSignIn = () => {
-                  const loginWindow = new BrowserWindow({
-                    width: 500,
-                    height: 700,
-                    show: true,
-                    parent: mainWindow ?? undefined,
-                    modal: true,
-                    webPreferences: {
-                      partition: TIKTOK_AUTH_PARTITION,
-                    },
-                  });
-                  loginWindow.loadURL(TIKTOK_LOGIN_URL);
-                };
+  const loginWindow = new BrowserWindow({
+    width: 500,
+    height: 700,
+    show: true,
+    parent: mainWindow ?? undefined,
+    modal: true,
+    webPreferences: {
+      partition: TIKTOK_AUTH_PARTITION,
+    },
+  });
+  loginWindow.loadURL(TIKTOK_LOGIN_URL);
+};

@@ -31,8 +31,5 @@
     "lint": "pnpm -r lint",
     "format": "pnpm -r format"
   },
-  "license": "MIT",
-  "devDependencies": {
-    "ts-morph": "^28.0.0"
-  }
+  "license": "MIT"
 }

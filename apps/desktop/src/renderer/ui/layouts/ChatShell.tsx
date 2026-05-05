@@ -102,8 +102,8 @@ import {
   pruneRecentHistoryMessages,
   readRecentHistoryPayload,
   writeRecentHistoryPayload,
-} from "../../utils/history.js";
-import { fetchJsonSafe } from "../../utils/history.js";
+} from "../utils/history";
+import { fetchJsonSafe } from "../utils/history";
 import {
   EmoteMap,
   fetchBttvGlobalEmotes,
@@ -113,8 +113,8 @@ import {
   fetchTwitchThirdPartyEmotes,
   hasAnyEmotes,
   buildMessageChunks,
-} from "../../utils/emotes.js";
-import { MESSAGE_LINK_REGEX } from "../../utils/history.js";
+} from "../utils/emotes";
+import { MESSAGE_LINK_REGEX } from "../utils/history";
 
 const hotkeys = {
   focusSearch: "Control+Shift+F",

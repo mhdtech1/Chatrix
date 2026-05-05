@@ -1,4 +1,4 @@
-import { asRecord, normalizeOauthToken } from "../layouts/ChatShell.jsx";
+import { normalizeOauthToken } from "../layouts/ChatShell";
 import type { ChatMessage } from "@chatrix/chat-core";
 import { fetchJsonSafe } from "./history.js";
 export type EmoteMap = Record<string, string>;

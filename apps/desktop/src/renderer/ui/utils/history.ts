@@ -1,4 +1,4 @@
-import { createId } from "../layouts/ChatShell.jsx";
+import { createId } from "../../utils/chatFormatting";
 import type { ChatMessage } from "@chatrix/chat-core";
 import type { Platform } from "../../../shared/types.js";
 export const RECENT_CHAT_HISTORY_STORAGE_KEY = "chatrix:recent-history:v1";
