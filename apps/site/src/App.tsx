@@ -61,6 +61,11 @@ const faqs = [
       "Chatrix is built around Twitch, Kick, YouTube, and TikTok with a shared message model and platform-specific auth and moderation flows where available.",
   },
   {
+    question: "Which operating systems can I download today?",
+    answer:
+      "The latest release includes a Windows installer, a macOS DMG with ZIP fallback, a Linux AppImage, and a Debian package.",
+  },
+  {
     question: "Is this a browser dashboard?",
     answer:
       "No. Chatrix is a desktop app, so the website is the front door for downloads, release notes, and product positioning.",
@@ -78,19 +83,57 @@ const faqs = [
 ];
 
 const releaseHighlights = [
-  "Role-based desk switching",
-  "Kick broker warm-up and auth stability work",
-  "Cleaner workspace chrome and quieter Quick Mod defaults",
-  "Intel Mac release support",
+  "Windows, macOS, and Linux downloads attached to v1.0.28",
+  "Configurable updater auto-download behavior",
+  "Safer secure-random runtime identifiers",
+  "Cleaner ChatShell helper boundaries for the next UI pass",
 ];
 
+const currentRelease = "v1.0.28";
+const releaseDownloadBase =
+  "https://github.com/mhdtech1/Chatrix/releases/latest/download";
+
 const downloadLinks = {
-  mac: "https://github.com/mhdtech1/Chatrix/releases/latest/download/Chatrix-mac.dmg",
-  windows:
-    "https://github.com/mhdtech1/Chatrix/releases/latest/download/Chatrix-win.exe",
+  macDmg: `${releaseDownloadBase}/Chatrix-mac.dmg`,
+  macZip: `${releaseDownloadBase}/Chatrix-mac.zip`,
+  windows: `${releaseDownloadBase}/Chatrix-win.exe`,
+  linuxAppImage: `${releaseDownloadBase}/Chatrix-linux-x86_64.AppImage`,
+  linuxDeb: `${releaseDownloadBase}/Chatrix-linux-amd64.deb`,
   github: "https://github.com/mhdtech1/Chatrix",
   releases: "https://github.com/mhdtech1/Chatrix/releases",
 };
+
+const platformDownloads = [
+  {
+    platform: "Windows",
+    title: "Windows installer",
+    copy: "Small web installer that pulls the matching x64 or Arm64 package and stays wired to app updates.",
+    href: downloadLinks.windows,
+    action: "Download EXE",
+    meta: "EXE + auto-update files",
+    featured: true,
+  },
+  {
+    platform: "macOS",
+    title: "macOS disk image",
+    copy: "Use the DMG for a normal install, or grab the ZIP fallback from the same release when Gatekeeper gets fussy.",
+    href: downloadLinks.macDmg,
+    action: "Download DMG",
+    secondaryHref: downloadLinks.macZip,
+    secondaryAction: "ZIP fallback",
+    meta: "DMG + ZIP + update YAML",
+  },
+  {
+    platform: "Linux",
+    title: "Linux desktop builds",
+    copy: "Run the portable AppImage on most x64 distros, or install the Debian package on apt-based systems.",
+    href: downloadLinks.linuxAppImage,
+    action: "Download AppImage",
+    secondaryHref: downloadLinks.linuxDeb,
+    secondaryAction: "DEB package",
+    meta: "AppImage + DEB",
+  },
+];
 
 function App() {
   return (
@@ -108,6 +151,7 @@ function App() {
         <nav className="site-nav" aria-label="Primary">
           <a href="#features">Features</a>
           <a href="#desks">Desks</a>
+          <a href="#downloads">Downloads</a>
           <a href="#faq">FAQ</a>
           <a className="site-nav__button" href={downloadLinks.releases}>
             Releases
@@ -129,109 +173,42 @@ function App() {
             </p>
 
             <div className="hero-actions">
-              <a className="button button--primary" href={downloadLinks.mac}>
-                Download for macOS
-              </a>
               <a
-                className="button button--secondary"
+                className="button button--primary"
                 href={downloadLinks.windows}
               >
                 Download for Windows
               </a>
-              <a className="button button--ghost" href={downloadLinks.github}>
-                View GitHub
+              <a
+                className="button button--secondary"
+                href={downloadLinks.macDmg}
+              >
+                Download for macOS
+              </a>
+              <a
+                className="button button--ghost"
+                href={downloadLinks.linuxAppImage}
+              >
+                Download for Linux
               </a>
             </div>
 
             <div className="hero-meta">
-              <span>Current public release: v1.0.9</span>
+              <span>Current public release: {currentRelease}</span>
               <span>Electron desktop app</span>
-              <span>Kick, Twitch, YouTube, TikTok</span>
+              <span>Windows, macOS, Linux</span>
             </div>
           </div>
 
-          <div className="hero-stage" aria-label="Chatrix product preview">
-            <div className="hero-stage__badge hero-stage__badge--left">
-              <span>Role aware</span>
-              <strong>Broadcaster / Mod / Viewer</strong>
-            </div>
-            <div className="hero-stage__badge hero-stage__badge--right">
-              <span>Live auth path</span>
-              <strong>Kick broker + local secure storage</strong>
-            </div>
-
-            <div className="app-frame">
-              <div className="app-frame__topbar">
-                <div>
-                  <p>UNIFIED STREAMING DESK</p>
-                  <strong>Chatrix</strong>
-                </div>
-                <div className="app-frame__controls">
-                  <span>Twitch</span>
-                  <span>mazendahroug</span>
-                  <button type="button">Menu</button>
-                </div>
-              </div>
-
-              <div className="app-frame__body">
-                <div className="app-frame__primary">
-                  <div className="app-frame__tabs">
-                    <span className="app-pill app-pill--active">
-                      kick/mazendahroug
-                    </span>
-                    <span className="app-pill">twitch/mazendahroug</span>
-                    <span className="app-pill app-pill--quiet">merged</span>
-                  </div>
-
-                  <div className="app-frame__statusrow">
-                    <span>246 messages</span>
-                    <span>Desk: Mod</span>
-                    <span>Adaptive perf on</span>
-                  </div>
-
-                  <div className="app-frame__feed">
-                    <div className="chat-line-preview">
-                      <strong>ViewerOne</strong>
-                      <span>shared chat is moving again</span>
-                    </div>
-                    <div className="chat-line-preview chat-line-preview--accent">
-                      <strong>Moderator</strong>
-                      <span>role-aware desk switched to mod controls</span>
-                    </div>
-                    <div className="chat-line-preview">
-                      <strong>ViewerTwo</strong>
-                      <span>nice, way easier to read now</span>
-                    </div>
-                    <div className="chat-line-preview">
-                      <strong>Streamer</strong>
-                      <span>send a welcome message to all chats</span>
-                    </div>
-                  </div>
-
-                  <div className="app-frame__composer">
-                    <span>twitch/mazendahroug</span>
-                    <span>Type a message...</span>
-                    <button type="button">Send</button>
-                  </div>
-                </div>
-
-                <aside className="app-frame__sidebar">
-                  <div>
-                    <strong>Mentions</strong>
-                    <span>3 open</span>
-                  </div>
-                  <div>
-                    <strong>Mod History</strong>
-                    <span>Ban, timeout, unban</span>
-                  </div>
-                  <div>
-                    <strong>User Card</strong>
-                    <span>Session activity at a glance</span>
-                  </div>
-                </aside>
-              </div>
-            </div>
-          </div>
+          <figure className="hero-stage" aria-label="Chatrix product preview">
+            <img
+              src="/app-preview.png"
+              alt="Chatrix desktop app showing Twitch chat for thestockguy"
+            />
+            <figcaption>
+              Actual Chatrix desktop build connected to twitch/thestockguy.
+            </figcaption>
+          </figure>
         </section>
 
         <section className="feature-grid" id="features">
@@ -254,6 +231,51 @@ function App() {
               <li key={item}>{item}</li>
             ))}
           </ul>
+        </section>
+
+        <section className="download-section" id="downloads">
+          <div className="section-heading">
+            <p className="eyebrow">Downloads</p>
+            <h2>Ready for every desktop you stream from.</h2>
+            <p>
+              The latest public release has installers attached for Windows,
+              macOS, and Linux. Advanced users can still jump into GitHub for
+              hashes, updater YAML, and older builds.
+            </p>
+          </div>
+
+          <div className="download-grid">
+            {platformDownloads.map((download) => (
+              <article
+                key={download.platform}
+                className={
+                  download.featured
+                    ? "download-card download-card--featured"
+                    : "download-card"
+                }
+              >
+                <span className="download-card__platform">
+                  {download.platform}
+                </span>
+                <h3>{download.title}</h3>
+                <p>{download.copy}</p>
+                <span className="download-card__meta">{download.meta}</span>
+                <div className="download-card__actions">
+                  <a className="button button--primary" href={download.href}>
+                    {download.action}
+                  </a>
+                  {download.secondaryHref ? (
+                    <a
+                      className="button button--ghost"
+                      href={download.secondaryHref}
+                    >
+                      {download.secondaryAction}
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="desks-section" id="desks">
@@ -303,14 +325,17 @@ function App() {
             </p>
           </div>
           <div className="cta-panel__actions">
-            <a className="button button--primary" href={downloadLinks.mac}>
+            <a className="button button--primary" href={downloadLinks.windows}>
+              Windows EXE
+            </a>
+            <a className="button button--secondary" href={downloadLinks.macDmg}>
               macOS DMG
             </a>
             <a
-              className="button button--secondary"
-              href={downloadLinks.windows}
+              className="button button--ghost"
+              href={downloadLinks.linuxAppImage}
             >
-              Windows EXE
+              Linux AppImage
             </a>
             <a className="button button--ghost" href={downloadLinks.releases}>
               Release notes
@@ -342,7 +367,7 @@ function App() {
         <div className="site-footer__links">
           <a href={downloadLinks.github}>GitHub</a>
           <a href={downloadLinks.releases}>Releases</a>
-          <a href="mailto:hello@chatrix.app">Contact</a>
+          <a href="mailto:hello@chat-rix.app">Contact</a>
         </div>
       </footer>
     </div>

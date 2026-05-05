@@ -30,6 +30,12 @@ export const KICK_EMOTE_URL = (id: string) =>
   `https://files.kick.com/emotes/${id}/fullsize`;
 export const KICK_GLOBAL_EMOTE_URL = "https://kick.com/emotes/eddie";
 export const KICK_NATIVE_EMOTE_REGEX = /\[emote:(\d+):([^\[\]]+)\]/g;
+
+const asRecord = (value: unknown): Record<string, unknown> | null => {
+  if (!value || typeof value !== "object") return null;
+  return value as Record<string, unknown>;
+};
+
 export const pushBttvList = (target: EmoteMap, list: unknown) => {
   if (!Array.isArray(list)) return;
   for (const item of list) {

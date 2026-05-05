@@ -31,6 +31,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
   background:
     radial-gradient(
       circle at top left,
@@ -78,6 +79,7 @@ a.button {
 .hero-section,
 .feature-grid,
 .release-band,
+.download-section,
 .desks-section,
 .workflow-section,
 .cta-panel,
@@ -167,6 +169,12 @@ a.button {
   padding: 44px 0 60px;
 }
 
+.hero-copy,
+.hero-stage,
+.app-frame {
+  min-width: 0;
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: var(--mint);
@@ -187,13 +195,14 @@ a.button {
 }
 
 .hero-copy h1 {
-  max-width: 11ch;
-  font-size: clamp(3.6rem, 7vw, 6.8rem);
+  max-width: 12.5ch;
+  font-size: clamp(3.25rem, 6.2vw, 5.85rem);
 }
 
 .hero-lead,
 .section-heading p,
 .feature-card p,
+.download-card p,
 .desk-card p,
 .workflow-card p,
 .cta-panel p,
@@ -253,7 +262,26 @@ a.button {
 
 .hero-stage {
   position: relative;
-  min-height: 620px;
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  margin: 0;
+}
+
+.hero-stage img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 28px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 40px 120px rgba(0, 0, 0, 0.42);
+}
+
+.hero-stage figcaption {
+  color: var(--text-dim);
+  font-size: 0.86rem;
+  text-align: center;
 }
 
 .hero-stage__badge {
@@ -293,7 +321,7 @@ a.button {
 
 .app-frame {
   position: absolute;
-  inset: 40px 20px 0 20px;
+  inset: 32px 10px 0 10px;
   display: grid;
   gap: 18px;
   padding: 18px;
@@ -316,6 +344,7 @@ a.button {
 .app-frame__composer,
 .app-frame__sidebar > div,
 .feature-card,
+.download-card,
 .desk-card,
 .workflow-card,
 .release-band,
@@ -472,6 +501,7 @@ a.button {
 }
 
 .feature-grid,
+.download-grid,
 .desk-grid,
 .workflow-grid,
 .faq-list {
@@ -485,6 +515,7 @@ a.button {
 }
 
 .feature-card,
+.download-card,
 .desk-card,
 .workflow-card,
 .release-band,
@@ -503,6 +534,7 @@ a.button {
 }
 
 .feature-card h2,
+.download-card h3,
 .desk-card h3,
 .workflow-card h3,
 .faq-item summary {
@@ -524,6 +556,96 @@ a.button {
   padding: 0;
   margin: 0;
   list-style: none;
+}
+
+.download-section {
+  padding: 34px 0;
+}
+
+.download-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.download-card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-height: 100%;
+  padding: 24px;
+  border-radius: 28px;
+  overflow: hidden;
+}
+
+.download-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(19, 199, 152, 0.14),
+    transparent 42%
+  );
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.download-card--featured::before,
+.download-card:hover::before {
+  opacity: 1;
+}
+
+.download-card__platform,
+.download-card__meta {
+  position: relative;
+  width: fit-content;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.download-card__platform {
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: var(--mint);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.download-card h3,
+.download-card p,
+.download-card__actions,
+.download-card__meta {
+  position: relative;
+}
+
+.download-card h3 {
+  font-size: 1.45rem;
+}
+
+.download-card p {
+  margin: 0;
+}
+
+.download-card__meta {
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: var(--text-dim);
+  font-size: 0.88rem;
+}
+
+.download-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.download-card__actions .button {
+  min-height: 42px;
+  padding-inline: 15px;
 }
 
 .desks-section,
@@ -587,6 +709,7 @@ a.button {
 @media (max-width: 1080px) {
   .hero-section,
   .release-band,
+  .download-grid,
   .cta-panel,
   .workflow-grid,
   .desk-grid,
@@ -597,7 +720,7 @@ a.button {
   }
 
   .hero-stage {
-    min-height: 720px;
+    min-height: 0;
   }
 
   .hero-stage__badge--left {
@@ -618,6 +741,7 @@ a.button {
   .site-footer,
   .hero-actions,
   .hero-meta,
+  .download-card__actions,
   .cta-panel__actions {
     align-items: stretch;
   }
@@ -640,16 +764,17 @@ a.button {
 
   .hero-section {
     gap: 24px;
-    padding: 22px 0 42px;
+    padding: 22px 0 38px;
   }
 
   .hero-copy h1 {
-    max-width: none;
-    font-size: clamp(3rem, 12vw, 4.5rem);
+    max-width: min(100%, 9.5ch);
+    font-size: clamp(2.45rem, 10vw, 3.25rem);
+    line-height: 1;
   }
 
   .hero-stage {
-    min-height: 760px;
+    min-height: 0;
   }
 
   .hero-stage__badge {

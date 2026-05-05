@@ -850,10 +850,10 @@ const sanitizeSessionTabs = (
   return restored;
 };
 
-export const asRecord = (value: unknown): Record<string, unknown> | null => {
+export function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object") return null;
   return value as Record<string, unknown>;
-};
+}
 
 const readCombinedChannels = (message: ChatMessage): string[] => {
   const raw = asRecord(message.raw);
