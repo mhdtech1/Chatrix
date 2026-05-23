@@ -79,6 +79,11 @@ import {
   CommandPalette,
   type CommandPaletteCommand,
 } from "../components/Shell";
+import {
+  NewShellLayout,
+  type NewShellAuthDot,
+  type NewShellContextSection,
+} from "../components/NewShell";
 import { type RoleType as UiRoleType } from "../components/common/RoleBadge";
 import { WelcomeScreen } from "../components/common/WelcomeScreen";
 import {
@@ -1780,6 +1785,7 @@ const MainApp: React.FC = () => {
   const mainMenuOpen = useUIStore((state) => state.mainMenuOpen);
   const setMainMenuOpen = useUIStore((state) => state.setMainMenuOpen);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [newShellRightPanelOpen, setNewShellRightPanelOpen] = useState(true);
   const [userLogTarget, setUserLogTarget] = useState<UserLogTarget | null>(
     null,
   );
@@ -6948,6 +6954,10 @@ const MainApp: React.FC = () => {
             }}
             chatTextScale={chatTextScale}
             onChatTextScaleChange={updateChatTextScale}
+            newLayoutEnabled={Boolean(settings.newLayout)}
+            onNewLayoutChange={(enabled) => {
+              void persistSettings({ newLayout: enabled });
+            }}
             welcomeModeEnabled={welcomeModeEnabled}
             onWelcomeModeChange={(enabled) => {
               void persistSettings({ welcomeMode: enabled });
@@ -7339,9 +7349,112 @@ const MainApp: React.FC = () => {
     },
   ];
 
+  const newLayoutEnabled =
+    Boolean(settings.newLayout) && !chatDeckMode && hasPrimaryAuth;
+  const newShellAuthDots: NewShellAuthDot[] = [
+    {
+      platform: "twitch",
+      signedIn: Boolean(settings.twitchToken || settings.twitchGuest),
+      username: settings.twitchUsername ?? "",
+    },
+    {
+      platform: "kick",
+      signedIn: Boolean(settings.kickAccessToken || settings.kickGuest),
+      username: settings.kickUsername ?? "",
+    },
+    ...(youtubeAlphaEnabled
+      ? [
+          {
+            platform: "youtube" as const,
+            signedIn: Boolean(
+              settings.youtubeAccessToken && settings.youtubeRefreshToken,
+            ),
+            username: settings.youtubeUsername ?? "",
+          },
+        ]
+      : []),
+  ];
+  const newShellSignedInCount = newShellAuthDots.filter(
+    (dot) => dot.signedIn,
+  ).length;
+  const newShellSelfName =
+    settings.twitchUsername ||
+    settings.kickUsername ||
+    settings.youtubeUsername ||
+    "";
+  const newShellContextSections: NewShellContextSection[] = newLayoutEnabled
+    ? [
+        {
+          id: "mentions",
+          title: "Mentions",
+          count: mentionInbox.length,
+          body:
+            mentionInbox.length === 0 ? (
+              <p className="new-shell__empty">No recent mentions.</p>
+            ) : (
+              mentionInbox.slice(0, 8).map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  className="new-shell__mention"
+                  onClick={() => {
+                    if (entry.tabId) setActiveTabId(entry.tabId);
+                  }}
+                >
+                  <span className="new-shell__mention-who">
+                    @{entry.displayName || "user"}
+                  </span>
+                  <span className="new-shell__mention-text">
+                    {entry.message?.slice(0, 60) ?? ""}
+                  </span>
+                </button>
+              ))
+            ),
+        },
+        {
+          id: "mod-history",
+          title: "Recent mod actions",
+          count: moderationHistory.length,
+          defaultCollapsed: moderationHistory.length === 0,
+          body:
+            moderationHistory.length === 0 ? (
+              <p className="new-shell__empty">No mod actions yet.</p>
+            ) : (
+              moderationHistory.slice(0, 6).map((entry) => (
+                <div key={entry.id} className="new-shell__mod-row">
+                  <span
+                    className="new-shell__mod-action"
+                    title={entry.source}
+                  >
+                    {entry.action} {entry.target}
+                  </span>
+                </div>
+              ))
+            ),
+        },
+        {
+          id: "health",
+          title: "Connection health",
+          defaultCollapsed: true,
+          body: newShellAuthDots.map((dot) => (
+            <div key={dot.platform} className="new-shell__mod-row">
+              <span
+                className={`new-shell__pl new-shell__pl--${dot.platform}`}
+                aria-hidden="true"
+              />
+              <span className="new-shell__mod-action">
+                {dot.username ||
+                  (dot.signedIn ? "Signed in" : "Not signed in")}
+              </span>
+            </div>
+          )),
+        },
+      ]
+    : [];
+
   return (
     <div
-      className={`chat-shell ${isSimpleMode ? "simple " : ""}density-${uiDensity}`}
+      className={`chat-shell ${isSimpleMode ? "simple " : ""}density-${uiDensity}${newLayoutEnabled ? " with-new-shell" : ""}${newLayoutEnabled && newShellRightPanelOpen && newShellContextSections.length > 0 ? " with-context" : ""}`}
       data-ui-density={uiDensity}
       style={
         {
@@ -7354,6 +7467,34 @@ const MainApp: React.FC = () => {
         setMessageMenu(null);
       }}
     >
+      {newLayoutEnabled ? (
+        <NewShellLayout
+          tabs={tabItems.map((tab) => ({
+            id: tab.id,
+            label: tab.label,
+            platform: tab.platform,
+            unreadCount: tab.unreadCount,
+            mentionCount: tab.mentionCount,
+            active: tab.active,
+          }))}
+          onSelectTab={setActiveTabId}
+          onCloseTab={(tabId) => void closeTab(tabId)}
+          onContextMenuTab={(tabId, position) =>
+            setTabMenu({ x: position.x, y: position.y, tabId })
+          }
+          onAddChannel={focusChannelComposer}
+          onOpenSettings={openMainMenu}
+          onOpenPalette={() => setPaletteOpen(true)}
+          authDots={newShellAuthDots}
+          selfDisplayName={newShellSelfName || undefined}
+          signedInPlatformsCount={newShellSignedInCount}
+          contextSections={newShellContextSections}
+          rightPanelOpen={newShellRightPanelOpen}
+          onToggleRightPanel={() =>
+            setNewShellRightPanelOpen((value) => !value)
+          }
+        />
+      ) : null}
       <ChatShellTopBar
         isSimpleMode={isSimpleMode}
         isAdvancedMode={isAdvancedMode}

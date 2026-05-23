@@ -92,6 +92,8 @@ export type ChatShellMenuContentProps = {
   onUIDensityChange: (density: UIDensity) => void;
   chatTextScale: number;
   onChatTextScaleChange: (value: number) => void;
+  newLayoutEnabled: boolean;
+  onNewLayoutChange: (enabled: boolean) => void;
   welcomeModeEnabled: boolean;
   onWelcomeModeChange: (enabled: boolean) => void;
   onOpenQuickTour: () => void;
@@ -244,6 +246,8 @@ export function ChatShellMenuContent({
   onUIDensityChange,
   chatTextScale,
   onChatTextScaleChange,
+  newLayoutEnabled,
+  onNewLayoutChange,
   welcomeModeEnabled,
   onWelcomeModeChange,
   onOpenQuickTour,
@@ -555,6 +559,22 @@ export function ChatShellMenuContent({
                   aria-label="Chat text size"
                 />
                 <span className="menu-muted">{chatTextScale}%</span>
+              </label>
+              <label className="menu-check">
+                <input
+                  type="checkbox"
+                  checked={newLayoutEnabled}
+                  onChange={(event) =>
+                    onNewLayoutChange(event.target.checked)
+                  }
+                />
+                <span>
+                  New layout (preview)
+                  <span className="menu-muted">
+                    {" "}
+                    — Discord-style channel list + collapsible right panel
+                  </span>
+                </span>
               </label>
               <span className="menu-muted">
                 {autoWorkspacePreset

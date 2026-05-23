@@ -20,6 +20,8 @@ const baseProps: React.ComponentProps<typeof ChatShellMenuContent> = {
   onUIDensityChange: vi.fn(),
   chatTextScale: 100,
   onChatTextScaleChange: vi.fn(),
+  newLayoutEnabled: false,
+  onNewLayoutChange: vi.fn(),
   welcomeModeEnabled: false,
   onWelcomeModeChange: vi.fn(),
   onOpenQuickTour: vi.fn(),

@@ -62,6 +62,7 @@ export type AppSettings = {
   autoWorkspacePreset?: boolean;
   uiMode?: UIMode;
   uiDensity?: UIDensity;
+  newLayout?: boolean;
   workspacePreset?: WorkspacePreset;
   theme?: ThemeOption;
   chatTextScale?: number;
