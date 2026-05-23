@@ -1,0 +1,1060 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chatrix — UI mockups</title>
+<style>
+  :root {
+    --surface-app: #0b0e13;
+    --surface-panel: #11151b;
+    --surface-overlay: #161b22;
+    --surface-int: rgba(255, 255, 255, 0.05);
+    --surface-int-strong: rgba(255, 255, 255, 0.09);
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.12);
+    --border-accent: rgba(36, 208, 162, 0.45);
+    --ink-strong: #eef2f6;
+    --ink-soft: #c5ccd6;
+    --ink-muted: #9aa4b2;
+    --ink-faint: rgba(154, 164, 178, 0.6);
+    --accent: #24d0a2;
+    --accent-glow: rgba(36, 208, 162, 0.18);
+    --tw: #a970ff;
+    --kc: #53fc18;
+    --yt: #ff4646;
+    --tt: #ee1d52;
+    --font:
+      -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: #05070a; color: var(--ink-strong);
+    font-family: var(--font); font-size: 13px;
+  }
+  body { padding: 32px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  .meta { color: var(--ink-muted); font-size: 12px; margin-bottom: 32px; }
+  .mockup {
+    margin-bottom: 48px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    background: var(--surface-app);
+    border: 1px solid var(--border-strong);
+  }
+  .mockup-label {
+    padding: 12px 18px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .mockup-label strong { font-size: 14px; }
+  .mockup-label span { color: var(--ink-muted); }
+  .frame {
+    height: 560px;
+    display: flex;
+    background: var(--surface-app);
+  }
+
+  /* === Shared elements === */
+  .chat-row {
+    padding: 7px 14px;
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    border-radius: 4px;
+  }
+  .chat-row:hover { background: var(--surface-int); }
+  .chat-row .avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    flex-shrink: 0; background: var(--tw); display: grid; place-items: center;
+    font-size: 10px; font-weight: 700; color: var(--surface-app);
+  }
+  .chat-row .who {
+    color: var(--tw); font-weight: 600;
+  }
+  .chat-row.k .avatar { background: var(--kc); }
+  .chat-row.k .who { color: var(--kc); }
+  .chat-row.y .avatar { background: var(--yt); }
+  .chat-row.y .who { color: var(--yt); }
+  .chat-row.mod .avatar { background: linear-gradient(135deg, var(--accent), #1ea888); }
+  .chat-row.mod .who { color: var(--accent); }
+  .chat-row .body { color: var(--ink-soft); }
+  .chat-row .time { color: var(--ink-faint); font-size: 11px; margin-left: auto; align-self: center; }
+
+  .composer {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border-soft);
+    background: var(--surface-panel);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .composer input {
+    flex: 1; padding: 8px 12px; border-radius: 4px;
+    background: var(--surface-app); color: var(--ink-strong);
+    border: 1px solid var(--border-soft); font: inherit;
+  }
+  .composer button {
+    padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-accent);
+    background: var(--accent-glow); color: var(--accent); font-weight: 600;
+    cursor: pointer; font: inherit;
+  }
+
+  .icon-btn {
+    width: 30px; height: 30px; display: grid; place-items: center;
+    border-radius: 4px; border: 1px solid var(--border-soft);
+    background: var(--surface-int); color: var(--ink-soft); font: inherit;
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--surface-int-strong); color: var(--ink-strong); }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    box-shadow: 0 0 6px;
+  }
+  .dot.tw { background: var(--tw); box-shadow: 0 0 6px var(--tw); }
+  .dot.kc { background: var(--kc); box-shadow: 0 0 6px var(--kc); }
+  .dot.yt { background: var(--yt); box-shadow: 0 0 6px var(--yt); }
+
+  /* === Mockup A: Discord-style left sidebar === */
+  .a {}
+  .a .nav {
+    width: 56px; background: var(--surface-overlay);
+    border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column;
+    padding: 8px 0; gap: 4px; align-items: center;
+  }
+  .a .nav .item {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--surface-int); display: grid; place-items: center;
+    font-weight: 700; font-size: 13px;
+    cursor: pointer; transition: border-radius 0.15s;
+    position: relative;
+  }
+  .a .nav .item:hover { background: var(--surface-int-strong); border-radius: 12px; }
+  .a .nav .item.active {
+    background: var(--accent-glow); color: var(--accent);
+    border-radius: 12px;
+  }
+  .a .nav .item.active::before {
+    content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px;
+    width: 3px; border-radius: 0 3px 3px 0; background: var(--ink-strong);
+  }
+  .a .nav .divider {
+    width: 24px; height: 1px; background: var(--border-soft); margin: 4px 0;
+  }
+  .a .nav .item.tw { color: var(--tw); }
+  .a .nav .item.kc { color: var(--kc); }
+  .a .nav .item.yt { color: var(--yt); }
+  .a .nav .item.add {
+    color: var(--ink-muted);
+    border: 1px dashed var(--border-soft);
+    background: transparent;
+  }
+  .a .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .a .topbar {
+    padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border-soft); background: var(--surface-panel);
+  }
+  .a .topbar strong { font-size: 14px; flex: 1; }
+  .a .stream { flex: 1; overflow-y: auto; padding: 8px; min-height: 0; }
+
+  /* === Mockup B: Three-pane (Linear-style) === */
+  .b {}
+  .b .left {
+    width: 180px; background: var(--surface-panel);
+    border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column;
+    padding: 12px 8px; gap: 2px;
+  }
+  .b .left .group-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-muted); padding: 8px 8px 4px; font-weight: 700;
+  }
+  .b .left .tab {
+    padding: 6px 8px; border-radius: 4px; display: flex; align-items: center;
+    gap: 8px; cursor: pointer; color: var(--ink-soft); font-size: 12px;
+  }
+  .b .left .tab:hover { background: var(--surface-int); }
+  .b .left .tab.active {
+    background: var(--accent-glow); color: var(--ink-strong);
+  }
+  .b .left .tab .pl {
+    width: 14px; height: 14px; border-radius: 3px; display: grid; place-items: center;
+    font-size: 8px; font-weight: 700; color: var(--surface-app);
+  }
+  .b .left .tab .pl.tw { background: var(--tw); }
+  .b .left .tab .pl.kc { background: var(--kc); }
+  .b .left .tab .pl.yt { background: var(--yt); }
+  .b .left .tab .badge {
+    margin-left: auto; padding: 0 5px; min-width: 14px;
+    height: 14px; border-radius: 999px; font-size: 9px;
+    background: var(--accent-glow); color: var(--accent);
+    display: grid; place-items: center; font-weight: 700;
+  }
+  .b .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .b .center .channel-bar {
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .b .center .channel-bar strong { font-size: 14px; }
+  .b .center .channel-bar .live {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 6px; border-radius: 3px; background: rgba(255,70,70,0.18);
+    color: #ff8e84; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .b .center .stream { flex: 1; overflow-y: auto; padding: 8px; min-height: 0; }
+  .b .right {
+    width: 240px; background: var(--surface-panel);
+    border-left: 1px solid var(--border-soft);
+    padding: 12px;
+  }
+  .b .right h4 {
+    margin: 0 0 10px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink-muted); font-weight: 700;
+  }
+  .b .right .card {
+    padding: 10px; border-radius: 6px; background: var(--surface-int);
+    border: 1px solid var(--border-soft); margin-bottom: 8px;
+  }
+  .b .right .card-title {
+    font-size: 12px; font-weight: 600; color: var(--ink-strong);
+  }
+  .b .right .card-sub {
+    font-size: 11px; color: var(--ink-muted); margin-top: 2px;
+  }
+
+  /* === Mockup C: Focus mode === */
+  .c {}
+  .c .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .c .header {
+    padding: 16px 24px; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 4px;
+  }
+  .c .header .channel { font-size: 18px; font-weight: 700; }
+  .c .header .platform { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .c .stream {
+    flex: 1; overflow-y: auto; padding: 16px 48px; min-height: 0;
+    max-width: 720px; margin: 0 auto; width: 100%;
+  }
+  .c .stream .chat-row {
+    font-size: 14px;
+    padding: 8px 14px;
+  }
+  .c .footer {
+    padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+    max-width: 720px; margin: 0 auto; width: 100%;
+  }
+  .c .footer input {
+    flex: 1; padding: 12px 16px; border-radius: 8px;
+    background: var(--surface-panel); color: var(--ink-strong);
+    border: 1px solid var(--border-soft); font: inherit; font-size: 14px;
+  }
+  .c .footer .floating-controls {
+    position: absolute; bottom: 24px; right: 24px;
+    display: flex; gap: 6px;
+  }
+  .c .frame { position: relative; }
+
+  /* === Mockup D: Current state, for comparison === */
+  .d {}
+  .d .topbar {
+    padding: 6px 10px; display: grid; grid-template-columns: auto 1fr auto;
+    align-items: center; gap: 10px; background: var(--surface-panel);
+    border: 1px solid var(--border-soft); border-radius: 8px; margin: 8px 8px 0;
+  }
+  .d .brand-zone { display: flex; align-items: center; gap: 8px; padding-left: 4px; }
+  .d .wordmark { font-weight: 700; font-size: 14px; }
+  .d .auth-dots { display: flex; gap: 4px; padding-left: 6px; border-left: 1px solid var(--border-soft); }
+  .d .channel-form {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px;
+    padding: 6px; background: var(--surface-app);
+    border: 1px solid var(--border-soft); border-radius: 8px;
+  }
+  .d .channel-form input {
+    padding: 0 12px; height: 30px; border: 0;
+    background: transparent; color: var(--ink-strong); font: inherit;
+  }
+  .d .channel-form .submit {
+    height: 30px; width: 30px; border-radius: 4px; border: 1px solid var(--border-accent);
+    background: var(--accent-glow); color: var(--accent); display: grid; place-items: center;
+    font-weight: 700;
+  }
+  .d .actions { display: flex; gap: 8px; }
+  .d .tabs {
+    display: flex; gap: 2px; padding: 4px 8px;
+    border-bottom: 1px solid var(--border-soft); margin: 0 8px;
+  }
+  .d .tabs .tab {
+    padding: 6px 12px; font-size: 12px; border-radius: 4px;
+    color: var(--ink-soft); cursor: pointer; display: flex; align-items: center; gap: 6px;
+  }
+  .d .tabs .tab .pl { width: 12px; height: 12px; border-radius: 3px; }
+  .d .tabs .tab.active { background: var(--accent-glow); border: 1px solid var(--border-accent); color: var(--ink-strong); }
+  .d .stream { flex: 1; overflow-y: auto; padding: 8px; min-height: 0; }
+  .d .frame { flex-direction: column; }
+</style>
+</head>
+<body>
+
+<h1>Chatrix UI mockups</h1>
+<p class="meta">Static previews using the canonical design tokens. Open this file in your browser. Pick one or describe a mix.</p>
+
+<style>
+  /* === Mockup F: E + B fusion === */
+  .f .rail {
+    width: 56px; background: var(--surface-overlay);
+    border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 12px 0 8px; gap: 8px;
+  }
+  .f .rail .platform-dot {
+    width: 12px; height: 12px; border-radius: 50%; cursor: pointer;
+    opacity: 0.6; transition: opacity 0.15s, transform 0.15s;
+  }
+  .f .rail .platform-dot:hover { opacity: 1; transform: scale(1.2); }
+  .f .rail .platform-dot.active { opacity: 1; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+  .f .rail .platform-dot.tw { background: var(--tw); }
+  .f .rail .platform-dot.kc { background: var(--kc); }
+  .f .rail .platform-dot.yt { background: var(--yt); }
+  .f .rail .platform-dot.tt { background: var(--tt); }
+  .f .rail .rail-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; color: var(--ink-muted);
+    cursor: pointer; font-size: 14px;
+  }
+  .f .rail .rail-icon:hover { background: var(--surface-int); color: var(--ink-strong); }
+  .f .rail .rail-icon.active { background: var(--accent-glow); color: var(--accent); }
+  .f .rail-spacer { flex: 1; }
+
+  .f .channels {
+    width: 220px; background: var(--surface-panel);
+    border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column;
+  }
+  .f .channels-header {
+    padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .f .channels-header strong { font-size: 13px; font-weight: 700; flex: 1; }
+  .f .channels-header .add {
+    width: 22px; height: 22px; border-radius: 4px;
+    background: var(--surface-int); color: var(--ink-muted);
+    display: grid; place-items: center; cursor: pointer; font-size: 14px;
+  }
+  .f .channels-list { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+  .f .group-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-muted); padding: 10px 8px 4px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .f .group-label .ct {
+    color: var(--ink-faint); font-weight: 500;
+  }
+  .f .channel-row {
+    padding: 6px 10px; border-radius: 4px; display: flex; align-items: center;
+    gap: 10px; cursor: pointer; color: var(--ink-soft); font-size: 13px;
+    margin: 1px 0;
+  }
+  .f .channel-row:hover { background: var(--surface-int); color: var(--ink-strong); }
+  .f .channel-row.active {
+    background: var(--surface-int-strong); color: var(--ink-strong); font-weight: 600;
+  }
+  .f .channel-row .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: #ff4646; box-shadow: 0 0 6px rgba(255,70,70,0.7);
+  }
+  .f .channel-row.offline .live-dot {
+    background: var(--ink-faint); box-shadow: none;
+  }
+  .f .channel-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .f .channel-row .badge {
+    font-size: 10px; padding: 1px 5px; border-radius: 999px;
+    background: var(--accent-glow); color: var(--accent); font-weight: 700;
+    min-width: 14px; text-align: center;
+  }
+
+  .f .user-strip {
+    padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--border-soft); background: var(--surface-app);
+  }
+  .f .user-strip .av {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--tw);
+    color: var(--surface-app); display: grid; place-items: center;
+    font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .f .user-strip .me { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .f .user-strip .me-sub { font-size: 10px; color: var(--ink-muted); }
+  .f .user-strip .gear {
+    width: 22px; height: 22px; border-radius: 4px; color: var(--ink-muted);
+    display: grid; place-items: center; cursor: pointer;
+  }
+
+  .f .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .f .header-bar {
+    padding: 10px 18px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .f .header-bar .title {
+    font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  }
+  .f .header-bar .live-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 3px; background: rgba(255,70,70,0.18);
+    color: #ff8e84; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .f .header-bar .live-badge::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ff4646;
+  }
+  .f .header-bar .stream-meta {
+    color: var(--ink-muted); font-size: 12px; display: flex; gap: 12px;
+  }
+  .f .header-bar .stream-meta span::before { content: "·"; margin-right: 12px; color: var(--ink-faint); }
+  .f .header-bar .stream-meta span:first-child::before { content: ""; margin: 0; }
+  .f .header-bar .quick-mod {
+    display: flex; gap: 4px; margin-left: auto;
+  }
+  .f .header-bar .quick-mod button {
+    padding: 4px 10px; font-size: 11px; border-radius: 4px;
+    border: 1px solid var(--border-soft); background: var(--surface-int);
+    color: var(--ink-soft); cursor: pointer;
+  }
+  .f .header-bar .toggle-side {
+    width: 26px; height: 26px; border-radius: 4px;
+    background: var(--surface-int); color: var(--ink-muted);
+    display: grid; place-items: center; cursor: pointer;
+    border: 1px solid var(--border-soft);
+  }
+  .f .header-bar .toggle-side.active {
+    background: var(--accent-glow); color: var(--accent); border-color: var(--border-accent);
+  }
+
+  .f .stream { flex: 1; overflow-y: auto; padding: 8px 4px; min-height: 0; }
+  .f .stream .chat-row { padding: 4px 14px; }
+
+  .f .composer {
+    margin: 0 14px 14px;
+    border-radius: 8px; background: var(--surface-panel);
+    border: 1px solid var(--border-soft);
+    padding: 6px 6px 6px 12px;
+  }
+
+  .f .right {
+    width: 260px; background: var(--surface-panel);
+    border-left: 1px solid var(--border-soft);
+    padding: 14px 12px; overflow-y: auto;
+  }
+  .f .right h4 {
+    margin: 0 0 10px; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--ink-muted); font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .f .right h4 .ct {
+    margin-left: auto; padding: 0 5px; min-width: 16px;
+    height: 14px; border-radius: 999px; font-size: 9px;
+    background: var(--accent-glow); color: var(--accent);
+    display: grid; place-items: center; font-weight: 700;
+  }
+  .f .right .card {
+    padding: 10px; border-radius: 6px; background: var(--surface-int);
+    border: 1px solid var(--border-soft); margin-bottom: 6px;
+  }
+  .f .right .card-title {
+    font-size: 12px; font-weight: 600; color: var(--ink-strong);
+  }
+  .f .right .card-sub {
+    font-size: 11px; color: var(--ink-muted); margin-top: 2px;
+  }
+  .f .right .card-row {
+    display: flex; align-items: center; gap: 8px; font-size: 12px;
+    padding: 6px 0; border-bottom: 1px solid var(--border-soft);
+  }
+  .f .right .card-row:last-child { border-bottom: 0; }
+  .f .right .card-row .pl-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .f .right .card-row .meta {
+    margin-left: auto; color: var(--ink-muted); font-size: 11px;
+  }
+  .f .right .section + .section { margin-top: 18px; }
+
+  /* Collapsible sections */
+  .f .right h4 {
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .f .right h4:hover { color: var(--ink-strong); }
+  .f .right h4 .caret {
+    width: 10px; height: 10px; display: inline-block;
+    transition: transform 0.15s;
+    color: var(--ink-faint);
+  }
+  .f .right .section.collapsed h4 .caret {
+    transform: rotate(-90deg);
+  }
+  .f .right .section .section-body {
+    overflow: hidden;
+    transition: max-height 0.2s ease, opacity 0.15s;
+    max-height: 600px;
+  }
+  .f .right .section.collapsed .section-body {
+    max-height: 0;
+    opacity: 0;
+  }
+</style>
+
+<!-- F: E + B fusion -->
+<div class="mockup f">
+  <div class="mockup-label">
+    <strong>F — Discord-streamer + contextual right panel (proposed final)</strong>
+    <span>E's left + chat. B's right panel toggles via the header icon. Hidden by default in simple mode.</span>
+  </div>
+  <div class="frame">
+    <div class="rail">
+      <div class="platform-dot tw active" title="Twitch · 2 channels"></div>
+      <div class="platform-dot kc" title="Kick · 1 channel"></div>
+      <div class="platform-dot yt" title="YouTube · 1 channel"></div>
+      <div class="platform-dot tt" style="background: var(--ink-faint)" title="TikTok · not signed in"></div>
+      <div class="rail-spacer"></div>
+      <div class="rail-icon" title="Command palette">⌘</div>
+      <div class="rail-icon" title="Settings">⚙</div>
+    </div>
+    <div class="channels">
+      <div class="channels-header">
+        <strong>Channels</strong>
+        <div class="add" title="Add channel">+</div>
+      </div>
+      <div class="channels-list">
+        <div class="group-label">Twitch <span class="ct">2</span></div>
+        <div class="channel-row active">
+          <div class="live-dot"></div>
+          <div class="name">mazendahroug</div>
+          <div class="badge">3</div>
+        </div>
+        <div class="channel-row offline">
+          <div class="live-dot"></div>
+          <div class="name">sodapoppin</div>
+        </div>
+        <div class="group-label">Kick <span class="ct">1</span></div>
+        <div class="channel-row">
+          <div class="live-dot"></div>
+          <div class="name">sophiehyder</div>
+          <div class="badge">12</div>
+        </div>
+        <div class="group-label">YouTube <span class="ct">1</span></div>
+        <div class="channel-row">
+          <div class="live-dot"></div>
+          <div class="name">LofiGirl · live</div>
+        </div>
+      </div>
+      <div class="user-strip">
+        <div class="av">M</div>
+        <div class="me">
+          mazen
+          <div class="me-sub">3 platforms signed in</div>
+        </div>
+        <div class="gear" title="Account">⚙</div>
+      </div>
+    </div>
+    <div class="center">
+      <div class="header-bar">
+        <div class="title">
+          <span class="dot tw"></span>
+          mazendahroug
+          <span class="live-badge">Live</span>
+        </div>
+        <div class="stream-meta">
+          <span>1.2K viewers</span>
+          <span>Just Chatting</span>
+          <span>2h 14m</span>
+        </div>
+        <div class="quick-mod">
+          <button>/clear</button>
+          <button>/slow 10</button>
+          <button>↻</button>
+        </div>
+        <div class="toggle-side active" title="Toggle context panel">▦</div>
+      </div>
+      <div class="stream">
+        <div class="chat-row"><div class="avatar">M</div><div><span class="who">MazenDahroug</span> <span class="body">good morning chat</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row"><div class="avatar">P</div><div><span class="who">PotatBot</span> <span class="body">@MazenDahroug Last-Seen info</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row mod"><div class="avatar">S</div><div><span class="who">sophiehyder</span> <span class="body">u clapped it?</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">A</div><div><span class="who">alex_streams</span> <span class="body">nah you got smoked</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">D</div><div><span class="who">dunkmaster</span> <span class="body">L take honestly</span></div><div class="time">1:56 PM</div></div>
+        <div class="chat-row"><div class="avatar">J</div><div><span class="who">jaybird</span> <span class="body">pog</span></div><div class="time">1:57 PM</div></div>
+        <div class="chat-row"><div class="avatar">K</div><div><span class="who">kappa_fan</span> <span class="body">KEKW</span></div><div class="time">1:57 PM</div></div>
+        <div class="chat-row"><div class="avatar">B</div><div><span class="who">benbenben</span> <span class="body">@mazen what game next</span></div><div class="time">1:58 PM</div></div>
+      </div>
+      <div class="composer">
+        <input placeholder="Message #mazendahroug · ⌘K for commands" />
+        <button>send</button>
+      </div>
+    </div>
+    <div class="right">
+      <div class="section" onclick="this.classList.toggle('collapsed')">
+        <h4><span class="caret">▾</span> Mentions <span class="ct">2</span></h4>
+        <div class="section-body">
+          <div class="card">
+            <div class="card-title">@you mentioned by benbenben</div>
+            <div class="card-sub">"what game next" · just now</div>
+          </div>
+          <div class="card">
+            <div class="card-title">@you mentioned by sophiehyder</div>
+            <div class="card-sub">2m · kick/sophiehyder</div>
+          </div>
+        </div>
+      </div>
+      <div class="section" onclick="this.classList.toggle('collapsed')">
+        <h4><span class="caret">▾</span> Recent mod actions</h4>
+        <div class="section-body">
+          <div class="card-row">
+            <div class="pl-dot" style="background:var(--tw)"></div>
+            <div>Timed out spamster</div>
+            <div class="meta">4m</div>
+          </div>
+          <div class="card-row">
+            <div class="pl-dot" style="background:var(--tw)"></div>
+            <div>Banned scammer123</div>
+            <div class="meta">9m</div>
+          </div>
+          <div class="card-row">
+            <div class="pl-dot" style="background:var(--kc)"></div>
+            <div>Deleted spam msg</div>
+            <div class="meta">14m</div>
+          </div>
+        </div>
+      </div>
+      <div class="section collapsed" onclick="this.classList.toggle('collapsed')">
+        <h4><span class="caret">▾</span> Connection health</h4>
+        <div class="section-body">
+          <div class="card-row">
+            <span class="dot tw"></span>Twitch
+            <div class="meta">38d</div>
+          </div>
+          <div class="card-row">
+            <span class="dot kc"></span>Kick
+            <div class="meta">7d</div>
+          </div>
+          <div class="card-row">
+            <span class="dot yt"></span>YouTube
+            <div class="meta">59m</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* === Mockup E: Discord-streamer === */
+  .e .rail {
+    width: 56px; background: var(--surface-overlay);
+    border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 12px 0 8px; gap: 8px;
+  }
+  .e .rail .platform-dot {
+    width: 12px; height: 12px; border-radius: 50%; cursor: pointer;
+    opacity: 0.6; transition: opacity 0.15s, transform 0.15s;
+  }
+  .e .rail .platform-dot:hover { opacity: 1; transform: scale(1.2); }
+  .e .rail .platform-dot.active { opacity: 1; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+  .e .rail .platform-dot.tw { background: var(--tw); }
+  .e .rail .platform-dot.kc { background: var(--kc); }
+  .e .rail .platform-dot.yt { background: var(--yt); }
+  .e .rail .platform-dot.tt { background: var(--tt); }
+  .e .rail .rail-divider {
+    width: 24px; height: 1px; background: var(--border-soft); margin: 6px 0;
+  }
+  .e .rail .rail-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: grid; place-items: center; color: var(--ink-muted);
+    cursor: pointer; font-size: 14px;
+  }
+  .e .rail .rail-icon:hover { background: var(--surface-int); color: var(--ink-strong); }
+  .e .rail-spacer { flex: 1; }
+
+  .e .channels {
+    width: 220px; background: var(--surface-panel);
+    border-right: 1px solid var(--border-soft);
+    display: flex; flex-direction: column;
+  }
+  .e .channels-header {
+    padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px;
+  }
+  .e .channels-header strong {
+    font-size: 13px; font-weight: 700; flex: 1;
+  }
+  .e .channels-header .add {
+    width: 22px; height: 22px; border-radius: 4px;
+    background: var(--surface-int); color: var(--ink-muted);
+    display: grid; place-items: center; cursor: pointer; font-size: 14px;
+  }
+  .e .channels-header .add:hover { background: var(--surface-int-strong); color: var(--ink-strong); }
+  .e .channels-list { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+  .e .channel-row {
+    padding: 6px 10px; border-radius: 4px; display: flex; align-items: center;
+    gap: 10px; cursor: pointer; color: var(--ink-soft); font-size: 13px;
+    margin: 1px 0;
+  }
+  .e .channel-row:hover { background: var(--surface-int); color: var(--ink-strong); }
+  .e .channel-row.active {
+    background: var(--surface-int-strong); color: var(--ink-strong); font-weight: 600;
+  }
+  .e .channel-row .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: #ff4646; box-shadow: 0 0 6px rgba(255,70,70,0.7);
+  }
+  .e .channel-row.offline .live-dot {
+    background: var(--ink-faint); box-shadow: none;
+  }
+  .e .channel-row .pl-pill {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .e .channel-row .pl-pill.tw { background: var(--tw); }
+  .e .channel-row .pl-pill.kc { background: var(--kc); }
+  .e .channel-row .pl-pill.yt { background: var(--yt); }
+  .e .channel-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .e .channel-row .badge {
+    font-size: 10px; padding: 1px 5px; border-radius: 999px;
+    background: var(--accent-glow); color: var(--accent); font-weight: 700;
+    min-width: 14px; text-align: center;
+  }
+
+  .e .user-strip {
+    padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--border-soft); background: var(--surface-app);
+  }
+  .e .user-strip .av {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--tw);
+    color: var(--surface-app); display: grid; place-items: center;
+    font-size: 10px; font-weight: 700; flex-shrink: 0;
+  }
+  .e .user-strip .me { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .e .user-strip .me-sub { font-size: 10px; color: var(--ink-muted); }
+  .e .user-strip .gear {
+    width: 22px; height: 22px; border-radius: 4px; color: var(--ink-muted);
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .e .user-strip .gear:hover { background: var(--surface-int); color: var(--ink-strong); }
+
+  .e .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .e .header-bar {
+    padding: 10px 18px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .e .header-bar .title {
+    font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  }
+  .e .header-bar .live-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 7px; border-radius: 3px; background: rgba(255,70,70,0.18);
+    color: #ff8e84; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .e .header-bar .live-badge::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: #ff4646;
+  }
+  .e .header-bar .stream-meta {
+    color: var(--ink-muted); font-size: 12px; display: flex; gap: 12px;
+  }
+  .e .header-bar .stream-meta span::before { content: "·"; margin-right: 12px; color: var(--ink-faint); }
+  .e .header-bar .stream-meta span:first-child::before { content: ""; margin: 0; }
+  .e .header-bar .quick-mod {
+    display: flex; gap: 4px; margin-left: auto;
+  }
+  .e .header-bar .quick-mod button {
+    padding: 4px 10px; font-size: 11px; border-radius: 4px;
+    border: 1px solid var(--border-soft); background: var(--surface-int);
+    color: var(--ink-soft); cursor: pointer;
+  }
+  .e .header-bar .quick-mod button:hover {
+    background: var(--surface-int-strong); color: var(--ink-strong);
+  }
+
+  .e .stream { flex: 1; overflow-y: auto; padding: 8px 4px; min-height: 0; }
+  .e .stream .chat-row { padding: 4px 14px; }
+
+  .e .composer {
+    margin: 0 14px 14px;
+    border-radius: 8px; background: var(--surface-panel);
+    border: 1px solid var(--border-soft);
+    padding: 6px 6px 6px 12px;
+  }
+</style>
+
+<!-- E: Discord-streamer (the one you'll probably want) -->
+<div class="mockup e">
+  <div class="mockup-label">
+    <strong>E — Discord-streamer (NEW)</strong>
+    <span>Platform rail + channel list + chat. No topbar. Mod actions at chat header.</span>
+  </div>
+  <div class="frame">
+    <div class="rail">
+      <div class="platform-dot tw active" title="Twitch · 2 channels"></div>
+      <div class="platform-dot kc" title="Kick · 1 channel"></div>
+      <div class="platform-dot yt" title="YouTube · 1 channel"></div>
+      <div class="platform-dot tt" style="background: var(--ink-faint)" title="TikTok · not signed in"></div>
+      <div class="rail-spacer"></div>
+      <div class="rail-icon" title="Command palette">⌘</div>
+      <div class="rail-icon" title="Settings">⚙</div>
+    </div>
+    <div class="channels">
+      <div class="channels-header">
+        <strong>Channels</strong>
+        <div class="add" title="Add channel">+</div>
+      </div>
+      <div class="channels-list">
+        <div class="channel-row active">
+          <div class="live-dot"></div>
+          <div class="pl-pill tw"></div>
+          <div class="name">mazendahroug</div>
+          <div class="badge">3</div>
+        </div>
+        <div class="channel-row offline">
+          <div class="live-dot"></div>
+          <div class="pl-pill tw"></div>
+          <div class="name">sodapoppin</div>
+        </div>
+        <div class="channel-row">
+          <div class="live-dot"></div>
+          <div class="pl-pill kc"></div>
+          <div class="name">sophiehyder</div>
+          <div class="badge">12</div>
+        </div>
+        <div class="channel-row offline">
+          <div class="live-dot"></div>
+          <div class="pl-pill yt"></div>
+          <div class="name">LofiGirl · live</div>
+        </div>
+      </div>
+      <div class="user-strip">
+        <div class="av">M</div>
+        <div class="me">
+          mazen
+          <div class="me-sub">Signed in · 3 platforms</div>
+        </div>
+        <div class="gear" title="Account">⚙</div>
+      </div>
+    </div>
+    <div class="center">
+      <div class="header-bar">
+        <div class="title">
+          <span class="dot tw"></span>
+          mazendahroug
+          <span class="live-badge">Live</span>
+        </div>
+        <div class="stream-meta">
+          <span>1.2K viewers</span>
+          <span>Just Chatting</span>
+          <span>2h 14m</span>
+        </div>
+        <div class="quick-mod">
+          <button>/clear</button>
+          <button>/slow 10</button>
+          <button>↻</button>
+        </div>
+      </div>
+      <div class="stream">
+        <div class="chat-row"><div class="avatar">M</div><div><span class="who">MazenDahroug</span> <span class="body">good morning chat</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row"><div class="avatar">P</div><div><span class="who">PotatBot</span> <span class="body">@MazenDahroug Last-Seen: User has opted out of this command</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row mod"><div class="avatar">S</div><div><span class="who">sophiehyder</span> <span class="body">u clapped it?</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">A</div><div><span class="who">alex_streams</span> <span class="body">nah you got smoked</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">D</div><div><span class="who">dunkmaster</span> <span class="body">L take honestly</span></div><div class="time">1:56 PM</div></div>
+        <div class="chat-row"><div class="avatar">J</div><div><span class="who">jaybird</span> <span class="body">pog</span></div><div class="time">1:57 PM</div></div>
+        <div class="chat-row"><div class="avatar">K</div><div><span class="who">kappa_fan</span> <span class="body">KEKW</span></div><div class="time">1:57 PM</div></div>
+        <div class="chat-row"><div class="avatar">B</div><div><span class="who">benbenben</span> <span class="body">@mazen what game next</span></div><div class="time">1:58 PM</div></div>
+      </div>
+      <div class="composer">
+        <input placeholder="Message #mazendahroug · ⌘K for commands" />
+        <button>send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- D: current -->
+<div class="mockup d">
+  <div class="mockup-label">
+    <strong>0 — Current (v1.0.25)</strong>
+    <span>For comparison</span>
+  </div>
+  <div class="frame">
+    <div class="topbar">
+      <div class="brand-zone">
+        <span class="wordmark">Chatrix</span>
+        <div class="auth-dots">
+          <span class="dot tw"></span><span class="dot kc"></span><span class="dot yt"></span>
+        </div>
+      </div>
+      <div class="channel-form">
+        <input placeholder="Paste live URL or type username" />
+        <button class="submit">+</button>
+      </div>
+      <div class="actions">
+        <button class="icon-btn">↻</button>
+        <button class="icon-btn">☰</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active"><span class="pl" style="background:var(--tw)"></span>mazendahroug ×</div>
+      <div class="tab"><span class="pl" style="background:var(--kc)"></span>sophiehyder</div>
+      <div class="tab"><span class="pl" style="background:var(--yt)"></span>LofiGirl</div>
+    </div>
+    <div class="stream">
+      <div class="chat-row"><div class="avatar">M</div><div><span class="who">MazenDahroug</span> <span class="body">good morning chat</span></div><div class="time">1:54 PM</div></div>
+      <div class="chat-row k"><div class="avatar">P</div><div><span class="who">PotatBot</span> <span class="body">@MazenDahroug Last-Seen: User has opted out</span></div><div class="time">1:54 PM</div></div>
+      <div class="chat-row mod"><div class="avatar">S</div><div><span class="who">sophiehyder</span> <span class="body">u clapped it?</span></div><div class="time">1:55 PM</div></div>
+      <div class="chat-row"><div class="avatar">A</div><div><span class="who">alex_streams</span> <span class="body">nah you got smoked</span></div><div class="time">1:55 PM</div></div>
+      <div class="chat-row"><div class="avatar">D</div><div><span class="who">dunkmaster</span> <span class="body">L take honestly</span></div><div class="time">1:56 PM</div></div>
+    </div>
+    <div class="composer">
+      <input placeholder="Type a message..." />
+      <button>send</button>
+    </div>
+  </div>
+</div>
+
+<!-- A: left sidebar -->
+<div class="mockup a">
+  <div class="mockup-label">
+    <strong>A — Left sidebar (Discord / Slack style)</strong>
+    <span>Vertical platform/tab nav, full-width chat, minimal topbar</span>
+  </div>
+  <div class="frame">
+    <div class="nav">
+      <div class="item active tw">T</div>
+      <div class="item kc">K</div>
+      <div class="item yt">Y</div>
+      <div class="divider"></div>
+      <div class="item add">+</div>
+      <div style="flex:1"></div>
+      <div class="item" title="Settings">⚙</div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <span class="dot tw"></span>
+        <strong>mazendahroug</strong>
+        <span style="color:var(--ink-muted); font-size:11px">Twitch · 1.2K viewers</span>
+        <button class="icon-btn">⌘</button>
+        <button class="icon-btn">↻</button>
+      </div>
+      <div class="stream">
+        <div class="chat-row"><div class="avatar">M</div><div><span class="who">MazenDahroug</span> <span class="body">good morning chat</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row"><div class="avatar">P</div><div><span class="who">PotatBot</span> <span class="body">@MazenDahroug Last-Seen: User has opted out of this command</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row mod"><div class="avatar">S</div><div><span class="who">sophiehyder</span> <span class="body">u clapped it?</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">A</div><div><span class="who">alex_streams</span> <span class="body">nah you got smoked</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">D</div><div><span class="who">dunkmaster</span> <span class="body">L take honestly</span></div><div class="time">1:56 PM</div></div>
+        <div class="chat-row"><div class="avatar">J</div><div><span class="who">jaybird</span> <span class="body">pog</span></div><div class="time">1:57 PM</div></div>
+        <div class="chat-row"><div class="avatar">K</div><div><span class="who">kappa_fan</span> <span class="body">KEKW</span></div><div class="time">1:57 PM</div></div>
+      </div>
+      <div class="composer">
+        <input placeholder="Message #mazendahroug" />
+        <button>send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- B: three-pane -->
+<div class="mockup b">
+  <div class="mockup-label">
+    <strong>B — Three-pane (Linear / Things style)</strong>
+    <span>Tabs left, chat middle, contextual tools right. Sidebars hide-able.</span>
+  </div>
+  <div class="frame">
+    <div class="left">
+      <div class="group-label">Twitch</div>
+      <div class="tab active"><span class="pl tw">T</span>mazendahroug<span class="badge">3</span></div>
+      <div class="tab"><span class="pl tw">T</span>sodapoppin</div>
+      <div class="group-label">Kick</div>
+      <div class="tab"><span class="pl kc">K</span>sophiehyder<span class="badge">12</span></div>
+      <div class="group-label">YouTube</div>
+      <div class="tab"><span class="pl yt">Y</span>LofiGirl</div>
+      <div style="margin-top: auto; padding: 8px 0">
+        <div class="tab" style="color: var(--ink-muted)">+ add channel</div>
+      </div>
+    </div>
+    <div class="center">
+      <div class="channel-bar">
+        <strong>mazendahroug</strong>
+        <span class="live">● Live</span>
+        <span style="color:var(--ink-muted); font-size:11px; margin-left:8px">1.2K viewers · Just Chatting</span>
+        <button class="icon-btn" style="margin-left:auto">⌘</button>
+      </div>
+      <div class="stream">
+        <div class="chat-row"><div class="avatar">M</div><div><span class="who">MazenDahroug</span> <span class="body">good morning chat</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row"><div class="avatar">P</div><div><span class="who">PotatBot</span> <span class="body">@MazenDahroug Last-Seen info</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row mod"><div class="avatar">S</div><div><span class="who">sophiehyder</span> <span class="body">u clapped it?</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">A</div><div><span class="who">alex_streams</span> <span class="body">nah you got smoked</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">D</div><div><span class="who">dunkmaster</span> <span class="body">L take honestly</span></div><div class="time">1:56 PM</div></div>
+      </div>
+      <div class="composer">
+        <input placeholder="Message #mazendahroug" />
+        <button>send</button>
+      </div>
+    </div>
+    <div class="right">
+      <h4>Mentions</h4>
+      <div class="card">
+        <div class="card-title">@you mentioned by sophiehyder</div>
+        <div class="card-sub">2m · mazendahroug</div>
+      </div>
+      <h4 style="margin-top:18px">Mod history</h4>
+      <div class="card">
+        <div class="card-title">Timed out spamster</div>
+        <div class="card-sub">600s · 4m ago</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Banned scammer123</div>
+        <div class="card-sub">9m ago</div>
+      </div>
+      <h4 style="margin-top:18px">Health</h4>
+      <div class="card">
+        <div class="card-title"><span class="dot tw" style="display:inline-block;margin-right:6px"></span>Twitch · OK</div>
+        <div class="card-sub">Token: 38d left</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- C: focus -->
+<div class="mockup c">
+  <div class="mockup-label">
+    <strong>C — Focus mode</strong>
+    <span>One chat, no chrome. Cmd+K palette for everything else.</span>
+  </div>
+  <div class="frame">
+    <div class="main">
+      <div class="header">
+        <div class="platform"><span class="dot tw" style="display:inline-block;margin-right:6px"></span>Twitch · Live</div>
+        <div class="channel">mazendahroug</div>
+      </div>
+      <div class="stream">
+        <div class="chat-row"><div class="avatar">M</div><div><span class="who">MazenDahroug</span> <span class="body">good morning chat</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row"><div class="avatar">P</div><div><span class="who">PotatBot</span> <span class="body">@MazenDahroug Last-Seen: User has opted out of this command</span></div><div class="time">1:54 PM</div></div>
+        <div class="chat-row mod"><div class="avatar">S</div><div><span class="who">sophiehyder</span> <span class="body">u clapped it?</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">A</div><div><span class="who">alex_streams</span> <span class="body">nah you got smoked</span></div><div class="time">1:55 PM</div></div>
+        <div class="chat-row"><div class="avatar">D</div><div><span class="who">dunkmaster</span> <span class="body">L take honestly</span></div><div class="time">1:56 PM</div></div>
+        <div class="chat-row"><div class="avatar">J</div><div><span class="who">jaybird</span> <span class="body">pog</span></div><div class="time">1:57 PM</div></div>
+      </div>
+      <div class="footer">
+        <input placeholder="Press ⌘K for anything · type to chat" />
+      </div>
+    </div>
+    <div class="floating-controls">
+      <button class="icon-btn">⌘</button>
+      <button class="icon-btn">⋯</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

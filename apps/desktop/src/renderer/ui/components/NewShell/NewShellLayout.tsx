@@ -393,9 +393,23 @@ export function NewShellLayout({
 
       {rightPanelOpen && hasContext ? (
         <aside className="new-shell__context" aria-label="Context panel">
-          {contextSections!.map((section) => (
-            <CollapsibleSection key={section.id} section={section} />
-          ))}
+          <header className="new-shell__context-header">
+            <strong>Activity</strong>
+            <button
+              type="button"
+              className="new-shell__context-close"
+              onClick={onToggleRightPanel}
+              aria-label="Hide context panel"
+              title="Hide panel"
+            >
+              ×
+            </button>
+          </header>
+          <div className="new-shell__context-body">
+            {contextSections!.map((section) => (
+              <CollapsibleSection key={section.id} section={section} />
+            ))}
+          </div>
         </aside>
       ) : null}
     </>

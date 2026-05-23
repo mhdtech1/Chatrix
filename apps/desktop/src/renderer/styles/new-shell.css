@@ -521,35 +521,84 @@
   z-index: 20;
   background: var(--surface-panel);
   border-left: 1px solid var(--border-soft);
-  padding: 12px;
-  overflow-y: auto;
-  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  min-height: 0;
+}
+
+.new-shell__context-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.new-shell__context-header strong {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+
+.new-shell__context-close {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-control);
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+}
+
+.new-shell__context-close:hover {
+  background: var(--surface-interactive);
+  color: var(--ink-strong);
+}
+
+.new-shell__context-body {
+  overflow-y: auto;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .new-shell__section {
-  background: var(--surface-app);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-panel);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
+}
+
+.new-shell__section + .new-shell__section {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 4px;
+  margin-top: 4px;
 }
 
 .new-shell__section-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 6px 4px;
   border: 0 !important;
-  border-radius: 0 !important;
+  border-radius: var(--radius-control) !important;
   background: transparent !important;
-  color: var(--ink-soft) !important;
+  color: var(--ink-muted) !important;
   cursor: pointer;
   text-align: left;
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   font-weight: 700;
 }
@@ -590,10 +639,10 @@
 }
 
 .new-shell__section-body {
-  padding: 4px 8px 10px;
+  padding: 4px 0 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .new-shell__empty {

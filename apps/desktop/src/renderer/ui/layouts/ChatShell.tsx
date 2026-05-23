@@ -1785,7 +1785,7 @@ const MainApp: React.FC = () => {
   const mainMenuOpen = useUIStore((state) => state.mainMenuOpen);
   const setMainMenuOpen = useUIStore((state) => state.setMainMenuOpen);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [newShellRightPanelOpen, setNewShellRightPanelOpen] = useState(true);
+  const [newShellRightPanelOpen, setNewShellRightPanelOpen] = useState(false);
   const [userLogTarget, setUserLogTarget] = useState<UserLogTarget | null>(
     null,
   );
