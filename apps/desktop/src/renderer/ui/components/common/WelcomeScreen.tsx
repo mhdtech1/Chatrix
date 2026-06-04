@@ -48,7 +48,10 @@ export function WelcomeScreen({
         <div className="welcome-screen__actions">
           <button
             className="welcome-screen__button welcome-screen__button--primary"
-            onClick={onAddChannel}
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddChannel?.();
+            }}
             type="button"
           >
             <span className="welcome-screen__button-icon" aria-hidden="true">
@@ -58,7 +61,10 @@ export function WelcomeScreen({
           </button>
           <button
             className="welcome-screen__button welcome-screen__button--secondary"
-            onClick={onOpenSettings}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenSettings?.();
+            }}
             type="button"
           >
             <span className="welcome-screen__button-icon" aria-hidden="true">

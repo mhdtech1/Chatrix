@@ -25,16 +25,27 @@
   display: none !important;
 }
 
-.chat-shell.with-new-shell .main-layout,
-.chat-shell.with-new-shell .main-layout-primary {
+.chat-shell.with-new-shell .main-layout {
   margin-left: 276px;
   height: 100vh;
   min-height: 0;
 }
 
-.chat-shell.with-new-shell.with-context .main-layout,
-.chat-shell.with-new-shell.with-context .main-layout-primary {
+/* The primary column is nested inside .main-layout — it must NOT
+ * repeat the chrome offset or the workspace is pushed twice as far
+ * right, leaving a large dead gutter. */
+.chat-shell.with-new-shell .main-layout-primary {
+  margin-left: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+.chat-shell.with-new-shell.with-context .main-layout {
   margin-right: 260px;
+}
+
+.chat-shell.with-new-shell.with-context .main-layout-primary {
+  margin-right: 0;
 }
 
 /* --- Platform rail ----------------------------------------------- */
@@ -200,6 +211,88 @@
   color: var(--ink-strong);
 }
 
+.new-shell__add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 14px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+}
+
+.new-shell__add-row {
+  display: flex;
+  gap: 6px;
+}
+
+.new-shell__add-platform {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.new-shell__add-platform-label {
+  font-size: 11px;
+  color: var(--ink-muted);
+  flex-shrink: 0;
+}
+
+.new-shell__add-platform-select {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-strong);
+  background: var(--surface-app);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.new-shell__add-platform-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.new-shell__add-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-strong);
+  background: var(--surface-app);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+}
+
+.new-shell__add-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.new-shell__add-go {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  background: var(--surface-interactive);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease);
+}
+
+.new-shell__add-go:hover {
+  background: var(--surface-interactive-strong);
+}
+
 .new-shell__channels-list {
   flex: 1;
   overflow-y: auto;
@@ -277,6 +370,39 @@
 .new-shell__pl--kick { background: #53fc18; }
 .new-shell__pl--youtube { background: #ff4646; }
 .new-shell__pl--tiktok { background: #ee1d52; }
+
+.new-shell__live-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  transition: background var(--motion-fast) var(--motion-ease);
+}
+
+.new-shell__live-dot--on {
+  background: #ff3b46;
+  box-shadow: 0 0 0 0 rgba(255, 59, 70, 0.55);
+  animation: new-shell-live-pulse 2s ease-out infinite;
+}
+
+@keyframes new-shell-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 70, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(255, 59, 70, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 70, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-shell__live-dot--on {
+    animation: none;
+  }
+}
 
 .new-shell__channel-name {
   flex: 1;
@@ -698,4 +824,132 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* --- Workspace seam ---------------------------------------------- *
+ * The classic workspace center keeps its own border / radius /
+ * shadow + outer padding, which reads as a boxed-in-box against the
+ * new chrome. In the new layout the rail + channel list already frame
+ * the workspace, so flatten the center column to sit flush.
+ */
+.chat-shell.with-new-shell .main-layout {
+  gap: 0 !important;
+}
+
+.chat-shell.with-new-shell .main-layout-primary {
+  gap: 0 !important;
+}
+
+.chat-shell.with-new-shell .chat-main {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface-app);
+  gap: 0;
+}
+
+/* The in-workspace chat header (.chat-header) replaces the classic
+ * source/summary status band in the new layout, so hide the latter to
+ * kill the redundant full-width "connected" bars + dead space. */
+.chat-shell.with-new-shell .workspace-statusbar {
+  display: none !important;
+}
+
+.chat-shell.with-new-shell .chat-main > .message-list {
+  padding: 10px 14px 14px;
+}
+
+/* Composer: in the classic layout it's a floating rounded card. In the
+ * new layout the channel-list footer is a flush bottom bar, so make the
+ * composer a flush bottom bar too — otherwise the two bottom corners
+ * sit at different heights and read as uneven. */
+.chat-shell.with-new-shell .action-rail {
+  padding: 0;
+}
+
+.chat-shell.with-new-shell .composer--main {
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface-panel);
+  padding: 12px 14px;
+  /* The message column stacks input + char counter, making it taller
+   * than the select/Send. Top-align so all controls share the input's
+   * baseline and the counter hangs below as a sub-label. */
+  align-items: start;
+}
+
+/* Counter sits flush under the input without nudging the row. */
+.chat-shell.with-new-shell .composer-main__message-wrap {
+  gap: 4px;
+}
+
+.chat-shell.with-new-shell .composer-main__meta {
+  min-height: 14px;
+}
+
+/* --- In-workspace chat header (F-β) ------------------------------ */
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+}
+
+.chat-header__identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.chat-header__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-header__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+}
+
+.chat-header__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.chat-header__live--on {
+  color: #ff6168;
+  border-color: rgba(255, 59, 70, 0.35);
+}
+
+.chat-header__live--on .chat-header__live-dot {
+  background: #ff3b46;
+}
+
+.chat-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }

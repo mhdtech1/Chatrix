@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { Platform } from "../../../../shared/types";
 import { platformDisplayName } from "../../../utils/chatFormatting";
 
@@ -24,6 +24,7 @@ export type NewShellTabItem = {
   unreadCount: number;
   mentionCount: number;
   active: boolean;
+  live?: boolean;
 };
 
 export type NewShellAuthDot = {
@@ -48,6 +49,14 @@ export type NewShellLayoutProps = {
   onAddChannel: () => void;
   onOpenSettings: () => void;
   onOpenPalette: () => void;
+  channelInputRef?: RefObject<HTMLInputElement | null>;
+  channelDraft?: string;
+  onChannelDraftChange?: (value: string) => void;
+  onSubmitChannel?: () => void;
+  platforms?: string[];
+  selectedPlatform?: string;
+  onPlatformChange?: (value: string) => void;
+  platformLabel?: (platform: string) => string;
   authDots?: NewShellAuthDot[];
   selfDisplayName?: string;
   signedInPlatformsCount?: number;
@@ -143,6 +152,15 @@ const ChannelRow = ({
       }}
     >
       {tab.platform ? <PlatformPill platform={tab.platform} /> : null}
+      <span
+        className={
+          tab.live
+            ? "new-shell__live-dot new-shell__live-dot--on"
+            : "new-shell__live-dot"
+        }
+        aria-hidden="true"
+        title={tab.live ? "Live · connected" : "Offline"}
+      />
       <span className="new-shell__channel-name">{tab.label}</span>
       {tab.mentionCount > 0 ? (
         <span
@@ -219,6 +237,14 @@ export function NewShellLayout({
   onAddChannel,
   onOpenSettings,
   onOpenPalette,
+  channelInputRef,
+  channelDraft,
+  onChannelDraftChange,
+  onSubmitChannel,
+  platforms,
+  selectedPlatform,
+  onPlatformChange,
+  platformLabel,
   selfDisplayName,
   signedInPlatformsCount,
   contextSections,
@@ -295,7 +321,10 @@ export function NewShellLayout({
                 ? "new-shell__rail-icon new-shell__rail-icon--active"
                 : "new-shell__rail-icon"
             }
-            onClick={onToggleRightPanel}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleRightPanel();
+            }}
             aria-label={
               rightPanelOpen ? "Hide context panel" : "Show context panel"
             }
@@ -308,7 +337,10 @@ export function NewShellLayout({
         <button
           type="button"
           className="new-shell__rail-icon"
-          onClick={onOpenPalette}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenPalette();
+          }}
           aria-label="Open command palette"
           title="Command palette (Ctrl+K)"
         >
@@ -317,7 +349,10 @@ export function NewShellLayout({
         <button
           type="button"
           className="new-shell__rail-icon"
-          onClick={onOpenSettings}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenSettings();
+          }}
           aria-label="Open settings"
           title="Settings (Ctrl+,)"
         >
@@ -331,13 +366,66 @@ export function NewShellLayout({
           <button
             type="button"
             className="new-shell__channels-add"
-            onClick={onAddChannel}
-            aria-label="Add channel"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddChannel();
+            }}
+            aria-label="Focus add channel field"
             title="Add channel"
           >
             +
           </button>
         </header>
+        {onSubmitChannel ? (
+          <form
+            className="new-shell__add-form"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSubmitChannel();
+            }}
+          >
+            <div className="new-shell__add-row">
+              <input
+                ref={channelInputRef}
+                className="new-shell__add-input"
+                value={channelDraft ?? ""}
+                onChange={(event) => onChannelDraftChange?.(event.target.value)}
+                placeholder="Paste live URL or type username"
+                aria-label="Channel or live URL"
+                autoCapitalize="off"
+                autoCorrect="off"
+              />
+              <button
+                type="submit"
+                className="new-shell__add-go"
+                aria-label="Open channel"
+                title="Open channel"
+              >
+                Add
+              </button>
+            </div>
+            {platforms && platforms.length > 0 && onPlatformChange ? (
+              <label className="new-shell__add-platform">
+                <span className="new-shell__add-platform-label">
+                  Search on
+                </span>
+                <select
+                  className="new-shell__add-platform-select"
+                  value={selectedPlatform ?? platforms[0]}
+                  onChange={(event) => onPlatformChange(event.target.value)}
+                  aria-label="Platform to open username on"
+                >
+                  {platforms.map((platform) => (
+                    <option key={platform} value={platform}>
+                      {platformLabel ? platformLabel(platform) : platform}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </form>
+        ) : null}
         <div className="new-shell__channels-list">
           {groupedTabs.length === 0 ? (
             <p className="new-shell__channels-empty">
@@ -382,7 +470,10 @@ export function NewShellLayout({
           <button
             type="button"
             className="new-shell__user-gear"
-            onClick={onOpenSettings}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenSettings();
+            }}
             aria-label="Account settings"
             title="Account settings"
           >

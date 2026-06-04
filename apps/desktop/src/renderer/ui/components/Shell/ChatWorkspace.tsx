@@ -39,6 +39,11 @@ type ActivePollLike = {
 
 export type ChatWorkspaceProps = {
   activeTab: boolean;
+  showChatHeader?: boolean;
+  chatHeaderTitle?: string;
+  chatHeaderPlatform?: "twitch" | "kick" | "youtube" | "tiktok";
+  chatHeaderLive?: boolean;
+  chatHeaderActions?: ReactNode;
   welcomeScreen: ReactNode;
   showToolbar: boolean;
   toolbarSummaryText: string;
@@ -80,6 +85,11 @@ export type ChatWorkspaceProps = {
 
 export function ChatWorkspace({
   activeTab,
+  showChatHeader,
+  chatHeaderTitle,
+  chatHeaderPlatform,
+  chatHeaderLive,
+  chatHeaderActions,
   welcomeScreen,
   showToolbar,
   toolbarSummaryText,
@@ -127,6 +137,34 @@ export function ChatWorkspace({
         welcomeScreen
       ) : (
         <>
+          {showChatHeader && chatHeaderTitle ? (
+            <header className="chat-header">
+              <div className="chat-header__identity">
+                {chatHeaderPlatform ? (
+                  <PlatformIcon
+                    platform={chatHeaderPlatform}
+                    size="sm"
+                    showBackground
+                  />
+                ) : null}
+                <span className="chat-header__title">{chatHeaderTitle}</span>
+                <span
+                  className={
+                    chatHeaderLive
+                      ? "chat-header__live chat-header__live--on"
+                      : "chat-header__live"
+                  }
+                >
+                  <span className="chat-header__live-dot" aria-hidden="true" />
+                  {chatHeaderLive ? "Live" : "Offline"}
+                </span>
+              </div>
+              {chatHeaderActions ? (
+                <div className="chat-header__actions">{chatHeaderActions}</div>
+              ) : null}
+            </header>
+          ) : null}
+
           {showWorkspaceStatusBar ? (
             <section className="toolbar workspace-statusbar">
               {showSourceStatusBar ? (

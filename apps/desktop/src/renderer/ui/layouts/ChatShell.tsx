@@ -1862,6 +1862,7 @@ const MainApp: React.FC = () => {
 
   const searchRef = useRef<HTMLInputElement | null>(null);
   const channelInputRef = useRef<HTMLInputElement | null>(null);
+  const newShellChannelInputRef = useRef<HTMLInputElement | null>(null);
   const menuDropdownRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mainMenuPanelRef = useRef<HTMLDivElement | null>(null);
@@ -6566,6 +6567,9 @@ const MainApp: React.FC = () => {
           .map((sourceId) => sourceById.get(sourceId))
           .find(Boolean) as ChatSource | undefined;
         const group = tabGroups[tab.id] ?? "";
+        const live = tab.sourceIds.some(
+          (sourceId) => statusBySource[sourceId] === "connected",
+        );
         return {
           id: tab.id,
           label: tabLabel(tab, sourceById),
@@ -6575,12 +6579,14 @@ const MainApp: React.FC = () => {
           active: tab.id === activeTabId,
           unreadCount: tabUnreadCounts[tab.id] ?? 0,
           mentionCount: tabMentionCounts[tab.id] ?? 0,
+          live,
         };
       }),
     [
       activeTabId,
       mutedGroups,
       sourceById,
+      statusBySource,
       tabGroups,
       tabMentionCounts,
       tabUnreadCounts,
@@ -6904,6 +6910,12 @@ const MainApp: React.FC = () => {
   );
   const focusChannelComposer = () => {
     window.setTimeout(() => {
+      // In the new layout the classic topbar (which owns channelInputRef)
+      // is hidden, so focus the new shell's own add-channel input instead.
+      if (newLayoutEnabled && newShellChannelInputRef.current) {
+        newShellChannelInputRef.current.focus();
+        return;
+      }
       channelInputRef.current?.focus();
     }, 0);
   };
@@ -7476,6 +7488,7 @@ const MainApp: React.FC = () => {
             unreadCount: tab.unreadCount,
             mentionCount: tab.mentionCount,
             active: tab.active,
+            live: tab.live,
           }))}
           onSelectTab={setActiveTabId}
           onCloseTab={(tabId) => void closeTab(tabId)}
@@ -7485,6 +7498,24 @@ const MainApp: React.FC = () => {
           onAddChannel={focusChannelComposer}
           onOpenSettings={openMainMenu}
           onOpenPalette={() => setPaletteOpen(true)}
+          channelInputRef={newShellChannelInputRef}
+          channelDraft={channelInput}
+          onChannelDraftChange={(value) => {
+            setChannelInput(value);
+            const parsed = parseChannelInput(value, platformInput);
+            if (
+              parsed.detected &&
+              availablePlatforms.includes(parsed.platform) &&
+              parsed.platform !== platformInput
+            ) {
+              setPlatformInput(parsed.platform);
+            }
+          }}
+          onSubmitChannel={() => void addChannelTab()}
+          platforms={availablePlatforms}
+          selectedPlatform={platformInput}
+          onPlatformChange={(value) => setPlatformInput(value as Platform)}
+          platformLabel={platformDisplayName}
           authDots={newShellAuthDots}
           selfDisplayName={newShellSelfName || undefined}
           signedInPlatformsCount={newShellSignedInCount}
@@ -7772,6 +7803,12 @@ const MainApp: React.FC = () => {
 
             <ChatWorkspace
               activeTab={Boolean(activeTab)}
+              showChatHeader={newLayoutEnabled}
+              chatHeaderTitle={
+                tabItems.find((tab) => tab.active)?.label ?? undefined
+              }
+              chatHeaderPlatform={tabItems.find((tab) => tab.active)?.platform}
+              chatHeaderLive={tabItems.find((tab) => tab.active)?.live}
               welcomeScreen={
                 <WelcomeScreen
                   onAddChannel={focusChannelComposer}
