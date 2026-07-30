@@ -1,4 +1,5 @@
 import { createId } from "../../utils/chatFormatting";
+import { transliterateArabicToEgyptianFranco } from "../../utils/arabicTransliteration";
 import type { ChatMessage } from "@chatrix/chat-core";
 import type { Platform } from "../../../shared/types.js";
 export const RECENT_CHAT_HISTORY_STORAGE_KEY = "chatrix:recent-history:v1";
@@ -91,7 +92,7 @@ export const readRecentHistoryPayload = () => {
     for (const [sourceKey, entries] of Object.entries(record.bySourceKey)) {
       if (!sourceKey || !Array.isArray(entries)) continue;
       const normalized = entries
-        .map((entry) => {
+        .map((entry): ChatMessage | null => {
           if (!entry || typeof entry !== "object") return null;
           const item = entry as Partial<PersistedRecentHistoryMessage>;
           if (

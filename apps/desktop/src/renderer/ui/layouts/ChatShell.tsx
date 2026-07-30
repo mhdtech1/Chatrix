@@ -96,6 +96,7 @@ import {
   platformDisplayName,
   platformIconGlyph,
 } from "../../utils/chatFormatting";
+import { transliterateArabicToEgyptianFranco } from "../../utils/arabicTransliteration";
 import { parseChannelInput } from "../../utils/channelInput";
 import {
   RECENT_CHAT_SAVE_DEBOUNCE_MS,
@@ -1159,85 +1160,6 @@ const TIKTOK_OFFLINE_RETRY_MS = 2 * 60 * 1000;
 const SETUP_WIZARD_VERSION = 2;
 const REBRAND_ANNOUNCEMENT_STORAGE_KEY =
   "chatrix:rebrand-announcement:dismissed:v1";
-const ARABIC_SCRIPT_REGEX = /[\u0600-\u06FF]/;
-const ARABIC_DIACRITICS_REGEX =
-  /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
-const ARABIC_CHAR_TO_EGYPTIAN_FRANCO: Record<string, string> = {
-  ء: "2",
-  آ: "aa",
-  أ: "a",
-  ؤ: "2w",
-  إ: "e",
-  ئ: "2y",
-  ا: "a",
-  ٱ: "a",
-  ب: "b",
-  ة: "a",
-  ت: "t",
-  ث: "s",
-  ج: "g",
-  ح: "7",
-  خ: "5",
-  د: "d",
-  ذ: "z",
-  ر: "r",
-  ز: "z",
-  س: "s",
-  ش: "sh",
-  ص: "9",
-  ض: "9'",
-  ط: "6",
-  ظ: "6'",
-  ع: "3",
-  غ: "8",
-  ف: "f",
-  ق: "2",
-  ك: "k",
-  ل: "l",
-  م: "m",
-  ن: "n",
-  ه: "h",
-  و: "w",
-  ى: "a",
-  ي: "y",
-  پ: "p",
-  ڤ: "v",
-  چ: "ch",
-  ژ: "zh",
-  گ: "g",
-  "٠": "0",
-  "١": "1",
-  "٢": "2",
-  "٣": "3",
-  "٤": "4",
-  "٥": "5",
-  "٦": "6",
-  "٧": "7",
-  "٨": "8",
-  "٩": "9",
-  "؟": "?",
-  "،": ",",
-  "؛": ";",
-};
-const transliterateArabicToEgyptianFranco = (input: string) => {
-  if (!input || !ARABIC_SCRIPT_REGEX.test(input)) return input;
-  const normalized = input
-    .normalize("NFKC")
-    .replace(/\u0640/g, "")
-    .replace(ARABIC_DIACRITICS_REGEX, "");
-  let output = "";
-  for (let index = 0; index < normalized.length; index += 1) {
-    const char = normalized[index];
-    const next = normalized[index + 1] ?? "";
-    if (char === "ل" && next === "ا") {
-      output += "la";
-      index += 1;
-      continue;
-    }
-    output += ARABIC_CHAR_TO_EGYPTIAN_FRANCO[char] ?? char;
-  }
-  return output;
-};
 
 const splitTrailingLinkText = (value: string) => {
   const match = value.match(/^(.*?)([)\]}.,!?;:'"`]+)$/);
