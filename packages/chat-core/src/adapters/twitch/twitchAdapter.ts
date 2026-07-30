@@ -32,6 +32,7 @@ export class TwitchAdapter implements ChatAdapter {
   private readonly logger?: (message: string) => void;
   private joinQueue: string[] = [];
   private joinTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: ChatAdapterOptions & { auth?: TwitchAuth }) {
     this.channel = options.channel;
@@ -41,10 +42,16 @@ export class TwitchAdapter implements ChatAdapter {
 
   onMessage(handler: (message: ChatMessage) => void) {
     this.emitter.on("message", handler);
+    return () => {
+      this.emitter.off("message", handler);
+    };
   }
 
   onStatus(handler: (status: ChatAdapterStatus) => void) {
     this.emitter.on("status", handler);
+    return () => {
+      this.emitter.off("status", handler);
+    };
   }
 
   private setStatus(status: ChatAdapterStatus) {
@@ -157,10 +164,23 @@ export class TwitchAdapter implements ChatAdapter {
     const delay = Math.min(30000, 1000 * 2 ** this.reconnectAttempts);
     this.reconnectAttempts += 1;
     this.setStatus("connecting");
-    globalThis.setTimeout(() => {
+    this.clearReconnectTimer();
+    this.reconnectTimer = globalThis.setTimeout(() => {
+      this.reconnectTimer = null;
+      // Re-check at fire time, not only at schedule time: disconnect() may
+      // have run during the backoff window, and reconnecting here would
+      // leave a live socket nobody owns.
+      if (this.status === "disconnected") return;
       this.socket = null;
       this.connect();
     }, delay);
+  }
+
+  private clearReconnectTimer() {
+    if (this.reconnectTimer) {
+      globalThis.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
   }
 
   private cleanupSocket() {
@@ -173,6 +193,7 @@ export class TwitchAdapter implements ChatAdapter {
 
   async disconnect() {
     this.setStatus("disconnected");
+    this.clearReconnectTimer();
     if (this.socket) {
       this.socket.close();
     }

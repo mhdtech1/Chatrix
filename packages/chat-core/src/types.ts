@@ -24,10 +24,18 @@ export type ChatAdapterOptions = {
   logger?: (message: string) => void;
 };
 
+/**
+ * Handler registration returns an unsubscribe function. Without one there is
+ * no way to detach a listener, so re-entering connection setup on an existing
+ * adapter instance permanently duplicates handlers and every message is
+ * delivered N times.
+ */
+export type Unsubscribe = () => void;
+
 export type ChatAdapter = {
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
-  onMessage: (handler: (message: ChatMessage) => void) => void;
-  onStatus: (handler: (status: ChatAdapterStatus) => void) => void;
+  onMessage: (handler: (message: ChatMessage) => void) => Unsubscribe;
+  onStatus: (handler: (status: ChatAdapterStatus) => void) => Unsubscribe;
 };

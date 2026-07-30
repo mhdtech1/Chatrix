@@ -43,10 +43,16 @@ export class TikTokAdapter implements ChatAdapter {
 
   onMessage(handler: (message: ChatMessage) => void) {
     this.emitter.on("message", handler);
+    return () => {
+      this.emitter.off("message", handler);
+    };
   }
 
   onStatus(handler: (status: ChatAdapterStatus) => void) {
     this.emitter.on("status", handler);
+    return () => {
+      this.emitter.off("status", handler);
+    };
   }
 
   private setStatus(status: ChatAdapterStatus) {
@@ -86,7 +92,17 @@ export class TikTokAdapter implements ChatAdapter {
     this.logger?.(`Connecting to TikTok LIVE chat for @${this.channel}...`);
     this.bindTransportEvents();
 
-    const result = await this.transport.connect({ channel: this.channel });
+    let result: Awaited<ReturnType<TikTokTransport["connect"]>>;
+    try {
+      result = await this.transport.connect({ channel: this.channel });
+    } catch (error) {
+      // An unguarded reject here used to leave the adapter reporting
+      // "connecting" indefinitely, so callers could never distinguish a
+      // slow connect from a failed one.
+      this.setStatus("error");
+      this.logger?.(`TikTok connection failed: ${String(error)}`);
+      throw error;
+    }
     this.connectionId = result.connectionId;
     this.setStatus("connected");
     if (result.roomId) {

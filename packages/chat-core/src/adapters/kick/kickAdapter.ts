@@ -299,10 +299,16 @@ export class KickAdapter implements ChatAdapter {
 
   onMessage(handler: (message: ChatMessage) => void) {
     this.emitter.on("message", handler);
+    return () => {
+      this.emitter.off("message", handler);
+    };
   }
 
   onStatus(handler: (status: ChatAdapterStatus) => void) {
     this.emitter.on("status", handler);
+    return () => {
+      this.emitter.off("status", handler);
+    };
   }
 
   private setStatus(status: ChatAdapterStatus) {

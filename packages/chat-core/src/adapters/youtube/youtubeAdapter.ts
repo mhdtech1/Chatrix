@@ -52,6 +52,10 @@ type YouTubeMessageItem = {
 const DEFAULT_POLL_INTERVAL_MS = 5000;
 const MIN_POLL_INTERVAL_MS = 1000;
 const MAX_POLL_INTERVAL_MS = 15000;
+// Backoff ceiling for consecutive poll failures. Matches the socket
+// adapters, so a dead livestream or a revoked token settles at one request
+// per 30s instead of hammering the API at the poll interval forever.
+const MAX_ERROR_BACKOFF_MS = 30000;
 
 export class YouTubeAdapter implements ChatAdapter {
   private emitter = new EventEmitter();
@@ -65,6 +69,7 @@ export class YouTubeAdapter implements ChatAdapter {
   private pollIntervalMs = DEFAULT_POLL_INTERVAL_MS;
   private seenIds = new Set<string>();
   private stopped = true;
+  private consecutiveErrors = 0;
 
   constructor(
     options: ChatAdapterOptions & {
@@ -80,10 +85,16 @@ export class YouTubeAdapter implements ChatAdapter {
 
   onMessage(handler: (message: ChatMessage) => void) {
     this.emitter.on("message", handler);
+    return () => {
+      this.emitter.off("message", handler);
+    };
   }
 
   onStatus(handler: (status: ChatAdapterStatus) => void) {
     this.emitter.on("status", handler);
+    return () => {
+      this.emitter.off("status", handler);
+    };
   }
 
   private setStatus(status: ChatAdapterStatus) {
@@ -107,10 +118,18 @@ export class YouTubeAdapter implements ChatAdapter {
     }
 
     this.stopped = false;
+    this.consecutiveErrors = 0;
 
     this.setStatus("connecting");
     this.logger?.("Connecting to YouTube Live Chat...");
-    await this.fetchAndEmit();
+    try {
+      await this.fetchAndEmit();
+    } catch (error) {
+      // Without this the status stays on "connecting" forever and the
+      // caller sees a raw throw with no state transition behind it.
+      this.setStatus("error");
+      throw error;
+    }
     this.setStatus("connected");
     this.scheduleNextPoll();
   }
@@ -213,6 +232,18 @@ export class YouTubeAdapter implements ChatAdapter {
     }
   }
 
+  private nextPollDelayMs() {
+    if (this.consecutiveErrors === 0) return this.pollIntervalMs;
+    // Exponential backoff from the current poll interval, capped. Applied
+    // only while failing; a single success resets it. Doubling starts on the
+    // first failure -- 2 ** (n - 1) would retry the first one at the normal
+    // interval, which is not a backoff at all.
+    return Math.min(
+      MAX_ERROR_BACKOFF_MS,
+      this.pollIntervalMs * 2 ** this.consecutiveErrors,
+    );
+  }
+
   private scheduleNextPoll() {
     if (this.stopped) return;
     if (this.pollTimer) {
@@ -221,18 +252,22 @@ export class YouTubeAdapter implements ChatAdapter {
 
     this.pollTimer = setTimeout(() => {
       void this.pollLoop();
-    }, this.pollIntervalMs);
+    }, this.nextPollDelayMs());
   }
 
   private async pollLoop() {
     if (this.stopped) return;
     try {
       await this.fetchAndEmit();
+      this.consecutiveErrors = 0;
       if (this.status !== "connected") {
         this.setStatus("connected");
       }
     } catch (error) {
-      this.logger?.(`YouTube polling error: ${String(error)}`);
+      this.consecutiveErrors += 1;
+      this.logger?.(
+        `YouTube polling error (attempt ${this.consecutiveErrors}, retrying in ${this.nextPollDelayMs()}ms): ${String(error)}`,
+      );
       this.setStatus("error");
     } finally {
       this.scheduleNextPoll();
