@@ -6,15 +6,11 @@ import { session, BrowserWindow, type Cookie, type Session } from "electron";
 import { AUTH } from "../../shared/constants.js";
 import type { TikTokRendererEvent } from "../../shared/types.js";
 import { randomToken, TIKTOK_ALPHA_ENABLED } from "../runtime.js";
-import tikTokLiveConnectorCjs from "tiktok-live-connector";
-
-type TikTokConnectorModule = typeof import("tiktok-live-connector");
-const tikTokLiveConnector = ((
-  tikTokLiveConnectorCjs as unknown as { default?: TikTokConnectorModule }
-).default ??
-  (tikTokLiveConnectorCjs as unknown as TikTokConnectorModule)) as TikTokConnectorModule;
-const { TikTokLiveConnection, WebcastEvent, ControlEvent } =
-  tikTokLiveConnector;
+import {
+  ControlEvent,
+  TikTokLiveConnection,
+  WebcastEvent,
+} from "tiktok-live-connector";
 export const TIKTOK_ALPHA_DISABLED_MESSAGE =
   "TikTok LIVE is an alpha-only feature and is disabled in this beta build.";
 export const TIKTOK_SIGN_IN_CANCELLED_MESSAGE =

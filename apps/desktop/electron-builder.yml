@@ -28,6 +28,26 @@ files:
       - ms/**
       - sax/**
       - tiktok-live-connector/**
+      - got/**
+      - "@sindresorhus/**"
+      - byte-counter/**
+      - cacheable-lookup/**
+      - cacheable-request/**
+      - get-stream/**
+      - "@sec-ant/**"
+      - is-stream/**
+      - http-cache-semantics/**
+      - keyv/**
+      - "@keyv/**"
+      - mimic-response/**
+      - normalize-url/**
+      - chunk-data/**
+      - http2-wrapper/**
+      - quick-lru/**
+      - resolve-alpn/**
+      - type-fest/**
+      - tagged-tag/**
+      - uint8array-extras/**
       - keytar/**
       - axios/**
       - callable-instance/**
