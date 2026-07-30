@@ -1,6 +1,5 @@
 import type { ChatMessage } from "@chatrix/chat-core";
 import { Fragment, type RefObject, type ReactNode } from "react";
-import { VirtualizedMessageList } from "../MessageList";
 import { PlatformIcon } from "../common/PlatformIcon";
 import {
   RoleBadge as UiRoleBadge,
@@ -47,11 +46,8 @@ type SourceLookup = {
 export type ChatMessageFeedProps = {
   messageListRef: RefObject<HTMLDivElement>;
   renderedMessages: ChatMessage[];
-  newestLocked: boolean;
   firstUnreadTimestamp: number;
   onScroll: (element: HTMLDivElement) => void;
-  pauseAutoScroll: () => void;
-  notePausedFeedActivity: () => void;
   twitchGlobalBadgeCatalog: Record<string, Record<string, TwitchBadgeAsset>>;
   twitchChannelBadgeCatalogByRoomId: Record<
     string,
@@ -92,11 +88,8 @@ export type ChatMessageFeedProps = {
 export function ChatMessageFeed({
   messageListRef,
   renderedMessages,
-  newestLocked,
   firstUnreadTimestamp,
   onScroll,
-  pauseAutoScroll,
-  notePausedFeedActivity,
   twitchGlobalBadgeCatalog,
   twitchChannelBadgeCatalogByRoomId,
   onIdentitySelect,
@@ -117,33 +110,6 @@ export function ChatMessageFeed({
   renderTextWithLinks,
   toUiRoleType,
 }: ChatMessageFeedProps) {
-  if (renderedMessages.length > 1000) {
-    return (
-      <div
-        ref={messageListRef}
-        className="message-list"
-        onWheel={(event) => event.stopPropagation()}
-        onScroll={(event) => onScroll(event.currentTarget)}
-      >
-        <VirtualizedMessageList
-          messages={renderedMessages}
-          autoScrollEnabled={newestLocked}
-          onPauseAutoScroll={pauseAutoScroll}
-          onUserActivity={notePausedFeedActivity}
-          twitchGlobalBadgeCatalog={twitchGlobalBadgeCatalog}
-          twitchChannelBadgeCatalogByRoomId={twitchChannelBadgeCatalogByRoomId}
-          onUsernameClick={(username) =>
-            onIdentitySelect({
-              username,
-              displayName: username,
-            })
-          }
-          onMessageClick={() => onInteraction()}
-        />
-      </div>
-    );
-  }
-
   return (
     <div
       ref={messageListRef}

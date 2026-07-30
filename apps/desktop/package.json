@@ -42,7 +42,6 @@
   },
   "dependencies": {
     "@chatrix/chat-core": "workspace:*",
-    "@tanstack/react-virtual": "^3.13.19",
     "argparse": "^2.0.1",
     "builder-util-runtime": "9.7.0",
     "debug": "^4.3.7",

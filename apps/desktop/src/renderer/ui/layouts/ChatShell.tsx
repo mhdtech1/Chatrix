@@ -7771,11 +7771,8 @@ const MainApp: React.FC = () => {
                 <ChatMessageFeed
                   messageListRef={messageListRef}
                   renderedMessages={renderedMessages}
-                  newestLocked={newestLocked}
                   firstUnreadTimestamp={firstUnreadTimestamp}
                   onScroll={handleMainMessageListScroll}
-                  pauseAutoScroll={pauseAutoScroll}
-                  notePausedFeedActivity={notePausedFeedActivity}
                   twitchGlobalBadgeCatalog={twitchGlobalBadgeCatalog}
                   twitchChannelBadgeCatalogByRoomId={
                     twitchChannelBadgeCatalogByRoomId
