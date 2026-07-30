@@ -124,8 +124,6 @@ export type ChatShellMenuContentProps = {
   layoutPresetOptions: LayoutPresetOption[];
   onSaveLayoutPreset: () => void;
   onLoadLayoutPreset: () => void;
-  autoBanEnabled: boolean;
-  onToggleAutoBan: () => void;
   moderationHistory: ModerationHistoryEntry[];
   mentionInbox: MentionInboxEntry[];
   onOpenMention: (entry: MentionInboxEntry) => void;
@@ -278,8 +276,6 @@ export function ChatShellMenuContent({
   layoutPresetOptions,
   onSaveLayoutPreset,
   onLoadLayoutPreset,
-  autoBanEnabled,
-  onToggleAutoBan,
   moderationHistory,
   mentionInbox,
   onOpenMention,
@@ -823,21 +819,7 @@ export function ChatShellMenuContent({
           </MenuSection>
         )}
         {activeCategory === "moderation" && (
-          <MenuSection
-            eyebrow="Moderation"
-            title="Quick controls, alerts, and emergency tools"
-          >
-            <div className="menu-group">
-              <strong>Emergency Controls</strong>
-              <button type="button" onClick={onToggleAutoBan}>
-                {autoBanEnabled ? "Auto Ban: ON" : "Auto Ban: OFF"}
-              </button>
-              <span className="menu-muted">
-                Emergency only. Any non-system chatter message triggers a ban
-                attempt.
-              </span>
-            </div>
-
+          <MenuSection eyebrow="Moderation" title="Quick controls and alerts">
             {isAdvancedMode ? (
               <div className="menu-group">
                 <strong>Mention Inbox</strong>

@@ -281,7 +281,6 @@ const defaultSettings: Settings = {
   backgroundMonitorOnClose: true,
   smartFilterSpam: true,
   smartFilterScam: true,
-  autoBanOnMessage: false,
   confirmSendAll: true,
   updateChannel: "stable",
   tabAlertRules: {},
@@ -1812,7 +1811,6 @@ const MainApp: React.FC = () => {
   const mentionAudioContextRef = useRef<AudioContext | null>(null);
   const lastMentionAlertAtRef = useRef(0);
   const spamFilterRef = useRef<Map<string, number>>(new Map());
-  const autoBanAttemptedAtRef = useRef<Map<string, number>>(new Map());
   const executeModeratorActionForSourceRef = useRef<
     | ((
         source: ChatSource,
@@ -4098,29 +4096,6 @@ const MainApp: React.FC = () => {
           )
         ) {
           return;
-        }
-
-        if (
-          liveSettings.autoBanOnMessage === true &&
-          (source.platform === "twitch" ||
-            source.platform === "kick" ||
-            source.platform === "youtube") &&
-          !isSelf &&
-          normalizeUserKey(message.username) !== "system"
-        ) {
-          const autoBanKey = `${source.id}:${normalizeUserKey(message.username)}`;
-          const lastAttemptAt =
-            autoBanAttemptedAtRef.current.get(autoBanKey) ?? 0;
-          if (now - lastAttemptAt > 30_000) {
-            autoBanAttemptedAtRef.current.set(autoBanKey, now);
-            const executeAutoModeration =
-              executeModeratorActionForSourceRef.current;
-            if (executeAutoModeration) {
-              void executeAutoModeration(source, "ban", message, {
-                silent: true,
-              });
-            }
-          }
         }
       }
 
@@ -6947,12 +6922,6 @@ const MainApp: React.FC = () => {
             onLoadLayoutPreset={() => {
               void loadLayoutPreset(layoutPresetName);
             }}
-            autoBanEnabled={settings.autoBanOnMessage === true}
-            onToggleAutoBan={() => {
-              void persistSettings({
-                autoBanOnMessage: settings.autoBanOnMessage !== true,
-              });
-            }}
             moderationHistory={moderationHistory}
             mentionInbox={mentionInbox}
             onOpenMention={openMention}
@@ -7892,12 +7861,6 @@ const MainApp: React.FC = () => {
                   quickModUser={quickModUser}
                   onQuickModUserChange={setQuickModUser}
                   onRunQuickMod={(action) => void runQuickMod(action)}
-                  autoBanEnabled={settings.autoBanOnMessage === true}
-                  onToggleAutoBan={() =>
-                    void persistSettings({
-                      autoBanOnMessage: settings.autoBanOnMessage !== true,
-                    })
-                  }
                 />
               }
             />

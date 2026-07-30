@@ -35,8 +35,6 @@ type ChatComposerPanelProps = {
   quickModUser: string;
   onQuickModUserChange: (value: string) => void;
   onRunQuickMod: (action: Exclude<ModeratorAction, "delete">) => void;
-  autoBanEnabled: boolean;
-  onToggleAutoBan: () => void;
 };
 
 export function ChatComposerPanel({
@@ -65,8 +63,6 @@ export function ChatComposerPanel({
   quickModUser,
   onQuickModUserChange,
   onRunQuickMod,
-  autoBanEnabled,
-  onToggleAutoBan,
 }: ChatComposerPanelProps) {
   const [quickModOpen, setQuickModOpen] = useState(false);
 
@@ -166,11 +162,6 @@ export function ChatComposerPanel({
             </div>
 
             <div className="quick-mod-panel__compact-actions">
-              {autoBanEnabled ? (
-                <span className="quick-mod-panel__danger-indicator">
-                  Auto Ban ON
-                </span>
-              ) : null}
               <button
                 type="button"
                 onClick={() => setQuickModOpen((previous) => !previous)}
@@ -226,24 +217,6 @@ export function ChatComposerPanel({
                 >
                   Unban
                 </button>
-              </div>
-
-              <div className="quick-mod-panel__emergency">
-                <button
-                  type="button"
-                  className={
-                    autoBanEnabled
-                      ? "quick-mod-panel__danger active"
-                      : "quick-mod-panel__danger"
-                  }
-                  onClick={onToggleAutoBan}
-                >
-                  {autoBanEnabled ? "Auto Ban: ON" : "Auto Ban: OFF"}
-                </button>
-                <span className="menu-muted">
-                  Emergency mode. Every new chatter message triggers a ban
-                  attempt.
-                </span>
               </div>
             </div>
           ) : null}

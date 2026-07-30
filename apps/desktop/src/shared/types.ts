@@ -103,7 +103,6 @@ export type AppSettings = {
   backgroundMonitorOnClose?: boolean;
   smartFilterSpam?: boolean;
   smartFilterScam?: boolean;
-  autoBanOnMessage?: boolean;
   confirmSendAll?: boolean;
   updateChannel?: UpdateChannel;
   autoDownloadUpdates?: boolean;

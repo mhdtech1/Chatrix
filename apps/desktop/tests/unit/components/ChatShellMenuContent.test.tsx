@@ -52,8 +52,6 @@ const baseProps: React.ComponentProps<typeof ChatShellMenuContent> = {
   layoutPresetOptions: [{ id: "current", label: "Current" }],
   onSaveLayoutPreset: vi.fn(),
   onLoadLayoutPreset: vi.fn(),
-  autoBanEnabled: true,
-  onToggleAutoBan: vi.fn(),
   moderationHistory: [],
   mentionInbox: [],
   onOpenMention: vi.fn(),
@@ -205,10 +203,9 @@ describe("ChatShellMenuContent", () => {
     render(<ChatShellMenuContent {...baseProps} />);
 
     fireEvent.click(screen.getByRole("tab", { name: "Moderation" }));
-    const autoBanButton = screen.getByRole("button", { name: "Auto Ban: ON" });
-    expect(autoBanButton).toBeInTheDocument();
-    fireEvent.click(autoBanButton);
-    expect(baseProps.onToggleAutoBan).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText("Quick controls and alerts"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Accounts" }));
     expect(

@@ -30,8 +30,6 @@ const baseProps = {
   quickModUser: "baduser",
   onQuickModUserChange: vi.fn(),
   onRunQuickMod: vi.fn(),
-  autoBanEnabled: true,
-  onToggleAutoBan: vi.fn(),
 };
 
 describe("ChatComposerPanel", () => {
@@ -45,7 +43,6 @@ describe("ChatComposerPanel", () => {
     expect(
       screen.getByRole("button", { name: "Open tools" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Auto Ban ON")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Open tools" }));
     expect(screen.getByRole("button", { name: "Hide tools" })).toBeInTheDocument();
@@ -53,12 +50,6 @@ describe("ChatComposerPanel", () => {
     expect(screen.getByRole("button", { name: "Ban" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Timeout 10m" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Unban" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Auto Ban: ON" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Auto Ban: ON" }));
-    expect(baseProps.onToggleAutoBan).toHaveBeenCalledTimes(1);
   });
 
   it("shows a disabled composer when there are no writable targets", () => {
