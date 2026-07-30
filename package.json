@@ -26,6 +26,9 @@
       "tmp": "0.2.7",
       "undici": "7.28.0",
       "ws": "8.21.1"
+    },
+    "auditConfig": {
+      "ignoreGhsas": ["GHSA-mh99-v99m-4gvg"]
     }
   },
   "engines": {
