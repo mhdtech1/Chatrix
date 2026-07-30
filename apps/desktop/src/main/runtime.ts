@@ -128,6 +128,29 @@ export const randomToken = (bytes = 32) =>
 
 const AUTH_CALLBACK_TIMEOUT_MS = AUTH.OAUTH_CALLBACK_TIMEOUT_MS;
 
+const parseUrlOrNull = (url: string): URL | null => {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+};
+
+const resolveDevServerOrigin = (): string | null => {
+  const parsed = parseUrlOrNull(
+    process.env.VITE_DEV_SERVER_URL || "http://localhost:5173",
+  );
+  return parsed?.origin ?? null;
+};
+
+const isAllowedRendererNavigation = (navigationUrl: string): boolean => {
+  const parsed = parseUrlOrNull(navigationUrl);
+  if (!parsed) return false;
+  if (parsed.protocol === "file:") return true;
+  const devServerOrigin = resolveDevServerOrigin();
+  return Boolean(devServerOrigin && parsed.origin === devServerOrigin);
+};
+
 const resolveManagedClientSecret = async (
   platform: "kick" | "youtube",
   envValue: string | undefined,
@@ -3074,15 +3097,13 @@ const createMainWindow = () => {
 
 app.on("web-contents-created", (_event, webContents) => {
   webContents.on("will-navigate", (event, navigationUrl) => {
-    const parsedUrl = new URL(navigationUrl);
-    if (
-      parsedUrl.origin !== process.env.VITE_DEV_SERVER_URL &&
-      parsedUrl.protocol !== "file:"
-    ) {
-      event.preventDefault();
-      if (isSafeExternalUrl(navigationUrl)) {
-        void shell.openExternal(navigationUrl);
-      }
+    if (isAllowedRendererNavigation(navigationUrl)) {
+      return;
+    }
+
+    event.preventDefault();
+    if (isSafeExternalUrl(navigationUrl)) {
+      void shell.openExternal(navigationUrl);
     }
   });
 });
