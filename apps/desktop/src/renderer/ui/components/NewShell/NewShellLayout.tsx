@@ -197,9 +197,7 @@ const CollapsibleSection = ({
 }: {
   section: NewShellContextSection;
 }) => {
-  const [collapsed, setCollapsed] = useState(
-    section.defaultCollapsed ?? false,
-  );
+  const [collapsed, setCollapsed] = useState(section.defaultCollapsed ?? false);
   return (
     <section
       className={
@@ -407,9 +405,7 @@ export function NewShellLayout({
             </div>
             {platforms && platforms.length > 0 && onPlatformChange ? (
               <label className="new-shell__add-platform">
-                <span className="new-shell__add-platform-label">
-                  Search on
-                </span>
+                <span className="new-shell__add-platform-label">Search on</span>
                 <select
                   className="new-shell__add-platform-select"
                   value={selectedPlatform ?? platforms[0]}

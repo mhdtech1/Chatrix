@@ -564,9 +564,7 @@ export function ChatShellMenuContent({
                 <input
                   type="checkbox"
                   checked={newLayoutEnabled}
-                  onChange={(event) =>
-                    onNewLayoutChange(event.target.checked)
-                  }
+                  onChange={(event) => onNewLayoutChange(event.target.checked)}
                 />
                 <span>
                   New layout (preview)

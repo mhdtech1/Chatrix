@@ -366,10 +366,18 @@
   flex-shrink: 0;
 }
 
-.new-shell__pl--twitch { background: #a970ff; }
-.new-shell__pl--kick { background: #53fc18; }
-.new-shell__pl--youtube { background: #ff4646; }
-.new-shell__pl--tiktok { background: #ee1d52; }
+.new-shell__pl--twitch {
+  background: #a970ff;
+}
+.new-shell__pl--kick {
+  background: #53fc18;
+}
+.new-shell__pl--youtube {
+  background: #ff4646;
+}
+.new-shell__pl--tiktok {
+  background: #ee1d52;
+}
 
 .new-shell__live-dot {
   flex-shrink: 0;

@@ -7434,10 +7434,7 @@ const MainApp: React.FC = () => {
             ) : (
               moderationHistory.slice(0, 6).map((entry) => (
                 <div key={entry.id} className="new-shell__mod-row">
-                  <span
-                    className="new-shell__mod-action"
-                    title={entry.source}
-                  >
+                  <span className="new-shell__mod-action" title={entry.source}>
                     {entry.action} {entry.target}
                   </span>
                 </div>
@@ -7455,8 +7452,7 @@ const MainApp: React.FC = () => {
                 aria-hidden="true"
               />
               <span className="new-shell__mod-action">
-                {dot.username ||
-                  (dot.signedIn ? "Signed in" : "Not signed in")}
+                {dot.username || (dot.signedIn ? "Signed in" : "Not signed in")}
               </span>
             </div>
           )),
