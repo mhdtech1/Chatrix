@@ -1,7 +1,7 @@
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
 
 export type ChatShellMenuProps = {
-  panelRef: RefObject<HTMLDivElement | null>;
+  panelRef: RefObject<HTMLDivElement>;
   onClose: () => void;
   children: ReactNode;
 };

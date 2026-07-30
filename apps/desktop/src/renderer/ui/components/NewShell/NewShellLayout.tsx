@@ -49,7 +49,7 @@ export type NewShellLayoutProps = {
   onAddChannel: () => void;
   onOpenSettings: () => void;
   onOpenPalette: () => void;
-  channelInputRef?: RefObject<HTMLInputElement | null>;
+  channelInputRef?: RefObject<HTMLInputElement>;
   channelDraft?: string;
   onChannelDraftChange?: (value: string) => void;
   onSubmitChannel?: () => void;

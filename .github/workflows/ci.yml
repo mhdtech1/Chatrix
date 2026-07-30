@@ -40,6 +40,9 @@ jobs:
           pnpm --filter @chatrix/desktop build:renderer
           pnpm --filter @chatrix/desktop build:main
 
+      - name: Typecheck
+        run: pnpm typecheck
+
       - name: Lint
         run: pnpm lint
 

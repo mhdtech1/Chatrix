@@ -45,7 +45,7 @@ type SourceLookup = {
 };
 
 export type ChatMessageFeedProps = {
-  messageListRef: RefObject<HTMLDivElement | null>;
+  messageListRef: RefObject<HTMLDivElement>;
   renderedMessages: ChatMessage[];
   newestLocked: boolean;
   firstUnreadTimestamp: number;

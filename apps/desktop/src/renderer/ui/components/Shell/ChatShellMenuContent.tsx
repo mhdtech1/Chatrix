@@ -188,7 +188,7 @@ export type ChatShellMenuContentProps = {
   formatOptionalExpiry: (value: number | null | undefined) => string;
   connectionHealthRows: ConnectionHealthRow[];
   search: string;
-  searchInputRef: RefObject<HTMLInputElement | null>;
+  searchInputRef: RefObject<HTMLInputElement>;
   onSearchChange: (value: string) => void;
   globalSearchMode: boolean;
   onGlobalSearchModeChange: (value: boolean) => void;
@@ -205,7 +205,7 @@ export type ChatShellMenuContentProps = {
   onBackgroundMonitorOnCloseChange: (value: boolean) => void;
   onExportSession: () => void;
   onImportSessionClick: () => void;
-  importSessionInputRef: RefObject<HTMLInputElement | null>;
+  importSessionInputRef: RefObject<HTMLInputElement>;
   onImportSessionFile: (file: File) => void;
   updateChannel: "stable" | "beta";
   onUpdateChannelChange: (channel: "stable" | "beta") => void;

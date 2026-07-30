@@ -22,10 +22,10 @@ export type ChatShellTopBarProps = {
   channelInput: string;
   onChannelInputChange: (value: string) => void;
   onOpenTab: (request?: { platform: Platform; channel: string }) => void;
-  channelInputRef: RefObject<HTMLInputElement | null>;
+  channelInputRef: RefObject<HTMLInputElement>;
   mainMenuOpen: boolean;
-  menuDropdownRef: RefObject<HTMLDivElement | null>;
-  menuButtonRef: RefObject<HTMLButtonElement | null>;
+  menuDropdownRef: RefObject<HTMLDivElement>;
+  menuButtonRef: RefObject<HTMLButtonElement>;
   onToggleMenu: () => void;
   menuPanel: ReactNode;
   mentionPillCount: number;

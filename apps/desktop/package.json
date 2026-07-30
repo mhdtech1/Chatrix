@@ -35,6 +35,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:smoke": "node ../../scripts/smoke-test.mjs",
+    "typecheck": "tsc -p tsconfig.main.json --noEmit",
+    "typecheck:renderer": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint . --ignore-pattern \"tests/**\" --ignore-pattern \"dist/**\"",
     "format": "prettier --check \"src/**/*.{ts,tsx,css,html}\""
   },

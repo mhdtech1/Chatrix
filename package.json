@@ -57,6 +57,7 @@
     "build:linux": "pnpm --filter @chatrix/chat-core build && pnpm --filter @chatrix/desktop build:renderer && pnpm --filter @chatrix/desktop build:main && pnpm --filter @chatrix/desktop package:linux",
     "recreate:mac": "pnpm run clean && pnpm install && pnpm build:mac",
     "test": "pnpm --filter @chatrix/chat-core test && pnpm --filter @chatrix/kick-broker test && pnpm --filter @chatrix/desktop test",
+    "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "format": "pnpm -r format"
   },
