@@ -49,6 +49,12 @@ files:
       - tagged-tag/**
       - uint8array-extras/**
       - keytar/**
+      # @electron/rebuild writes this per-arch marker (contents are literally
+      # "arm64--140" / "x64--140"). @electron/universal requires every
+      # non-binary file to be byte-identical across the two halves of a
+      # universal build, so shipping it breaks packaging. It is build
+      # metadata, unused at runtime.
+      - "!keytar/build/Release/.forge-meta"
       - axios/**
       - callable-instance/**
       - protobufjs/**
